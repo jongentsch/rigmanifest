@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rigmanifest"
+version = "0.1.0"
+description = "Capability-aware configuration management for programmable amateur radios"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "GPL-3.0-only"
+authors = [{ name = "Jon Gentsch" }]
+dependencies = [
+    "typer>=0.16,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4,<9",
+]
+
+[project.scripts]
+rigmanifest = "rigmanifest.cli:app"
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+rigmanifest = ["py.typed"]

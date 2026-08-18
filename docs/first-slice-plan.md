@@ -1,0 +1,66 @@
+# First Vertical Slice Plan
+
+## Architecture review
+
+The proposed architecture is coherent: a pure Python compiler owns semantics,
+while the CLI and desktop app are adapters. The first slice does not need a
+database or a long-running service.
+
+The design documents leave several details intentionally open. This slice
+resolves them as follows:
+
+1. Frequencies are integer Hz. Capability ranges are inclusive. This avoids
+   floating-point comparisons and makes CSV formatting an exporter concern.
+2. `TransmitBehavior.DISABLED` is the single source of receive-only intent.
+   A second `receive_only` boolean would permit contradictory states.
+3. Explicit exclusions override every inclusion rule. Explicit inclusions may
+   bypass a profile's minimum priority, but never an exclusion.
+4. Ranking is deterministic: mandatory channels, explicit inclusions, then
+   high/normal/low priority, with stable channel ID as the tie-breaker.
+   Geographic distance will be inserted within a priority tier when the
+   selector is implemented.
+5. Optional incompatible channels are omitted with warnings. An incompatible
+   mandatory channel is an error. A target that cannot safely represent
+   transmit-disabled intent always emits an error rather than enabling TX.
+6. Capability definitions carry source notes. CHIRP-derived facts and
+   RigManifest safety overlays remain distinguishable.
+7. The VX-6R USA capability uses a conservative capacity of 900 advertised
+   user memories. CHIRP exposes locations 1-999; the later capability adapter
+   must model address bounds, reserved locations, and usable capacity
+   separately before expanding this value.
+
+## Technology choices
+
+- Package layout: `src/rigmanifest`, split by domain, compiler, capabilities,
+  exporters, fixtures, and CLI.
+- Models: frozen, slotted dataclasses plus enums. Validation is performed at
+  construction boundaries; no runtime modeling dependency is needed yet.
+- Tests: pytest with small immutable fixtures.
+- CLI: Typer, kept as a thin adapter over the same compiler API used elsewhere.
+- Desktop IPC: newline-delimited JSON over a Tauri sidecar's stdin/stdout. It
+  is local, inspectable, and avoids binding the compiler to HTTP or Tauri.
+- Persistence next phase: SQLite behind repository interfaces. The first
+  slice remains in-memory.
+- CHIRP integration: CSV only. Do not vendor or install CHIRP in the first
+  slice. Keep the exporter isolated, then add an optional CHIRP capability
+  adapter after the compiler contract is stable.
+
+## Verified upstream constraints
+
+- CHIRP's canonical CSV header and serialization behavior come from
+  `chirp/chirp_common.py` in the official CHIRP repository.
+- CHIRP's VX-6R driver reports modes FM/WFM/AM/NFM, a six-character label,
+  banks, odd split, locations 1-999, and no `off` duplex representation.
+- Yaesu documents wide-band receive, USA transmit ranges of 144-148,
+  222-225, and 430-450 MHz, and 900 advertised memory channels.
+
+## Delivery sequence
+
+1. Domain types, profile rules, diagnostics, and capabilities.
+2. A small `Home` fixture and USA VX-6R capability definition.
+3. Pure deterministic compiler with omissions and transformations.
+4. CHIRP CSV exporter.
+5. `rigmanifest compile home --target yaesu-vx6r`.
+6. Unit tests for compatibility, receive-only safety, label handling,
+   capacity, ordering, diagnostics, grouping, and CSV output.
+7. Freeze the JSON IPC contract, then add the smallest Svelte/Tauri screen.
