@@ -1,14 +1,16 @@
 {
-  "schema_version": 6,
+  "schema_version": 7,
   "profiles": [
     {
       "id": "home",
       "name": "Home",
+      "description": "Everyday local operating frequencies.",
       "frequency_set_ids": [
         "home-essentials",
         "us-noaa-weather"
       ],
-      "frequency_plan_id": "arrl-us-national"
+      "frequency_plan_id": "arrl-us-national",
+      "frequency_definition_ids": []
     }
   ],
   "radio_models": [

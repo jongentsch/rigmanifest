@@ -1,0 +1,49 @@
+import { expect, test } from "@playwright/test";
+
+test("persists reusable profile composition and submits multiple profiles", async ({ page }) => {
+  await page.goto("/profiles");
+  await page.getByRole("button", { name: "Add profile" }).click();
+
+  const name = page.getByLabel("Profile name");
+  await name.fill("Vacation");
+  await name.press("Tab");
+  await page.getByLabel("Advisory band plan").selectOption(
+    "southern-nevada-repeater-council",
+  );
+  await page.getByRole("checkbox", { name: /Home essentials/ }).check();
+  await page.getByRole("checkbox", { name: /^NOAA Weather 1 / }).check();
+  await expect(page.getByRole("status")).toContainText("Profiles saved");
+
+  await page.reload();
+  await page.getByRole("button", { name: /Vacation/ }).click();
+  await expect(page.getByLabel("Profile name")).toHaveValue("Vacation");
+  await expect(page.getByLabel("Advisory band plan")).toHaveValue(
+    "southern-nevada-repeater-council",
+  );
+  await expect(page.getByRole("checkbox", { name: /Home essentials/ })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: /^NOAA Weather 1 / })).toBeChecked();
+
+  await page.getByRole("link", { name: "Compile & export" }).click();
+  await page.getByRole("checkbox", { name: /Vacation/ }).check();
+  await page.getByRole("button", { name: "Compile plan" }).click();
+
+  const calls = await page.evaluate(() =>
+    (
+      window as typeof window & {
+        __RIGMANIFEST_UI_TEST_CALLS__?: Array<Record<string, unknown>>;
+      }
+    ).__RIGMANIFEST_UI_TEST_CALLS__,
+  );
+  expect(calls?.filter((item) => item.method === "compileSelection").at(-1)).toMatchObject({
+    profile: expect.stringMatching(/^home,profile-/),
+    profiles: [
+      expect.objectContaining({ id: "home" }),
+      expect.objectContaining({
+        name: "Vacation",
+        frequency_set_ids: ["home-essentials"],
+        frequency_definition_ids: ["us-noaa-weather-1"],
+        frequency_plan_id: "southern-nevada-repeater-council",
+      }),
+    ],
+  });
+});

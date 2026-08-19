@@ -147,11 +147,13 @@ fn backup_workspace(app: tauri::AppHandle, destination: String) -> Result<Value,
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)] // Tauri exposes command parameters by name to TypeScript.
-fn compile_profile(
-    profile: String,
+fn compile_selection(
     target: String,
     output_path: Option<String>,
-    frequency_set_ids: Option<Vec<String>>,
+    profiles: Vec<Value>,
+    additional_frequency_set_ids: Vec<String>,
+    additional_frequency_definition_ids: Vec<String>,
+    advisory_plan_id: Option<String>,
     memory_start: Option<u32>,
     map_sets_to_banks: Option<bool>,
     use_factory_sets: Option<bool>,
@@ -162,10 +164,12 @@ fn compile_profile(
         "id": "desktop",
         "method": "compile",
         "params": {
-            "profile": profile,
             "target": target,
             "output_path": output_path,
-            "frequency_set_ids": frequency_set_ids,
+            "profiles": profiles,
+            "additional_frequency_set_ids": additional_frequency_set_ids,
+            "additional_frequency_definition_ids": additional_frequency_definition_ids,
+            "advisory_plan_id": advisory_plan_id,
             "memory_start": memory_start,
             "map_sets_to_banks": map_sets_to_banks.unwrap_or(true),
             "use_factory_sets": use_factory_sets.unwrap_or(true),
@@ -200,7 +204,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             backup_workspace,
-            compile_profile,
+            compile_selection,
             import_chirp_csv,
             load_catalog,
             load_workspace,

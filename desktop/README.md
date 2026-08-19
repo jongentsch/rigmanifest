@@ -22,7 +22,7 @@ The Appearance control in the sidebar supports Dark, Light, and System modes.
 Dark is the first-run default, and the selected preference persists between
 launches.
 
-User catalog records, radio instances, and profile plan preferences persist in
+User catalog records, radio instances, reusable profiles, and advisory plan context persist in
 `rigmanifest.sqlite3` under the platform application-data directory. Existing
 webview local-storage records are imported once on first open. Use **Back up
 workspace** on the Frequency Library page to create a consistent SQLite copy.
@@ -45,7 +45,7 @@ cargo test
 The Playwright suite runs the Svelte renderer in the pinned Chromium build from
 `mcr.microsoft.com/playwright:v1.62.0-noble`. A deterministic UI-test adapter
 stands in for the Tauri command and save-dialog boundary. The suite covers the
-compiled plan, catalog persistence and backup contract, export flow,
+compiled multi-profile selection, profile/catalog persistence and backup contract, export flow,
 Dark/Light/System behavior, Axe accessibility, and Dark and Light visual snapshots.
 
 Refresh the checked-in Linux snapshots only after intentionally reviewing a UI

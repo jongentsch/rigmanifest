@@ -20,10 +20,12 @@ import type {
   WorkspaceCatalog,
   WorkspaceState,
   RadioInstance,
+  ProfileRecord,
   UserCatalogRecords,
 } from "$lib/types";
 
 let workspaceState: WorkspaceState | null = null;
+let builtinCatalog: WorkspaceCatalog | null = null;
 let workspaceSaveQueue: Promise<void> = Promise.resolve();
 let workspaceSaveRevision = 0;
 
@@ -32,33 +34,39 @@ async function loadUiTestApi() {
   return import("../../tests/ui/support/api.mock");
 }
 
-export async function compileProfile(
-  profile: string,
+export async function compileSelection(
   target: string,
   outputPath: string | null,
+  profiles: ProfileRecord[],
   configuration: CompileConfiguration,
   catalog: WorkspaceCatalog,
 ): Promise<CompileResult> {
   const userCatalog = userCatalogFromWorkspace(catalog);
+  const serializableProfiles = JSON.parse(JSON.stringify(profiles)) as ProfileRecord[];
+  const serializableConfiguration = JSON.parse(
+    JSON.stringify(configuration),
+  ) as CompileConfiguration;
   const uiTestApi = await loadUiTestApi();
   if (uiTestApi) {
-    return uiTestApi.compileProfile(
-      profile,
+    return uiTestApi.compileSelection(
       target,
       outputPath,
-      configuration,
+      serializableProfiles,
+      serializableConfiguration,
       userCatalog,
     );
   }
 
-  return invoke<CompileResult>("compile_profile", {
-    profile,
+  return invoke<CompileResult>("compile_selection", {
     target,
     outputPath,
-    frequencySetIds: configuration.frequencySetIds,
-    memoryStart: configuration.memoryStart,
-    mapSetsToBanks: configuration.mapSetsToBanks,
-    useFactorySets: configuration.useFactorySets,
+    profiles: serializableProfiles,
+    additionalFrequencySetIds: serializableConfiguration.additionalFrequencySetIds,
+    additionalFrequencyDefinitionIds: serializableConfiguration.additionalFrequencyDefinitionIds,
+    advisoryPlanId: serializableConfiguration.advisoryPlanId,
+    memoryStart: serializableConfiguration.memoryStart,
+    mapSetsToBanks: serializableConfiguration.mapSetsToBanks,
+    useFactorySets: serializableConfiguration.useFactorySets,
     userFrequencyDefinitions: userCatalog.frequencyDefinitions,
     userFrequencySets: userCatalog.frequencySets,
   });
@@ -69,8 +77,12 @@ export async function loadCatalog(): Promise<WorkspaceCatalog> {
   const catalog = uiTestApi
     ? await uiTestApi.loadCatalog()
     : await invoke<WorkspaceCatalog>("load_catalog");
+  builtinCatalog = structuredClone(catalog);
   workspaceState ??= await initializeWorkspace(catalog, uiTestApi);
-  return mergeStoredUserCatalog(catalog, workspaceState.user_catalog);
+  return {
+    ...mergeStoredUserCatalog(catalog, workspaceState.user_catalog),
+    profiles: structuredClone(workspaceState.profiles),
+  };
 }
 
 async function initializeWorkspace(
@@ -80,13 +92,16 @@ async function initializeWorkspace(
   const legacyCatalog = readLegacyUserCatalog();
   const legacyRadios = readLegacyRadioInventory();
   const legacyPlans = readLegacyPlanPreferences();
+  const profiles = catalog.profiles.map((profile) => ({
+    ...profile,
+    frequency_plan_id: legacyPlans?.[profile.id] ?? profile.frequency_plan_id,
+  }));
   const initial: WorkspaceState = {
-    schema_version: 1,
+    schema_version: 2,
     user_catalog: legacyCatalog ?? userCatalogFromWorkspace(catalog),
     radios: legacyRadios ?? [{ ...defaultRadio }],
-    profile_plan_ids: legacyPlans ?? Object.fromEntries(
-      catalog.profiles.map((profile) => [profile.id, profile.frequency_plan_id]),
-    ),
+    profiles,
+    default_frequency_plan_id: "arrl-us-national",
   };
   const loaded = uiTestApi
     ? await uiTestApi.loadWorkspace(initial)
@@ -128,18 +143,45 @@ export async function saveRadioInventory(radios: RadioInstance[]): Promise<void>
 }
 
 export async function saveWorkspaceUserCatalog(records: UserCatalogRecords): Promise<void> {
-  await persistWorkspace({ ...requireWorkspace(), user_catalog: records });
+  const workspace = requireWorkspace();
+  const knownSetIds = new Set([
+    ...(builtinCatalog?.frequency_sets ?? [])
+      .filter((item) => item.read_only)
+      .map((item) => item.id),
+    ...records.frequencySets.map((item) => item.id),
+  ]);
+  const knownDefinitionIds = new Set([
+    ...(builtinCatalog?.frequency_definitions ?? [])
+      .filter((item) => item.read_only)
+      .map((item) => item.id),
+    ...records.frequencyDefinitions.map((item) => item.id),
+  ]);
+  const profiles = workspace.profiles.map((profile) => ({
+    ...profile,
+    frequency_set_ids: profile.frequency_set_ids.filter((id) => knownSetIds.has(id)),
+    frequency_definition_ids: profile.frequency_definition_ids.filter((id) =>
+      knownDefinitionIds.has(id)
+    ),
+  }));
+  await persistWorkspace({ ...workspace, user_catalog: records, profiles });
 }
 
-export function loadProfilePlanPreference(profileId: string, fallback: string): string {
-  return requireWorkspace().profile_plan_ids[profileId] ?? fallback;
+export function loadProfiles(): ProfileRecord[] {
+  return structuredClone(requireWorkspace().profiles);
 }
 
-export async function saveProfilePlanPreference(profileId: string, planId: string): Promise<void> {
-  const current = requireWorkspace();
+export async function saveProfiles(profiles: ProfileRecord[]): Promise<void> {
+  await persistWorkspace({ ...requireWorkspace(), profiles });
+}
+
+export function loadDefaultFrequencyPlan(): string | null {
+  return requireWorkspace().default_frequency_plan_id;
+}
+
+export async function saveDefaultFrequencyPlan(planId: string | null): Promise<void> {
   await persistWorkspace({
-    ...current,
-    profile_plan_ids: { ...current.profile_plan_ids, [profileId]: planId },
+    ...requireWorkspace(),
+    default_frequency_plan_id: planId,
   });
 }
 
@@ -162,15 +204,15 @@ export async function chooseWorkspaceBackupPath(): Promise<string | null> {
 }
 
 export async function chooseCsvOutputPath(
-  profile: string,
+  selection: string,
   target: string,
 ): Promise<string | null> {
   const uiTestApi = await loadUiTestApi();
-  if (uiTestApi) return uiTestApi.chooseCsvOutputPath(profile, target);
+  if (uiTestApi) return uiTestApi.chooseCsvOutputPath(selection, target);
 
   return save({
     title: "Export CHIRP CSV",
-    defaultPath: `${profile}-${target}.csv`,
+    defaultPath: `${selection}-${target}.csv`,
     filters: [{ name: "CHIRP CSV", extensions: ["csv"] }],
   });
 }

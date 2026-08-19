@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/compile");
+  await page.getByRole("button", { name: "Compile plan" }).click();
   await expect(
     page.getByRole("heading", { name: "VX-6R (USA) memory plan" }),
   ).toBeVisible();
@@ -31,7 +32,6 @@ test("compiles selected sets and separates factory coverage", async ({ page }) =
 });
 
 test("recompiles and exports through the UI-test adapter", async ({ page }) => {
-  await page.getByRole("button", { name: "Compile plan" }).click();
   await page.getByRole("button", { name: "Export CHIRP CSV" }).click();
 
   await expect(page.getByRole("status")).toContainText(
@@ -52,7 +52,7 @@ test("recompiles and exports through the UI-test adapter", async ({ page }) => {
     target: "yaesu-vx6r",
   });
   expect(calls).toContainEqual(expect.objectContaining({
-    method: "compileProfile",
+    method: "compileSelection",
     profile: "home",
     target: "yaesu-vx6r",
     outputPath: "/exports/home-yaesu-vx6r.csv",
@@ -60,12 +60,18 @@ test("recompiles and exports through the UI-test adapter", async ({ page }) => {
       memoryStart: 1,
       mapSetsToBanks: true,
       useFactorySets: true,
-      frequencySetIds: ["home-essentials", "us-noaa-weather"],
+      additionalFrequencySetIds: [],
+      additionalFrequencyDefinitionIds: [],
+      advisoryPlanId: "arrl-us-national",
     },
   }));
 });
 
-test("keeps the frequency library and radio inventory on separate pages", async ({ page }) => {
+test("keeps profiles, the frequency library, and radio inventory on separate pages", async ({ page }) => {
+  await page.getByRole("link", { name: "Profiles" }).click();
+  await expect(page.getByRole("heading", { name: "Profiles", exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
+
   await page.getByRole("link", { name: "Frequency library" }).click();
   await expect(page.getByRole("heading", { name: "Frequency library" })).toBeVisible();
   await page.getByRole("button", { name: /US NOAA Weather Broadcasts/ }).click();

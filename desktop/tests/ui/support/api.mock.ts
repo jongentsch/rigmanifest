@@ -5,17 +5,19 @@ import type {
   UserCatalogRecords,
   WorkspaceCatalog,
   WorkspaceState,
+  ProfileRecord,
 } from "$lib/types";
 
 import catalogFixture from "../fixtures/catalog.json";
 import compileHome from "../fixtures/compile-home.json";
 
 interface UiTestCall {
-  method: "backupWorkspace" | "chooseChirpImportPath" | "chooseCsvOutputPath" | "compileProfile" | "importChirpCsv";
+  method: "backupWorkspace" | "chooseChirpImportPath" | "chooseCsvOutputPath" | "compileSelection" | "importChirpCsv";
   profile: string;
   target: string;
   outputPath?: string | null;
   configuration?: CompileConfiguration;
+  profiles?: ProfileRecord[];
   userCatalog?: UserCatalogRecords;
 }
 
@@ -23,7 +25,22 @@ const workspaceKey = "rigmanifest.ui-test.sqlite-workspace.v1";
 
 export async function loadWorkspace(initial: WorkspaceState): Promise<WorkspaceState> {
   const raw = localStorage.getItem(workspaceKey);
-  if (raw) return JSON.parse(raw) as WorkspaceState;
+  if (raw) {
+    const stored = JSON.parse(raw) as Partial<WorkspaceState>;
+    const migrated: WorkspaceState = {
+      ...structuredClone(initial),
+      ...stored,
+      schema_version: 2,
+      profiles: Array.isArray(stored.profiles)
+        ? stored.profiles
+        : structuredClone(initial.profiles),
+      default_frequency_plan_id:
+        stored.default_frequency_plan_id ?? initial.default_frequency_plan_id,
+      migrated_legacy: stored.migrated_legacy ?? false,
+    };
+    localStorage.setItem(workspaceKey, JSON.stringify(migrated));
+    return migrated;
+  }
   const migrated = { ...structuredClone(initial), migrated_legacy: true };
   localStorage.setItem(workspaceKey, JSON.stringify(migrated));
   return migrated;
@@ -55,31 +72,44 @@ function record(call: UiTestCall): void {
   window.__RIGMANIFEST_UI_TEST_CALLS__.push(call);
 }
 
-export async function compileProfile(
-  profile: string,
+export async function compileSelection(
   target: string,
   outputPath: string | null,
+  profiles: ProfileRecord[],
   configuration: CompileConfiguration,
   userCatalog: UserCatalogRecords,
 ): Promise<CompileResult> {
   record({
-    method: "compileProfile",
-    profile,
+    method: "compileSelection",
+    profile: profiles.map((profile) => profile.id).join(","),
     target,
     outputPath,
     configuration,
+    profiles,
     userCatalog,
   });
 
-  if (profile !== "home" || target !== "yaesu-vx6r") {
-    throw new Error(`Unsupported UI test fixture: ${profile}/${target}`);
+  if (target !== "yaesu-vx6r") {
+    throw new Error(`Unsupported UI test fixture: ${target}`);
   }
 
   const result = structuredClone(compileHome) as unknown as CompileResult;
   result.csv_path = outputPath;
-  result.profile.frequency_set_ids = [...configuration.frequencySetIds];
+  result.profiles = structuredClone(profiles);
+  result.profile = structuredClone(profiles[0] ?? result.profile);
+  result.selection = {
+    additional_frequency_set_ids: [...configuration.additionalFrequencySetIds],
+    additional_frequency_definition_ids: [
+      ...configuration.additionalFrequencyDefinitionIds,
+    ],
+    advisory_plan_id: configuration.advisoryPlanId,
+  };
+  const selectedSetIds = new Set([
+    ...profiles.flatMap((profile) => profile.frequency_set_ids),
+    ...configuration.additionalFrequencySetIds,
+  ]);
 
-  if (!configuration.frequencySetIds.includes("home-essentials")) {
+  if (!selectedSetIds.has("home-essentials")) {
     result.memories = [];
     result.summary.programmed = 0;
     result.capacity.used = 0;
@@ -87,6 +117,21 @@ export async function compileProfile(
     result.memories = result.memories.map((memory, index) => ({
       ...memory,
       memory_number: configuration.memoryStart + index,
+      source_profile_ids: profiles
+        .filter((profile) =>
+          profile.frequency_definition_ids.includes(memory.source_frequency_definition_id) ||
+          profile.frequency_set_ids.some((setId) =>
+            memory.source_frequency_set_ids.includes(setId)
+          )
+        )
+        .map((profile) => profile.id),
+      selected_directly:
+        configuration.additionalFrequencyDefinitionIds.includes(
+          memory.source_frequency_definition_id,
+        ) ||
+        memory.source_frequency_set_ids.some((setId) =>
+          configuration.additionalFrequencySetIds.includes(setId)
+        ),
       bank_assignments: configuration.mapSetsToBanks
         ? memory.source_frequency_set_ids
         : [],
@@ -94,7 +139,7 @@ export async function compileProfile(
   }
 
   if (
-    !configuration.frequencySetIds.includes("us-noaa-weather") ||
+    !selectedSetIds.has("us-noaa-weather") ||
     !configuration.useFactorySets
   ) {
     result.factory_sets = [];
@@ -110,11 +155,11 @@ export async function loadCatalog(): Promise<WorkspaceCatalog> {
 }
 
 export async function chooseCsvOutputPath(
-  profile: string,
+  selection: string,
   target: string,
 ): Promise<string> {
-  record({ method: "chooseCsvOutputPath", profile, target });
-  return `/exports/${profile}-${target}.csv`;
+  record({ method: "chooseCsvOutputPath", profile: selection, target });
+  return `/exports/${selection}-${target}.csv`;
 }
 
 export async function chooseChirpImportPath(): Promise<string> {

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("matches the Dark Modern Workshop baseline", async ({ page }) => {
   await page.goto("/compile");
+  await page.getByRole("button", { name: "Compile plan" }).click();
   await expect(
     page.getByRole("heading", { name: "VX-6R (USA) memory plan" }),
   ).toBeVisible();
@@ -11,6 +12,7 @@ test("matches the Dark Modern Workshop baseline", async ({ page }) => {
 
 test("matches the Light Modern Workshop baseline", async ({ page }) => {
   await page.goto("/compile");
+  await page.getByRole("button", { name: "Compile plan" }).click();
   await page.getByLabel("Color theme").selectOption("light");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 

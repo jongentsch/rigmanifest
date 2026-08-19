@@ -39,7 +39,7 @@
     document.documentElement.style.colorScheme = theme;
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", theme === "dark" ? "#171a1e" : "#f4f1e9");
+      ?.setAttribute("content", theme === "dark" ? "#20262c" : "#f4f1e9");
   }
 
   function changeTheme(event: Event): void {
@@ -77,6 +77,9 @@
       <a class:active={routeIs("/radios")} href="/radios">
         <span>My radios</span>
       </a>
+      <a class:active={routeIs("/profiles")} href="/profiles">
+        <span>Profiles</span>
+      </a>
       <a class:active={routeIs("/compile")} href="/compile">
         <span>Compile & export</span>
       </a>
@@ -87,8 +90,8 @@
     <div class="sidebar-connection">
       <span class="connection-dot"></span>
       <div>
-        <strong>Local workspace</strong>
-        <span>Changes stay on this computer</span>
+        <strong>Saved locally</strong>
+        <span>Private SQLite data</span>
       </div>
     </div>
 

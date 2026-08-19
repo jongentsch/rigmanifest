@@ -44,14 +44,16 @@ test("creates, persists, and submits user-owned frequency records", async ({ pag
       }
     ).__RIGMANIFEST_UI_TEST_CALLS__,
   );
-  const compileCall = calls?.filter((item) => item.method === "compileProfile").at(-1);
+  const compileCall = calls?.filter((item) => item.method === "compileSelection").at(-1);
   expect(compileCall).toMatchObject({
     configuration: {
-      frequencySetIds: expect.arrayContaining([
-        "home-essentials",
-        "us-noaa-weather",
+      additionalFrequencySetIds: expect.arrayContaining([
+        expect.stringMatching(/^user-set-/),
       ]),
+      additionalFrequencyDefinitionIds: [],
+      advisoryPlanId: "arrl-us-national",
     },
+    profiles: [expect.objectContaining({ id: "home" })],
     userCatalog: {
       frequencyDefinitions: expect.arrayContaining([
         expect.objectContaining({
@@ -182,10 +184,10 @@ test("shows preset provenance without making the set editable", async ({ page })
   await expect(page.getByText("Preset definitions cannot be edited.")).toBeVisible();
 });
 
-test("stores regional advice per profile and gives it precedence", async ({ page }) => {
+test("stores the library advisory context independently of profiles", async ({ page }) => {
   await page.goto("/library");
 
-  const plan = page.getByLabel("Frequency-plan advice");
+  const plan = page.getByLabel("Advisory context for definitions");
   await plan.selectOption("kansas-repeater-council");
   const receive = page.getByLabel("Receive MHz");
   await receive.fill("444.500000");
@@ -208,7 +210,7 @@ test("stores regional advice per profile and gives it precedence", async ({ page
 test("backs up the durable workspace through the native boundary", async ({ page }) => {
   await page.goto("/library");
 
-  await page.getByRole("button", { name: "Back up workspace" }).click();
+  await page.getByRole("button", { name: "Back up data" }).click();
 
   await expect(page.getByRole("status")).toContainText(
     "/backups/rigmanifest-backup.sqlite3",

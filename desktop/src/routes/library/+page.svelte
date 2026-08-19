@@ -7,8 +7,8 @@
     chooseWorkspaceBackupPath,
     importChirpCsv,
     loadCatalog,
-    loadProfilePlanPreference,
-    saveProfilePlanPreference,
+    loadDefaultFrequencyPlan,
+    saveDefaultFrequencyPlan,
     saveWorkspaceUserCatalog,
   } from "$lib/api";
   import { userCatalogFromWorkspace } from "$lib/catalog";
@@ -28,7 +28,6 @@
   let catalog = $state<WorkspaceCatalog | null>(null);
   let selectedSetId = $state("");
   let selectedDefinitionId = $state("");
-  let profileId = $state("home");
   let selectedPlanId = $state("arrl-us-national");
   let existingDefinitionId = $state("");
   let failure = $state("");
@@ -65,11 +64,7 @@
   onMount(async () => {
     try {
       catalog = await loadCatalog();
-      const profile = catalog.profiles.find((item) => item.id === profileId) ?? catalog.profiles[0];
-      if (profile) {
-        profileId = profile.id;
-        selectedPlanId = loadProfilePlanPreference(profile.id, profile.frequency_plan_id);
-      }
+      selectedPlanId = loadDefaultFrequencyPlan() ?? "arrl-us-national";
       const initialSet =
         catalog.frequency_sets.find((item) => !item.read_only) ??
         catalog.frequency_sets[0] ??
@@ -80,15 +75,9 @@
     }
   });
 
-  function selectProfile(nextProfileId: string): void {
-    profileId = nextProfileId;
-    const profile = catalog?.profiles.find((item) => item.id === nextProfileId);
-    if (profile) selectedPlanId = loadProfilePlanPreference(profile.id, profile.frequency_plan_id);
-  }
-
   function selectPlan(nextPlanId: string): void {
     selectedPlanId = nextPlanId;
-    void saveProfilePlanPreference(profileId, nextPlanId).catch((error) => failure = errorMessage(error));
+    void saveDefaultFrequencyPlan(nextPlanId).catch((error) => failure = errorMessage(error));
   }
 
   function resolveDefinitions(
@@ -469,9 +458,8 @@
       <p>Build your own sets from shared definitions. Presets remain read-only.</p>
     </div>
     <div class="header-actions">
-      <button class="button button--secondary" onclick={createBackup} disabled={!catalog}>Back up workspace</button>
+      <button class="button button--secondary" onclick={createBackup} disabled={!catalog}>Back up data</button>
       <button class="button button--secondary" onclick={importCsv} disabled={!catalog || importing}>{importing ? "Importingâ€¦" : "Import CHIRP CSV"}</button>
-      <button class="button button--primary" onclick={addSet} disabled={!catalog}>Add set</button>
     </div>
   </header>
 
@@ -487,18 +475,12 @@
   {:else}
     <section class="plan-context" aria-label="Frequency plan context">
       <label>
-        <span>Saved profile</span>
-        <select value={profileId} onchange={(event) => selectProfile(event.currentTarget.value)}>
-          {#each catalog.profiles as profile}<option value={profile.id}>{profile.name}</option>{/each}
-        </select>
-      </label>
-      <label>
-        <span>Frequency-plan advice</span>
+        <span>Advisory context for definitions</span>
         <select value={selectedPlanId} onchange={(event) => selectPlan(event.currentTarget.value)}>
           {#each catalog.frequency_plans as frequencyPlan}<option value={frequencyPlan.id}>{frequencyPlan.name} · {frequencyPlan.jurisdiction}</option>{/each}
         </select>
       </label>
-      <p>Regional coordinator advice takes precedence; ARRL national advice remains the fallback.</p>
+      <p>This supplies sourced editing advice only. It is never stored on a frequency definition and never blocks compilation.</p>
     </section>
     {#if importFailure}
       <div class="banner banner--error" role="alert"><strong>Import failed.</strong><span>{importFailure}</span></div>
@@ -506,7 +488,7 @@
       <div class="banner banner--success" role="status"><strong>CHIRP CSV imported.</strong><span>{importMessage}</span></div>
     {/if}
     {#if backupMessage}
-      <div class="banner banner--success" role="status"><strong>Workspace backed up.</strong><span>{backupMessage}</span></div>
+      <div class="banner banner--success" role="status"><strong>Data backed up.</strong><span>{backupMessage}</span></div>
     {/if}
     {#if saved && !importMessage}
       <div class="banner banner--success" role="status"><strong>Catalog saved.</strong><span>User-owned records are stored locally.</span></div>
@@ -522,6 +504,7 @@
       <aside class="workspace-panel set-browser" aria-labelledby="set-browser-heading">
         <div class="panel-heading">
           <div><p class="section-label">Collections</p><h2 id="set-browser-heading">Frequency sets</h2></div>
+          <button class="button button--primary" onclick={addSet}>Add set</button>
         </div>
 
         <div class="set-section">

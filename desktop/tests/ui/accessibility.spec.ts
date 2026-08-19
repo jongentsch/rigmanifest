@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 
 test("has no detectable accessibility violations", async ({ page }) => {
   await page.goto("/compile");
+  await page.getByRole("button", { name: "Compile plan" }).click();
   await expect(
     page.getByRole("heading", { name: "VX-6R (USA) memory plan" }),
   ).toBeVisible();

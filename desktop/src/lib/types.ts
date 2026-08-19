@@ -31,6 +31,8 @@ export interface SignalingSpec {
 export interface CompiledMemory {
   source_frequency_definition_id: string;
   source_frequency_set_ids: string[];
+  source_profile_ids: string[];
+  selected_directly: boolean;
   memory_number: number;
   target_name: string;
   receive_frequency_hz: number;
@@ -107,8 +109,10 @@ export interface FrequencySetRecord {
 export interface ProfileRecord {
   id: string;
   name: string;
+  description: string;
   frequency_set_ids: string[];
-  frequency_plan_id: string;
+  frequency_definition_ids: string[];
+  frequency_plan_id: string | null;
 }
 
 export interface FactoryFrequencySetRecord {
@@ -182,7 +186,8 @@ export interface WorkspaceState {
   schema_version: number;
   user_catalog: UserCatalogRecords;
   radios: RadioInstance[];
-  profile_plan_ids: Record<string, string>;
+  profiles: ProfileRecord[];
+  default_frequency_plan_id: string | null;
   migrated_legacy?: boolean;
 }
 
@@ -197,7 +202,9 @@ export interface CompileConfiguration {
   memoryStart: number;
   mapSetsToBanks: boolean;
   useFactorySets: boolean;
-  frequencySetIds: string[];
+  additionalFrequencySetIds: string[];
+  additionalFrequencyDefinitionIds: string[];
+  advisoryPlanId: string | null;
 }
 
 export interface RadioInstance {
@@ -213,6 +220,12 @@ export interface CompileResult {
   schema_version: number;
   compiler_version: string;
   profile: ProfileRecord;
+  profiles: ProfileRecord[];
+  selection: {
+    additional_frequency_set_ids: string[];
+    additional_frequency_definition_ids: string[];
+    advisory_plan_id: string | null;
+  };
   target: { id: string; manufacturer: string; model: string };
   summary: PlanSummary;
   capacity: CapacitySummary;
