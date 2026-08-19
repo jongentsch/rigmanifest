@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+import sqlite3
 from typing import Any, Mapping, Sequence
 
 from rigmanifest.capabilities import BUILTIN_TARGETS
@@ -21,6 +22,7 @@ from rigmanifest.models import (
     FrequencySet,
     SignalingSpec,
 )
+from rigmanifest.workspace import SQLiteWorkspace
 
 
 class RequestError(ValueError):
@@ -348,6 +350,32 @@ def handle_request(request: Mapping[str, object]) -> dict[str, object]:
         method = request.get("method")
         if method == "catalog":
             return {"id": request_id, "result": catalog_to_dict()}
+        if method in {"load_workspace", "save_workspace", "backup_workspace"}:
+            params = request.get("params")
+            if not isinstance(params, Mapping):
+                raise RequestError("params must be an object")
+            database_path = params.get("database_path")
+            if not isinstance(database_path, str) or not database_path:
+                raise RequestError("database_path must be a non-empty string")
+            workspace = SQLiteWorkspace(Path(database_path))
+            try:
+                if method == "load_workspace":
+                    legacy = params.get("legacy_state")
+                    if legacy is not None and not isinstance(legacy, Mapping):
+                        raise RequestError("legacy_state must be an object or null")
+                    return {"id": request_id, "result": workspace.load(legacy)}
+                if method == "save_workspace":
+                    state = params.get("state")
+                    if not isinstance(state, Mapping):
+                        raise RequestError("state must be an object")
+                    return {"id": request_id, "result": workspace.save(state)}
+                destination = params.get("destination")
+                if not isinstance(destination, str) or not destination:
+                    raise RequestError("destination must be a non-empty string")
+                path = workspace.backup(Path(destination))
+                return {"id": request_id, "result": {"path": str(path)}}
+            except (OSError, sqlite3.Error, ValueError) as error:
+                raise RequestError(str(error)) from error
         if method == "import_chirp_csv":
             params = request.get("params")
             if not isinstance(params, Mapping):

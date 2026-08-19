@@ -113,8 +113,9 @@ The first executable slice currently includes:
   and exporting CHIRP CSV files
 - a dark-first Modern Workshop interface with persistent Dark, Light, and
   System appearance modes
-- local create/edit persistence for user-owned frequency definitions and sets,
-  including reuse of shared preset definitions
+- versioned SQLite persistence for user-owned frequency definitions, sets,
+  radio instances, and per-profile frequency-plan preferences, with first-run
+  local-storage migration and native database backups
 - Dockerized Playwright coverage for compile/export behavior, appearance
   modes, accessibility, and visual regressions
 
@@ -162,10 +163,12 @@ set as its factory `WX CH` set, so those definitions are reported separately
 and do not consume programmable memories or appear in the CHIRP CSV. Current
 CHIRP editing support for that factory set is explicitly recorded as unsupported.
 
-User-owned catalog records are currently stored in the desktop webview's local
-storage. Every compile request sends that user partition through the Python
-validation boundary and combines it with the immutable built-in preset partition.
-SQLite remains the planned durable-storage replacement after the workflow settles.
+User-owned catalog records, radio instances, and profile plan preferences are
+stored in a versioned SQLite database under the platform application-data
+directory. A first run imports the earlier webview local-storage records once;
+the Library page can write a consistent native SQLite backup. Every compile
+request still sends the user catalog partition through the Python validation
+boundary and combines it with the immutable built-in preset partition.
 
 Frequency definitions are not restricted to the bands supported by the current radio
 inventory. A user may keep HF, VHF, UHF, or receive-only definitions in the shared

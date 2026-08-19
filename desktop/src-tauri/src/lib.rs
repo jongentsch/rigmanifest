@@ -3,6 +3,7 @@ use std::env;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use tauri::Manager;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -95,6 +96,55 @@ fn invoke_python(request: Value) -> Result<Value, String> {
     parse_sidecar_response(&output.stdout)
 }
 
+fn workspace_database_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    if let Some(path) = env::var_os("RIGMANIFEST_DATABASE") {
+        return Ok(PathBuf::from(path));
+    }
+    let directory = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("failed to locate application data: {error}"))?;
+    std::fs::create_dir_all(&directory)
+        .map_err(|error| format!("failed to create application data directory: {error}"))?;
+    Ok(directory.join("rigmanifest.sqlite3"))
+}
+
+#[tauri::command]
+fn load_workspace(app: tauri::AppHandle, legacy_state: Option<Value>) -> Result<Value, String> {
+    invoke_python(json!({
+        "id": "desktop",
+        "method": "load_workspace",
+        "params": {
+            "database_path": workspace_database_path(&app)?,
+            "legacy_state": legacy_state,
+        }
+    }))
+}
+
+#[tauri::command]
+fn save_workspace(app: tauri::AppHandle, state: Value) -> Result<Value, String> {
+    invoke_python(json!({
+        "id": "desktop",
+        "method": "save_workspace",
+        "params": {
+            "database_path": workspace_database_path(&app)?,
+            "state": state,
+        }
+    }))
+}
+
+#[tauri::command]
+fn backup_workspace(app: tauri::AppHandle, destination: String) -> Result<Value, String> {
+    invoke_python(json!({
+        "id": "desktop",
+        "method": "backup_workspace",
+        "params": {
+            "database_path": workspace_database_path(&app)?,
+            "destination": destination,
+        }
+    }))
+}
+
 #[tauri::command]
 #[allow(clippy::too_many_arguments)] // Tauri exposes command parameters by name to TypeScript.
 fn compile_profile(
@@ -149,9 +199,12 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            backup_workspace,
             compile_profile,
             import_chirp_csv,
-            load_catalog
+            load_catalog,
+            load_workspace,
+            save_workspace
         ])
         .run(tauri::generate_context!())
         .expect("error while running RigManifest");

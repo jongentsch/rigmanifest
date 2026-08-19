@@ -39,9 +39,10 @@ resolves them as follows:
 - CLI: Typer, kept as a thin adapter over the same compiler API used elsewhere.
 - Desktop IPC: newline-delimited JSON over a Tauri sidecar's stdin/stdout. It
   is local, inspectable, and avoids binding the compiler to HTTP or Tauri.
-- Persistence: the first UI workflow keeps the user-owned catalog partition in
-  local storage and submits it to Python validation for every compile. SQLite
-  repository interfaces remain the next durability step.
+- Persistence: a versioned SQLite workspace stores the user-owned catalog
+  partition, radio instances, and profile plan preferences. It supports a one-time
+  legacy local-storage import and native backups, while every compile still submits
+  the catalog partition to Python validation.
 - CHIRP integration: a pinned headless dependency supplies normalized driver facts
   and final memory validation. CSV remains the first output boundary; direct radio
   programming is still deferred.

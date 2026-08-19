@@ -134,9 +134,11 @@ test("migrates the legacy combined tone record without losing user data", async 
   await expect(page.getByLabel("Notes")).toHaveValue("kept through migration");
 
   const migrated = await page.evaluate(() =>
-    JSON.parse(localStorage.getItem("rigmanifest.user-catalog.v2") ?? "null"),
+    JSON.parse(localStorage.getItem("rigmanifest.ui-test.sqlite-workspace.v1") ?? "null")
+      .user_catalog,
   );
   expect(migrated.frequencyDefinitions[0]).not.toHaveProperty("tone");
+  expect(await page.evaluate(() => localStorage.getItem("rigmanifest.user-catalog.v1"))).toBeNull();
 });
 
 test("shows sourced plan advice and only applies an offset on request", async ({ page }) => {
@@ -201,6 +203,28 @@ test("stores regional advice per profile and gives it precedence", async ({ page
 
   await page.reload();
   await expect(plan).toHaveValue("southern-nevada-repeater-council");
+});
+
+test("backs up the durable workspace through the native boundary", async ({ page }) => {
+  await page.goto("/library");
+
+  await page.getByRole("button", { name: "Back up workspace" }).click();
+
+  await expect(page.getByRole("status")).toContainText(
+    "/backups/rigmanifest-backup.sqlite3",
+  );
+  const calls = await page.evaluate(() =>
+    (
+      window as typeof window & {
+        __RIGMANIFEST_UI_TEST_CALLS__?: Array<Record<string, unknown>>;
+      }
+    ).__RIGMANIFEST_UI_TEST_CALLS__,
+  );
+  expect(calls).toContainEqual({
+    method: "backupWorkspace",
+    profile: "/backups/rigmanifest-backup.sqlite3",
+    target: "",
+  });
 });
 
 test("imports a CHIRP CSV into reusable definitions and a set", async ({ page }) => {

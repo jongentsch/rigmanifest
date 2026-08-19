@@ -277,13 +277,20 @@ frequencies.
 
 ## Desktop persistence boundary
 
-The desktop stores only the user-owned partition locally. Schema v2 separates
-transmit access from receive squelch; stored v1 combined-tone records are migrated
-in place without changing the source frequency definitions. On load, the
-UI combines those records with immutable presets returned by Python. On compile, it
+The desktop stores the user-owned catalog partition, radio instances, and
+per-profile frequency-plan preferences in a versioned SQLite workspace. The
+workspace schema is independent of catalog schema v2, which separates transmit
+access from receive squelch; a one-time import upgrades stored v1 combined-tone
+records without changing their source frequency definitions. On load, the UI
+combines user records with immutable presets returned by Python. On compile, it
 sends the complete user partition back across IPC; Python reconstructs and validates
-the shared catalog before invoking the compiler. Local storage is therefore an
-authoring store, not a trusted compiler input.
+the shared catalog before invoking the compiler. SQLite is therefore an authoring
+store, not a trusted compiler input.
+
+The Rust shell chooses the platform application-data path. Python owns migrations,
+validation, atomic partition replacement, and consistent SQLite backups. Serialized
+frontend saves preserve edit order, and legacy webview keys are cleared only after
+the first database import succeeds.
 
 CHIRP CSV import crosses the same validation boundary. A CHIRP memory is translated
 into a new user-owned frequency definition and provenance is retained in notes; its

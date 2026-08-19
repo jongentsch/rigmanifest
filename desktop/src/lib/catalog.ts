@@ -24,11 +24,8 @@ export function userCatalogFromWorkspace(
 
 export function mergeStoredUserCatalog(
   base: WorkspaceCatalog,
+  userCatalog: UserCatalogRecords,
 ): WorkspaceCatalog {
-  const stored = readStoredUserCatalog();
-  const userCatalog = stored ?? userCatalogFromWorkspace(base);
-  if (!stored) saveUserCatalog(userCatalog);
-
   return {
     ...base,
     frequency_definitions: [
@@ -42,11 +39,7 @@ export function mergeStoredUserCatalog(
   };
 }
 
-export function saveWorkspaceUserCatalog(catalog: WorkspaceCatalog): void {
-  saveUserCatalog(userCatalogFromWorkspace(catalog));
-}
-
-function readStoredUserCatalog(): UserCatalogRecords | null {
+export function readLegacyUserCatalog(): UserCatalogRecords | null {
   const raw = localStorage.getItem(storageKey);
   if (raw) {
     try {
@@ -61,15 +54,15 @@ function readStoredUserCatalog(): UserCatalogRecords | null {
   if (!legacyRaw) return null;
   try {
     const migrated = migrateLegacyCatalog(JSON.parse(legacyRaw));
-    if (migrated) saveUserCatalog(migrated);
     return migrated;
   } catch {
     return null;
   }
 }
 
-function saveUserCatalog(catalog: UserCatalogRecords): void {
-  localStorage.setItem(storageKey, JSON.stringify(catalog));
+export function clearLegacyUserCatalog(): void {
+  localStorage.removeItem(storageKey);
+  localStorage.removeItem(legacyStorageKey);
 }
 
 function isUserCatalogRecords(value: unknown): value is UserCatalogRecords {

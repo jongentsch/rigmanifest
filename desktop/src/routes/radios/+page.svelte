@@ -1,12 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import { loadCatalog } from "$lib/api";
-  import {
-    createRadioInstance,
-    loadRadioInventory,
-    saveRadioInventory,
-  } from "$lib/radios";
+  import { loadCatalog, loadRadioInventory, saveRadioInventory } from "$lib/api";
+  import { createRadioInstance } from "$lib/radios";
   import type { RadioInstance, RadioModelRecord, WorkspaceCatalog } from "$lib/types";
 
   let catalog = $state<WorkspaceCatalog | null>(null);
@@ -58,12 +54,16 @@
     const remaining = radios.filter((item) => item.id !== selectedRadioId);
     radios = remaining;
     selectedRadioId = remaining[0]?.id ?? "";
-    saveRadioInventory(radios);
+    void saveRadioInventory(radios).catch((error) => failure = errorMessage(error));
   }
 
-  function persist(): void {
-    saveRadioInventory(radios);
-    saved = true;
+  async function persist(): Promise<void> {
+    try {
+      await saveRadioInventory(radios);
+      saved = true;
+    } catch (error) {
+      failure = errorMessage(error);
+    }
   }
 
   function chooseModel(model: RadioModelRecord): void {

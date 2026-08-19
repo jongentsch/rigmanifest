@@ -115,14 +115,17 @@ rigmanifest/
 
 ## Persistence
 
-The current vertical slice persists user-owned catalog records and radio instances
-in the desktop webview's local storage. This proves the editing and compilation
-workflow without allowing frontend state to bypass Python validation.
+The desktop persists user-owned catalog records, radio instances, and per-profile
+frequency-plan preferences in a versioned SQLite database under the platform
+application-data directory. The Rust shell owns the database path and delegates
+schema migration, validation, atomic writes, and backup to the Python persistence
+boundary. On first open only, legacy webview local-storage records are supplied as
+an import candidate and cleared after the database confirms the migration.
 
-Move the same records behind SQLite repository interfaces before catalog size,
-migrations, backups, or multi-window behavior make local storage inappropriate.
+The Library page exposes a native save dialog for a consistent SQLite backup.
+Frontend saves are serialized so quick successive edits cannot arrive out of order.
 
-Persistence should not leak database rows into compiler APIs.
+Persistence does not leak database rows into compiler APIs.
 
 The canonical domain objects should remain independently serializable/testable.
 

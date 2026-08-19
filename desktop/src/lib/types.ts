@@ -178,6 +178,14 @@ export interface UserCatalogRecords {
   frequencySets: FrequencySetRecord[];
 }
 
+export interface WorkspaceState {
+  schema_version: number;
+  user_catalog: UserCatalogRecords;
+  radios: RadioInstance[];
+  profile_plan_ids: Record<string, string>;
+  migrated_legacy?: boolean;
+}
+
 export interface ChirpCatalogImportResult {
   source_path: string;
   definition_count: number;

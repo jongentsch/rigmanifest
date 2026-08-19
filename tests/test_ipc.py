@@ -116,6 +116,33 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
     assert "notes" in calling
 
 
+def test_workspace_requests_persist_and_backup_state(tmp_path) -> None:
+    database = tmp_path / "workspace.sqlite3"
+    loaded = handle_request({
+        "id": "load",
+        "method": "load_workspace",
+        "params": {"database_path": str(database), "legacy_state": None},
+    })["result"]
+    assert loaded["schema_version"] == 1
+
+    loaded["radios"][0]["name"] = "Portable"
+    saved = handle_request({
+        "id": "save",
+        "method": "save_workspace",
+        "params": {"database_path": str(database), "state": loaded},
+    })
+    assert saved["result"]["radios"][0]["name"] == "Portable"
+
+    backup = tmp_path / "backup.sqlite3"
+    response = handle_request({
+        "id": "backup",
+        "method": "backup_workspace",
+        "params": {"database_path": str(database), "destination": str(backup)},
+    })
+    assert response["result"]["path"] == str(backup)
+    assert backup.exists()
+
+
 def test_compile_request_accepts_an_explicit_set_selection(tmp_path) -> None:
     output = tmp_path / "home.csv"
 
@@ -333,6 +360,11 @@ def test_sidecar_skips_blank_lines_and_rejects_non_object_json() -> None:
         {"id": "bad", "method": "compile", "params": {"profile": "missing", "target": "yaesu-vx6r"}},
         {"id": "bad", "method": "compile", "params": {"profile": "home", "target": "yaesu-vx6r", "frequency_set_ids": ["missing"]}},
         {"id": "bad", "method": "import_chirp_csv", "params": {"source_path": "missing.csv"}},
+        {"id": "bad", "method": "load_workspace"},
+        {"id": "bad", "method": "load_workspace", "params": {"database_path": ""}},
+        {"id": "bad", "method": "load_workspace", "params": {"database_path": "workspace.sqlite3", "legacy_state": []}},
+        {"id": "bad", "method": "save_workspace", "params": {"database_path": "workspace.sqlite3", "state": []}},
+        {"id": "bad", "method": "backup_workspace", "params": {"database_path": "workspace.sqlite3", "destination": ""}},
     ],
 )
 def test_invalid_ipc_shapes_return_safe_errors(payload: dict[str, object]) -> None:

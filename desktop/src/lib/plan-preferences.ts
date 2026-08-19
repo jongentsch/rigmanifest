@@ -2,25 +2,27 @@ import type { FrequencyPlanRecord, ProfileRecord } from "$lib/types";
 
 const storageKey = "rigmanifest.frequency-plan-preferences.v1";
 
-export function loadPlanPreference(profile: ProfileRecord): string {
+export function loadPlanPreference(
+  profile: ProfileRecord,
+  preferences: Record<string, string>,
+): string {
+  return preferences[profile.id] ?? profile.frequency_plan_id;
+}
+
+export function readLegacyPlanPreferences(): Record<string, string> | null {
   try {
     const stored = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as Record<string, unknown>;
-    const selected = stored[profile.id];
-    return typeof selected === "string" ? selected : profile.frequency_plan_id;
+    const valid = Object.entries(stored).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    );
+    return valid.length > 0 ? Object.fromEntries(valid) : null;
   } catch {
-    return profile.frequency_plan_id;
+    return null;
   }
 }
 
-export function savePlanPreference(profileId: string, frequencyPlanId: string): void {
-  let stored: Record<string, unknown> = {};
-  try {
-    stored = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as Record<string, unknown>;
-  } catch {
-    // Replace malformed preference data with the new explicit selection.
-  }
-  stored[profileId] = frequencyPlanId;
-  localStorage.setItem(storageKey, JSON.stringify(stored));
+export function clearLegacyPlanPreferences(): void {
+  localStorage.removeItem(storageKey);
 }
 
 export function advicePlans(

@@ -2,17 +2,18 @@
   import { onMount } from "svelte";
 
   import {
+    backupWorkspace,
     chooseChirpImportPath,
+    chooseWorkspaceBackupPath,
     importChirpCsv,
     loadCatalog,
+    loadProfilePlanPreference,
+    saveProfilePlanPreference,
+    saveWorkspaceUserCatalog,
   } from "$lib/api";
-  import { saveWorkspaceUserCatalog } from "$lib/catalog";
+  import { userCatalogFromWorkspace } from "$lib/catalog";
   import { definitionTxSummary, mhz, offsetSummary } from "$lib/format";
-  import {
-    advicePlans,
-    loadPlanPreference,
-    savePlanPreference,
-  } from "$lib/plan-preferences";
+  import { advicePlans } from "$lib/plan-preferences";
   import type {
     FrequencyDefinitionRecord,
     FrequencyPlanRecord,
@@ -35,6 +36,7 @@
   let importing = $state(false);
   let importMessage = $state("");
   let importFailure = $state("");
+  let backupMessage = $state("");
 
   let selectedSet = $derived(
     catalog?.frequency_sets.find((item) => item.id === selectedSetId) ?? null,
@@ -66,7 +68,7 @@
       const profile = catalog.profiles.find((item) => item.id === profileId) ?? catalog.profiles[0];
       if (profile) {
         profileId = profile.id;
-        selectedPlanId = loadPlanPreference(profile);
+        selectedPlanId = loadProfilePlanPreference(profile.id, profile.frequency_plan_id);
       }
       const initialSet =
         catalog.frequency_sets.find((item) => !item.read_only) ??
@@ -81,12 +83,12 @@
   function selectProfile(nextProfileId: string): void {
     profileId = nextProfileId;
     const profile = catalog?.profiles.find((item) => item.id === nextProfileId);
-    if (profile) selectedPlanId = loadPlanPreference(profile);
+    if (profile) selectedPlanId = loadProfilePlanPreference(profile.id, profile.frequency_plan_id);
   }
 
   function selectPlan(nextPlanId: string): void {
     selectedPlanId = nextPlanId;
-    savePlanPreference(profileId, nextPlanId);
+    void saveProfilePlanPreference(profileId, nextPlanId).catch((error) => failure = errorMessage(error));
   }
 
   function resolveDefinitions(
@@ -121,8 +123,21 @@
 
   function persist(next: WorkspaceCatalog): void {
     catalog = next;
-    saveWorkspaceUserCatalog(next);
-    saved = true;
+    saved = false;
+    void saveWorkspaceUserCatalog(userCatalogFromWorkspace(next))
+      .then(() => saved = true)
+      .catch((error) => failure = errorMessage(error));
+  }
+
+  async function createBackup(): Promise<void> {
+    backupMessage = "";
+    const destination = await chooseWorkspaceBackupPath();
+    if (!destination) return;
+    try {
+      backupMessage = await backupWorkspace(destination);
+    } catch (error) {
+      failure = errorMessage(error);
+    }
   }
 
   function updateSelectedSet(changes: Partial<FrequencySetRecord>): void {
@@ -454,6 +469,7 @@
       <p>Build your own sets from shared definitions. Presets remain read-only.</p>
     </div>
     <div class="header-actions">
+      <button class="button button--secondary" onclick={createBackup} disabled={!catalog}>Back up workspace</button>
       <button class="button button--secondary" onclick={importCsv} disabled={!catalog || importing}>{importing ? "Importingâ€¦" : "Import CHIRP CSV"}</button>
       <button class="button button--primary" onclick={addSet} disabled={!catalog}>Add set</button>
     </div>
@@ -488,6 +504,9 @@
       <div class="banner banner--error" role="alert"><strong>Import failed.</strong><span>{importFailure}</span></div>
     {:else if importMessage}
       <div class="banner banner--success" role="status"><strong>CHIRP CSV imported.</strong><span>{importMessage}</span></div>
+    {/if}
+    {#if backupMessage}
+      <div class="banner banner--success" role="status"><strong>Workspace backed up.</strong><span>{backupMessage}</span></div>
     {/if}
     {#if saved && !importMessage}
       <div class="banner banner--success" role="status"><strong>Catalog saved.</strong><span>User-owned records are stored locally.</span></div>
@@ -568,7 +587,7 @@
           {:else}
             <div class="set-editor-fields">
               <label><span>Set name</span><input value={selectedSet.name} onchange={(event) => event.currentTarget.value.trim() && updateSelectedSet({ name: event.currentTarget.value.trim() })} /></label>
-              <label class="wide"><span>Description</span><input value={selectedSet.description} oninput={(event) => updateSelectedSet({ description: event.currentTarget.value })} /></label>
+              <label class="wide"><span>Description</span><input value={selectedSet.description} onchange={(event) => updateSelectedSet({ description: event.currentTarget.value })} /></label>
             </div>
             <div class="catalog-actions">
               <button class="button button--primary" onclick={addDefinition}>New definition</button>
@@ -681,7 +700,7 @@
                 {/if}
                 <label><span>Priority</span><select value={selectedDefinition.priority} onchange={(event) => updateDefinition({ priority: event.currentTarget.value })}><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="mandatory">Mandatory</option></select></label>
                 <label><span>Tags</span><input value={selectedDefinition.tags.join(", ")} onchange={(event) => updateDefinition({ tags: event.currentTarget.value.split(",").map((item) => item.trim()).filter(Boolean) })} /></label>
-                <label class="wide"><span>Notes</span><textarea rows="3" value={selectedDefinition.notes} oninput={(event) => updateDefinition({ notes: event.currentTarget.value })}></textarea></label>
+                <label class="wide"><span>Notes</span><textarea rows="3" value={selectedDefinition.notes} onchange={(event) => updateDefinition({ notes: event.currentTarget.value })}></textarea></label>
                 <div class="wide destructive-row"><button class="button button--secondary" onclick={deleteDefinition}>Delete definition everywhere</button></div>
               </div>
             {/if}

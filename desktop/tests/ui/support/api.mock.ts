@@ -4,18 +4,44 @@ import type {
   ChirpCatalogImportResult,
   UserCatalogRecords,
   WorkspaceCatalog,
+  WorkspaceState,
 } from "$lib/types";
 
 import catalogFixture from "../fixtures/catalog.json";
 import compileHome from "../fixtures/compile-home.json";
 
 interface UiTestCall {
-  method: "chooseChirpImportPath" | "chooseCsvOutputPath" | "compileProfile" | "importChirpCsv";
+  method: "backupWorkspace" | "chooseChirpImportPath" | "chooseCsvOutputPath" | "compileProfile" | "importChirpCsv";
   profile: string;
   target: string;
   outputPath?: string | null;
   configuration?: CompileConfiguration;
   userCatalog?: UserCatalogRecords;
+}
+
+const workspaceKey = "rigmanifest.ui-test.sqlite-workspace.v1";
+
+export async function loadWorkspace(initial: WorkspaceState): Promise<WorkspaceState> {
+  const raw = localStorage.getItem(workspaceKey);
+  if (raw) return JSON.parse(raw) as WorkspaceState;
+  const migrated = { ...structuredClone(initial), migrated_legacy: true };
+  localStorage.setItem(workspaceKey, JSON.stringify(migrated));
+  return migrated;
+}
+
+export async function saveWorkspace(state: WorkspaceState): Promise<WorkspaceState> {
+  const saved = { ...structuredClone(state), migrated_legacy: false };
+  localStorage.setItem(workspaceKey, JSON.stringify(saved));
+  return saved;
+}
+
+export async function chooseWorkspaceBackupPath(): Promise<string> {
+  return "/backups/rigmanifest-backup.sqlite3";
+}
+
+export async function backupWorkspace(destination: string): Promise<string> {
+  record({ method: "backupWorkspace", profile: destination, target: "" });
+  return destination;
 }
 
 declare global {

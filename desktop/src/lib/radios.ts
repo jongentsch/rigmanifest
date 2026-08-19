@@ -49,7 +49,7 @@ function migrateLegacyRadio(value: unknown): RadioInstance | null {
   };
 }
 
-export function loadRadioInventory(): RadioInstance[] {
+export function readLegacyRadioInventory(): RadioInstance[] | null {
   const stored = localStorage.getItem(storageKey);
   if (stored) {
     try {
@@ -69,7 +69,6 @@ export function loadRadioInventory(): RadioInstance[] {
       if (Array.isArray(parsed)) {
         const migrated = parsed.map(migrateLegacyRadio);
         if (migrated.length > 0 && migrated.every((item) => item !== null)) {
-          saveRadioInventory(migrated as RadioInstance[]);
           return migrated as RadioInstance[];
         }
       }
@@ -78,13 +77,12 @@ export function loadRadioInventory(): RadioInstance[] {
     }
   }
 
-  const initial = [{ ...defaultRadio }];
-  saveRadioInventory(initial);
-  return initial;
+  return null;
 }
 
-export function saveRadioInventory(radios: RadioInstance[]): void {
-  localStorage.setItem(storageKey, JSON.stringify(radios));
+export function clearLegacyRadioInventory(): void {
+  localStorage.removeItem(storageKey);
+  localStorage.removeItem(legacyStorageKey);
 }
 
 export function createRadioInstance(

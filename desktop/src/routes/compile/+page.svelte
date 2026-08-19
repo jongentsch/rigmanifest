@@ -1,10 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import { chooseCsvOutputPath, compileProfile, loadCatalog } from "$lib/api";
+  import {
+    chooseCsvOutputPath,
+    compileProfile,
+    loadCatalog,
+    loadProfilePlanPreference,
+    loadRadioInventory,
+    saveProfilePlanPreference,
+  } from "$lib/api";
   import { memoryTxSummary, mhz } from "$lib/format";
-  import { loadPlanPreference, savePlanPreference } from "$lib/plan-preferences";
-  import { loadRadioInventory } from "$lib/radios";
   import type {
     CompileConfiguration,
     CompileResult,
@@ -37,7 +42,7 @@
       radios = loadRadioInventory();
       radioId = radios[0]?.id ?? "";
       const profile = catalog.profiles.find((item) => item.id === profileId);
-      if (profile) selectedPlanId = loadPlanPreference(profile);
+      if (profile) selectedPlanId = loadProfilePlanPreference(profile.id, profile.frequency_plan_id);
       const availableSetIds = new Set(catalog.frequency_sets.map((item) => item.id));
       selectedSetIds = (profile?.frequency_set_ids ?? []).filter((item) =>
         availableSetIds.has(item),
@@ -114,7 +119,7 @@
 
   function resetProfileSets(): void {
     const profile = catalog?.profiles.find((item) => item.id === profileId);
-    if (profile) selectedPlanId = loadPlanPreference(profile);
+    if (profile) selectedPlanId = loadProfilePlanPreference(profile.id, profile.frequency_plan_id);
     const availableSetIds = new Set(
       catalog?.frequency_sets.map((item) => item.id) ?? [],
     );
@@ -126,7 +131,7 @@
 
   function selectPlan(nextPlanId: string): void {
     selectedPlanId = nextPlanId;
-    savePlanPreference(profileId, nextPlanId);
+    void saveProfilePlanPreference(profileId, nextPlanId).catch((error) => failure = errorMessage(error));
   }
 
   function isFactorySet(setId: string): string | null {
