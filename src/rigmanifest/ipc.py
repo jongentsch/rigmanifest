@@ -7,6 +7,8 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Mapping, Sequence
 
+from chirp import chirp_common
+
 from rigmanifest.capabilities import BUILTIN_TARGETS
 from rigmanifest.catalog_io import catalog_with_user_records
 from rigmanifest.chirp_import import ChirpCatalogImport, import_chirp_csv
@@ -126,6 +128,7 @@ def catalog_to_dict() -> dict[str, Any]:
 
     return {
         "schema_version": 7,
+        "ctcss_tones_hz": [float(tone) for tone in chirp_common.TONES],
         "profiles": [
             profile_to_dict(profile)
             for profile in sorted(BUILTIN_PROFILES.values(), key=lambda item: item.id)

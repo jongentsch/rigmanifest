@@ -17,8 +17,8 @@ test("creates, persists, and submits user-owned frequency records", async ({ pag
   await receive.fill("146.550000");
   await receive.press("Tab");
   await page.getByLabel("Transmit access").selectOption("ctcss");
-  await page.getByLabel("Transmit CTCSS Hz").fill("123.0");
-  await page.getByLabel("Transmit CTCSS Hz").press("Tab");
+  await expect(page.getByLabel("Transmit CTCSS Hz").locator("option")).toHaveCount(50);
+  await page.getByLabel("Transmit CTCSS Hz").selectOption("123");
   await page.getByLabel("Receive squelch").selectOption("dcs");
   await page.getByLabel("Receive DCS code").fill("25");
   await page.getByLabel("Receive DCS code").press("Tab");

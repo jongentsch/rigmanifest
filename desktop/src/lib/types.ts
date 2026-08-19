@@ -170,6 +170,7 @@ export interface FrequencyPlanRecord {
 
 export interface WorkspaceCatalog {
   schema_version: number;
+  ctcss_tones_hz: number[];
   profiles: ProfileRecord[];
   radio_models: RadioModelRecord[];
   frequency_sets: FrequencySetRecord[];

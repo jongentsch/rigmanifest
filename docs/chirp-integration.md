@@ -43,6 +43,10 @@ The adapter currently obtains these facts from CHIRP:
 - bank support
 - separate receive-DCS and DCS-polarity support
 
+The frequency editor's shared CTCSS dropdown comes directly from CHIRP's
+50-value `chirp_common.TONES` catalog. Compilation still checks the selected tone
+against the chosen radio driver's narrower `valid_tones` capability when applicable.
+
 ## Built-in targets
 
 The selectable target registry currently contains:

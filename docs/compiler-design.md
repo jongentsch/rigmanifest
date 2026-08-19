@@ -124,8 +124,9 @@ consume user-memory capacity.
 ## Set-to-bank mapping
 
 Selected non-factory sets may map to radio banks. If the target has no compatible bank
-support, logical source-set metadata remains in the plan and the compiler emits
-`GROUPING_DEGRADED`.
+support, logical source-set metadata remains in the plan and the compiler emits one
+informational `GROUPING_DEGRADED` diagnostic per selected set. The memories still
+program normally; only the set-to-bank grouping is absent from the target.
 
 ## Export
 

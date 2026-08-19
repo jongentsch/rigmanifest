@@ -306,6 +306,7 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::parse_sidecar_response;
+    use serde_json::Value;
 
     #[test]
     fn extracts_result_from_sidecar_response() {
@@ -323,5 +324,17 @@ mod tests {
         .expect_err("error response should fail");
 
         assert_eq!(error, "bad target");
+    }
+
+    #[test]
+    fn main_window_can_open_and_save_files() {
+        let capability: Value = serde_json::from_str(include_str!("../capabilities/default.json"))
+            .expect("desktop capability should be valid JSON");
+        let permissions = capability["permissions"]
+            .as_array()
+            .expect("desktop capability should list permissions");
+
+        assert!(permissions.iter().any(|item| item == "dialog:allow-open"));
+        assert!(permissions.iter().any(|item| item == "dialog:allow-save"));
     }
 }

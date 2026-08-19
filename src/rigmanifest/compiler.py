@@ -100,6 +100,7 @@ def compile_profiles(
 
     factory_by_set_id = _validated_factory_sets(catalog, target)
     diagnostics: list[Diagnostic] = []
+    grouping_diagnostics: list[Diagnostic] = []
     omitted: list[OmittedFrequencyDefinition] = []
     factory_coverage: list[FactorySetCoverage] = []
     source_sets_by_definition: dict[str, list[str]] = {}
@@ -183,6 +184,25 @@ def compile_profiles(
                 )
             )
             continue
+
+        if settings.map_sets_to_banks and not target.capabilities.supports_banks:
+            grouping_diagnostics.append(
+                Diagnostic.with_details(
+                    code=DiagnosticCode.GROUPING_DEGRADED,
+                    severity=Severity.INFO,
+                    frequency_set_id=frequency_set.id,
+                    message=(
+                        f"{frequency_set.name} will export and program normally on "
+                        f"{target.model}, but CHIRP reports no bank support; this set "
+                        "will not become a radio bank"
+                    ),
+                    details={
+                        "set_id": frequency_set.id,
+                        "programming": "unaffected",
+                        "grouping": "not_mapped",
+                    },
+                )
+            )
 
         for member in frequency_set.ordered_members:
             record_definition(
@@ -296,6 +316,7 @@ def compile_profiles(
             continue
         memories.append(memory)
 
+    diagnostics.extend(grouping_diagnostics)
     primary_profile = profiles[0] if profiles else Profile("ad-hoc", "Ad hoc", ())
     return CompiledRadioPlan(
         target=target,
@@ -729,20 +750,11 @@ def _transform_definition(
         )
         transformations.append(code)
 
-    groups = selection.source_set_ids if map_sets_to_banks else ()
-    if groups and not capabilities.supports_banks:
-        diagnostics.append(
-            Diagnostic.with_details(
-                code=DiagnosticCode.GROUPING_DEGRADED,
-                severity=Severity.WARNING,
-                frequency_definition_id=definition.id,
-                message=(
-                    f"Frequency sets for {definition.name} cannot map to {target.model}"
-                ),
-                details={"sets": ",".join(groups)},
-            )
-        )
-        groups = ()
+    groups = (
+        selection.source_set_ids
+        if map_sets_to_banks and capabilities.supports_banks
+        else ()
+    )
 
     return (
         CompiledMemory(

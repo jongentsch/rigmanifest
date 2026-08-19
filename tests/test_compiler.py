@@ -546,7 +546,8 @@ def test_target_without_separate_receive_dcs_rejects_different_codes() -> None:
 
 def test_selected_sets_map_to_banks_or_degrade_visibly() -> None:
     definition = make_definition("grouped")
-    catalog = make_catalog((definition,))
+    second_definition = make_definition("also-grouped", frequency_hz=146_550_000)
+    catalog = make_catalog((definition, second_definition))
 
     degraded = compile_profile(catalog, selected_profile(), make_radio())
     mapped = compile_profile(
@@ -556,11 +557,23 @@ def test_selected_sets_map_to_banks_or_degrade_visibly() -> None:
     )
 
     assert degraded.memories[0].bank_assignments == ()
-    assert any(
-        item.code is DiagnosticCode.GROUPING_DEGRADED
+    assert degraded.memories[1].bank_assignments == ()
+    grouping_diagnostics = [
+        item
         for item in degraded.diagnostics
+        if item.code is DiagnosticCode.GROUPING_DEGRADED
+    ]
+    assert len(grouping_diagnostics) == 1
+    assert grouping_diagnostics[0].severity is Severity.INFO
+    assert grouping_diagnostics[0].frequency_set_id == "selected"
+    assert grouping_diagnostics[0].frequency_definition_id is None
+    assert "export and program normally" in grouping_diagnostics[0].message
+    assert not any(
+        item.code is DiagnosticCode.GROUPING_DEGRADED
+        for item in mapped.diagnostics
     )
     assert mapped.memories[0].bank_assignments == ("selected",)
+    assert mapped.memories[1].bank_assignments == ("selected",)
 
 
 def test_user_set_can_reference_a_shared_preset_definition() -> None:

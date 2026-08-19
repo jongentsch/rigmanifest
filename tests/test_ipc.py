@@ -4,6 +4,7 @@ import json
 from io import StringIO
 
 import pytest
+from chirp import chirp_common
 
 from rigmanifest.ipc import handle_request
 from rigmanifest.sidecar import serve
@@ -49,6 +50,7 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
     result = response["result"]
     assert isinstance(result, dict)
     assert result["schema_version"] == 7
+    assert result["ctcss_tones_hz"] == list(chirp_common.TONES)
     assert result["profiles"] == [
         {
             "id": "home",

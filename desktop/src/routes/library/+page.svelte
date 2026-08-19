@@ -320,9 +320,14 @@
   ): void {
     const signaling = emptySignaling();
     signaling.kind = kind;
-    if (kind === "ctcss") signaling.ctcss_hz = 100;
+    if (kind === "ctcss") signaling.ctcss_hz = defaultCtcssTone();
     if (kind === "dcs") signaling.dcs_code = 23;
     updateDefinition({ [direction]: signaling });
+  }
+
+  function defaultCtcssTone(): number {
+    const tones = catalog?.ctcss_tones_hz ?? [];
+    return tones.includes(100) ? 100 : tones[0] ?? 100;
   }
 
   function updateSignaling(
@@ -669,14 +674,14 @@
                 {/if}
                 <label><span>Transmit access</span><select value={selectedDefinition.transmit_access.kind} onchange={(event) => changeSignaling("transmit_access", event.currentTarget.value as SignalingKind)}><option value="none">None</option><option value="ctcss">CTCSS</option><option value="dcs">DCS</option></select></label>
                 {#if selectedDefinition.transmit_access.kind === "ctcss"}
-                  <label><span>Transmit CTCSS Hz</span><input type="number" min="0.1" step="0.1" value={selectedDefinition.transmit_access.ctcss_hz ?? 100} onchange={(event) => updateSignaling("transmit_access", { ctcss_hz: event.currentTarget.valueAsNumber })} /></label>
+                  <label><span>Transmit CTCSS Hz</span><select value={selectedDefinition.transmit_access.ctcss_hz ?? defaultCtcssTone()} onchange={(event) => updateSignaling("transmit_access", { ctcss_hz: Number(event.currentTarget.value) })}>{#each catalog?.ctcss_tones_hz ?? [] as tone}<option value={tone}>{tone.toFixed(1)}</option>{/each}</select></label>
                 {:else if selectedDefinition.transmit_access.kind === "dcs"}
                   <label><span>Transmit DCS code</span><input type="number" min="0" value={selectedDefinition.transmit_access.dcs_code ?? 23} onchange={(event) => updateSignaling("transmit_access", { dcs_code: event.currentTarget.valueAsNumber })} /></label>
                   <label><span>Transmit DCS polarity</span><select value={selectedDefinition.transmit_access.dcs_polarity} onchange={(event) => updateSignaling("transmit_access", { dcs_polarity: event.currentTarget.value as "N" | "R" })}><option>N</option><option>R</option></select></label>
                 {/if}
                 <label><span>Receive squelch</span><select value={selectedDefinition.receive_squelch.kind} onchange={(event) => changeSignaling("receive_squelch", event.currentTarget.value as SignalingKind)}><option value="none">None</option><option value="ctcss">CTCSS</option><option value="dcs">DCS</option></select></label>
                 {#if selectedDefinition.receive_squelch.kind === "ctcss"}
-                  <label><span>Receive CTCSS Hz</span><input type="number" min="0.1" step="0.1" value={selectedDefinition.receive_squelch.ctcss_hz ?? 100} onchange={(event) => updateSignaling("receive_squelch", { ctcss_hz: event.currentTarget.valueAsNumber })} /></label>
+                  <label><span>Receive CTCSS Hz</span><select value={selectedDefinition.receive_squelch.ctcss_hz ?? defaultCtcssTone()} onchange={(event) => updateSignaling("receive_squelch", { ctcss_hz: Number(event.currentTarget.value) })}>{#each catalog?.ctcss_tones_hz ?? [] as tone}<option value={tone}>{tone.toFixed(1)}</option>{/each}</select></label>
                 {:else if selectedDefinition.receive_squelch.kind === "dcs"}
                   <label><span>Receive DCS code</span><input type="number" min="0" value={selectedDefinition.receive_squelch.dcs_code ?? 23} onchange={(event) => updateSignaling("receive_squelch", { dcs_code: event.currentTarget.valueAsNumber })} /></label>
                   <label><span>Receive DCS polarity</span><select value={selectedDefinition.receive_squelch.dcs_polarity} onchange={(event) => updateSignaling("receive_squelch", { dcs_polarity: event.currentTarget.value as "N" | "R" })}><option>N</option><option>R</option></select></label>

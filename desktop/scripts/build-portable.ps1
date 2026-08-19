@@ -84,7 +84,7 @@ if (-not $SidecarOnly) {
     }
 
     $releaseDirectory = Join-Path $desktopRoot "src-tauri/target/release"
-    $portableDirectory = Join-Path $repositoryRoot "dist/portable/RigManifest"
+    $portableDirectory = Join-Path $repositoryRoot "build/portable-package/RigManifest"
     $portableArchive = Join-Path $repositoryRoot "dist/portable/RigManifest_0.1.0_x64-portable.zip"
     New-Item -ItemType Directory -Force -Path $portableDirectory | Out-Null
     Copy-Item -LiteralPath (Join-Path $releaseDirectory "rigmanifest-desktop.exe") `
