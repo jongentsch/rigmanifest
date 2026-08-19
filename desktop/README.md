@@ -79,5 +79,6 @@ docker compose -f compose.ui-tests.yaml run --rm ui-tests pnpm test:ui:update
 
 These tests cover the renderer and its contract with the desktop boundary;
 they do not replace native Tauri/WebDriver smoke tests for windowing or dialogs.
-The portable build script and Windows CI job exercise the frozen Python sidecar
-and build the native installer.
+The portable build script and tagged-release workflow exercise the frozen Python
+sidecar and build the native installer. Push and pull-request CI runs the test
+suites without spending time on distribution packaging.

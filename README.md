@@ -157,6 +157,11 @@ The installer is written under `desktop/src-tauri/target/release/bundle/nsis`.
 A no-install ZIP is also written to `dist/portable`. Neither distribution
 requires Python, CHIRP, Node, or a source checkout on the destination computer.
 
+Normal pushes and pull requests run tests without producing distribution
+packages. Pushing a version tag such as `v0.1.0` runs the release workflow,
+verifies that the Python, desktop, and Tauri versions match the tag, and attaches
+both Windows packages to the corresponding GitHub Release.
+
 Run the deterministic renderer-level UI suite in Docker:
 
 ```bash

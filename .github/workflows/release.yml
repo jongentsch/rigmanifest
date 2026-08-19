@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows packages
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Verify release versions
+        shell: pwsh
+        run: |
+          $tagVersion = "${{ github.ref_name }}" -replace '^v', ''
+          $pyprojectMatch = Select-String -Path pyproject.toml -Pattern '^version = "([^"]+)"$' |
+            Select-Object -First 1
+          $versions = @{
+            pyproject = $pyprojectMatch.Matches[0].Groups[1].Value
+            package = (Get-Content desktop/package.json | ConvertFrom-Json).version
+            tauri = (Get-Content desktop/src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          }
+          foreach ($entry in $versions.GetEnumerator()) {
+            Write-Host "$($entry.Key) version: $($entry.Value)"
+            if ($entry.Value -ne $tagVersion) {
+              throw "Tag version $tagVersion does not match $($entry.Key) version $($entry.Value)."
+            }
+          }
+          "RELEASE_VERSION=$tagVersion" >> $env:GITHUB_ENV
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Enable pinned pnpm
+        run: corepack enable && corepack prepare pnpm@11.19.0 --activate
+
+      - name: Build Python environment
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install --upgrade pip
+          .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Windows packages
+        working-directory: desktop
+        run: pnpm bundle:windows
+
+      - name: Locate release assets
+        shell: pwsh
+        run: |
+          $installer = "desktop/src-tauri/target/release/bundle/nsis/RigManifest_$($env:RELEASE_VERSION)_x64-setup.exe"
+          $portable = "dist/portable/RigManifest_$($env:RELEASE_VERSION)_x64-portable.zip"
+          foreach ($asset in @($installer, $portable)) {
+            if (-not (Test-Path -LiteralPath $asset -PathType Leaf)) {
+              throw "Release asset was not produced: $asset"
+            }
+          }
+          "INSTALLER_PATH=$installer" >> $env:GITHUB_ENV
+          "PORTABLE_PATH=$portable" >> $env:GITHUB_ENV
+
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $assets = @($env:INSTALLER_PATH, $env:PORTABLE_PATH)
+          & gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            & gh release upload $tag @assets --clobber
+          }
+          else {
+            & gh release create $tag @assets --verify-tag --generate-notes --title "RigManifest $tag"
+          }
+          if ($LASTEXITCODE -ne 0) {
+            throw "Publishing GitHub release $tag failed with exit code $LASTEXITCODE."
+          }

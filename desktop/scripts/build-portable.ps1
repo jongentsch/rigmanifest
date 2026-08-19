@@ -115,7 +115,9 @@ if (-not $SidecarOnly) {
 
     $releaseDirectory = Join-Path $desktopRoot "src-tauri/target/release"
     $portableDirectory = Join-Path $repositoryRoot "build/portable-package/RigManifest"
-    $portableArchive = Join-Path $repositoryRoot "dist/portable/RigManifest_0.1.0_x64-portable.zip"
+    $tauriConfig = Get-Content (Join-Path $desktopRoot "src-tauri/tauri.conf.json") | ConvertFrom-Json
+    $portableArchiveName = "RigManifest_$($tauriConfig.version)_x64-portable.zip"
+    $portableArchive = Join-Path $repositoryRoot "dist/portable/$portableArchiveName"
     $portableArchiveDirectory = Split-Path -Parent $portableArchive
     New-Item -ItemType Directory -Force `
         -Path $portableDirectory, $portableArchiveDirectory | Out-Null
