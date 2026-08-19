@@ -88,7 +88,7 @@
 <div class="workbench-shell">
   <aside class="app-sidebar">
     <a class="sidebar-brand" href="/compile" aria-label="RigManifest home">
-      <span class="brand-monogram" aria-hidden="true">RM</span>
+      <img class="brand-logo" src="/rigmanifest-logo.png" alt="" aria-hidden="true" />
       <span>
         <strong>RigManifest</strong>
         <small>Configuration compiler</small>

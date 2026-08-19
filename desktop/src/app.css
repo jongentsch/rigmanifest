@@ -117,17 +117,12 @@ a:focus-visible {
   padding: 0 7px 20px;
 }
 
-.brand-monogram {
-  display: grid;
-  place-items: center;
+.brand-logo {
+  display: block;
   width: 34px;
   height: 34px;
-  border: 1px solid #596169;
-  border-radius: 5px;
-  color: #ff9a65;
-  font-family: "Cascadia Mono", Consolas, monospace;
-  font-size: 12px;
-  font-weight: 700;
+  border-radius: 8px;
+  object-fit: cover;
 }
 
 .sidebar-brand strong,
