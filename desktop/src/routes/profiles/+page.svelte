@@ -6,7 +6,14 @@
     loadDefaultFrequencyPlan,
     saveProfiles,
   } from "$lib/api";
-  import { definitionTxSummary, mhz } from "$lib/format";
+  import {
+    definitionTxSummary,
+    mhz,
+    powerSummary,
+    scanSummary,
+    signalingSummary,
+    tuningStepSummary,
+  } from "$lib/format";
   import type {
     FrequencyDefinitionRecord,
     ProfileRecord,
@@ -249,16 +256,21 @@
                       <div><span>{group.assignment}</span><h4>{group.name}</h4></div>
                       <b>{group.members.length}</b>
                     </header>
-                    <div class="profile-frequency-list" role="table" aria-label={`${group.name} frequencies`}>
+                    <div class="profile-frequency-list" role="table" aria-label={`${group.name} frequencies`} tabindex="0">
                       <div class="profile-frequency-columns" role="row">
-                        <span role="columnheader">Slot</span><span role="columnheader">Frequency</span><span role="columnheader">Receive</span><span role="columnheader">Mode</span>
+                        <span role="columnheader">Slot</span><span role="columnheader">Frequency</span><span role="columnheader">Receive</span><span role="columnheader">Transmit</span><span role="columnheader">TX access</span><span role="columnheader">RX squelch</span><span role="columnheader">Mode</span><span role="columnheader">Step</span><span role="columnheader">Power / scan</span>
                       </div>
                       {#each group.members as member (member.definition.id)}
                         <div class="profile-frequency-row" role="row">
                           <span class="profile-frequency-slot" role="cell">{member.designation}</span>
-                          <span role="cell"><strong>{member.definition.name}</strong><small>{definitionTxSummary(member.definition)}</small></span>
+                          <span role="cell"><strong>{member.definition.name}</strong><small>{member.definition.id}</small></span>
                           <span class="frequency" role="cell">{mhz(member.definition.receive_frequency_hz)}</span>
+                          <span role="cell">{definitionTxSummary(member.definition)}</span>
+                          <span role="cell">{signalingSummary(member.definition.transmit_access)}</span>
+                          <span role="cell">{signalingSummary(member.definition.receive_squelch)}</span>
                           <span role="cell">{member.definition.mode}</span>
+                          <span role="cell">{tuningStepSummary(member.definition.tuning_step_hz)}</span>
+                          <span role="cell"><strong>{powerSummary(member.definition)}</strong><small>{scanSummary(member.definition.scan_skip)}</small></span>
                         </div>
                       {:else}
                         <p class="empty-copy">This set has no frequency definitions.</p>

@@ -12,7 +12,15 @@
     saveWorkspaceUserCatalog,
   } from "$lib/api";
   import { userCatalogFromWorkspace } from "$lib/catalog";
-  import { definitionTxSummary, mhz, offsetSummary } from "$lib/format";
+  import {
+    definitionTxSummary,
+    mhz,
+    offsetSummary,
+    powerSummary,
+    scanSummary,
+    signalingSummary,
+    tuningStepSummary,
+  } from "$lib/format";
   import { advicePlans } from "$lib/plan-preferences";
   import type {
     FrequencyDefinitionRecord,
@@ -590,10 +598,10 @@
             </div>
           {/if}
 
-          <div class="table-wrap">
+          <div class="table-wrap" role="region" aria-label={`${selectedSet.name} frequency table`} tabindex="0">
             <table class="data-table">
               <thead>
-                <tr><th scope="col">Designation</th><th scope="col">Frequency definition</th><th scope="col">Receive</th><th scope="col">Transmit intent</th><th scope="col">Mode</th><th scope="col">Source</th>{#if !selectedSet.read_only}<th scope="col">Membership</th>{/if}</tr>
+                <tr><th scope="col">Designation</th><th scope="col">Frequency definition</th><th scope="col">Receive</th><th scope="col">Transmit</th><th scope="col">TX access</th><th scope="col">RX squelch</th><th scope="col">Mode</th><th scope="col">Step</th><th scope="col">Power / scan</th><th scope="col">Source</th>{#if !selectedSet.read_only}<th scope="col">Membership</th>{/if}</tr>
               </thead>
               <tbody>
                 {#each selectedDefinitions as item (item.definition.id)}
@@ -612,12 +620,16 @@
                     <td><button class="definition-link" onclick={() => selectedDefinitionId = item.definition.id}><strong>{item.definition.name}</strong><small>{item.definition.id}</small></button></td>
                     <td class="frequency">{mhz(item.definition.receive_frequency_hz)}</td>
                     <td>{definitionTxSummary(item.definition)}</td>
+                    <td>{signalingSummary(item.definition.transmit_access)}</td>
+                    <td>{signalingSummary(item.definition.receive_squelch)}</td>
                     <td>{item.definition.mode}</td>
+                    <td>{tuningStepSummary(item.definition.tuning_step_hz)}</td>
+                    <td><strong>{powerSummary(item.definition)}</strong><small>{scanSummary(item.definition.scan_skip)}</small></td>
                     <td><span class:badge--preset={item.definition.read_only} class="record-badge compact">{item.definition.origin}</span></td>
                     {#if !selectedSet.read_only}<td><button class="text-button" data-row-action onclick={() => removeMembership(item.definition.id)}>Remove</button></td>{/if}
                   </tr>
                 {:else}
-                  <tr><td colspan={selectedSet.read_only ? 6 : 7} class="empty-table">This set has no frequency definitions yet.</td></tr>
+                  <tr><td colspan={selectedSet.read_only ? 10 : 11} class="empty-table">This set has no frequency definitions yet.</td></tr>
                 {/each}
               </tbody>
             </table>

@@ -214,6 +214,11 @@ test("selects a frequency definition by clicking anywhere in its row", async ({ 
   await page.goto("/library");
 
   const repeaterRow = page.getByRole("row", { name: /70cm Local Repeater/ });
+  await expect(repeaterRow).toContainText("+5.000 MHz");
+  await expect(repeaterRow).toContainText("CTCSS 100.0 Hz");
+  await expect(repeaterRow).toContainText("None");
+  await expect(repeaterRow).toContainText("Default");
+  await expect(repeaterRow).toContainText("Scan");
   await repeaterRow.getByText("444.500000 MHz").click();
 
   await expect(

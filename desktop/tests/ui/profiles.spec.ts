@@ -9,6 +9,10 @@ test("previews selected sets as banks and keeps standalone additions unassigned"
   await expect(homeBank).toContainText("Bank from set");
   await expect(homeBank).toContainText("2m Calling");
   await expect(homeBank).toContainText("146.520000 MHz");
+  await expect(homeBank).toContainText("-0.600 MHz");
+  await expect(homeBank).toContainText("CTCSS 100.0 Hz");
+  await expect(homeBank).toContainText("Default");
+  await expect(homeBank).toContainText("Scan");
   await expect(weatherBank).toContainText("NOAA Weather 1");
 
   await page.getByRole("checkbox", { name: /^NOAA Weather 1 / }).check();

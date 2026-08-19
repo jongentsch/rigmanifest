@@ -9,7 +9,14 @@
     loadRadioInventory,
     saveDefaultFrequencyPlan,
   } from "$lib/api";
-  import { memoryTxSummary, mhz } from "$lib/format";
+  import {
+    memoryTxSummary,
+    mhz,
+    powerSummary,
+    scanSummary,
+    signalingSummary,
+    tuningStepSummary,
+  } from "$lib/format";
   import type {
     CompileConfiguration,
     CompileResult,
@@ -218,7 +225,7 @@
     <div class="plan-layout">
       <section class="workspace-panel memory-panel" aria-labelledby="memory-plan-heading">
         <div class="panel-heading"><div><p class="section-label">Compiled output</p><h2 id="memory-plan-heading">{plan.target.model} memory plan</h2></div><div class="panel-actions"><span class="schema-label">Schema v{plan.schema_version}</span><button class="button button--primary" onclick={exportImage} disabled={exporting}>{exporting ? "Exporting..." : "Export CHIRP IMG"}</button></div></div>
-        <div class="table-wrap"><table class="data-table"><thead><tr><th scope="col">Memory</th><th scope="col">Label</th><th scope="col">Receive</th><th scope="col">Transmit</th><th scope="col">Mode</th><th scope="col">Sources</th></tr></thead><tbody>{#each plan.memories as memory (memory.source_frequency_definition_id)}<tr><td class="memory-number">{memory.memory_number.toString().padStart(2, "0")}</td><td><strong class="radio-label">{memory.target_name}</strong><small>{memory.source_frequency_definition_id}</small></td><td class="frequency">{mhz(memory.receive_frequency_hz)}</td><td>{memoryTxSummary(memory)}</td><td>{memory.mode}</td><td><strong>{memory.source_profile_ids.join(", ") || (memory.selected_directly ? "Direct" : "—")}</strong><small>{memory.source_frequency_set_ids.join(", ")}</small></td></tr>{/each}</tbody></table></div>
+        <div class="table-wrap" role="region" aria-label="Compiled frequency table" tabindex="0"><table class="data-table"><thead><tr><th scope="col">Memory</th><th scope="col">Label</th><th scope="col">Receive</th><th scope="col">Transmit</th><th scope="col">TX access</th><th scope="col">RX squelch</th><th scope="col">Mode</th><th scope="col">Step</th><th scope="col">Power / scan</th><th scope="col">Banks</th><th scope="col">Sources</th></tr></thead><tbody>{#each plan.memories as memory (memory.source_frequency_definition_id)}<tr><td class="memory-number">{memory.memory_number.toString().padStart(2, "0")}</td><td><strong class="radio-label">{memory.target_name}</strong><small>{memory.source_frequency_definition_id}</small></td><td class="frequency">{mhz(memory.receive_frequency_hz)}</td><td>{memoryTxSummary(memory)}</td><td>{signalingSummary(memory.transmit_access)}</td><td>{signalingSummary(memory.receive_squelch)}</td><td>{memory.mode}</td><td>{tuningStepSummary(memory.tuning_step_hz)}</td><td><strong>{powerSummary(memory)}</strong><small>{scanSummary(memory.scan_skip)}</small></td><td>{memory.bank_assignments.join(", ") || "—"}</td><td><strong>{memory.source_profile_ids.join(", ") || (memory.selected_directly ? "Direct" : "—")}</strong><small>{memory.source_frequency_set_ids.join(", ")}</small></td></tr>{/each}</tbody></table></div>
       </section>
 
       <aside class="workspace-panel inspector" aria-labelledby="inspector-heading"><div class="panel-heading"><div><p class="section-label">Target and plan review</p><h2 id="inspector-heading">Plan inspector</h2></div></div><dl class="inspector-facts"><div><dt>Memory use</dt><dd>{plan.capacity.used} of {plan.capacity.capacity}</dd></div><div><dt>Profiles</dt><dd>{plan.profiles.length}</dd></div><div><dt>Factory sets</dt><dd>{plan.summary.factory_sets}</dd></div><div><dt>Target</dt><dd>{plan.target.manufacturer} {plan.target.model}</dd></div></dl><div class="inspector-section-heading"><h3>Diagnostics</h3><span>{plan.diagnostics.length}</span></div><!-- svelte-ignore a11y_no_noninteractive_tabindex --><div class="diagnostic-list" role="region" aria-label="Compilation diagnostics" tabindex="0">{#each plan.diagnostics as diagnostic, index (`${diagnostic.code}-${diagnosticSubject(diagnostic)}-${index}`)}<article class={diagnosticClass(diagnostic)}><div class="diagnostic-meta"><span>{diagnostic.severity}</span><code>{diagnostic.code}</code></div><p>{diagnostic.message}</p>{#if diagnosticSubject(diagnostic)}<small>{diagnosticSubject(diagnostic)}</small>{/if}</article>{/each}</div></aside>

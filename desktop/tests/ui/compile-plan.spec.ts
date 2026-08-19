@@ -22,6 +22,12 @@ test("compiles selected sets for the image-backed radio", async ({ page }) => {
   await expect(page.getByRole("row", { name: /02 2M LOC/ })).toContainText(
     "-0.600 MHz",
   );
+  await expect(page.getByRole("row", { name: /02 2M LOC/ })).toContainText(
+    "CTCSS 100.0 Hz",
+  );
+  await expect(page.getByRole("row", { name: /02 2M LOC/ })).toContainText(
+    "home-essentials",
+  );
   await expect(page.getByRole("row", { name: /03 70CM L/ })).toContainText(
     "+5.000 MHz",
   );
@@ -29,6 +35,9 @@ test("compiles selected sets for the image-backed radio", async ({ page }) => {
   await expect(page.getByText("US NOAA Weather Broadcasts").first()).toBeVisible();
   await expect(page.getByText("FACTORY_SET_AVAILABLE")).toHaveCount(0);
   await expect(page.getByText("TX_DISABLE_NOT_REPRESENTABLE")).toHaveCount(0);
+  for (const heading of ["TX access", "RX squelch", "Step", "Power / scan", "Banks"]) {
+    await expect(page.getByRole("columnheader", { name: heading })).toBeVisible();
+  }
 });
 
 test("recompiles and exports through the UI-test adapter", async ({ page }) => {
