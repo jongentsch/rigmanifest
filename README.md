@@ -1,182 +1,125 @@
 # RigManifest
 
 [![CI](https://github.com/jongentsch/rigmanifest/actions/workflows/ci.yml/badge.svg)](https://github.com/jongentsch/rigmanifest/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/jongentsch/rigmanifest)](https://github.com/jongentsch/rigmanifest/releases/latest)
+[![GPLv3](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
 
-**Define your radio configuration once. Compile it for every rig.**
+**Build a reusable frequency library, describe what you want on a radio, and let
+RigManifest and CHIRP turn that intent into a radio-specific image.**
 
-RigManifest is an open-source configuration-management application for programmable amateur radios.
+![RigManifest compiled memory plan](docs/images/compile-plan.png)
 
-> **RigManifest is an easy-to-use configuration-management frontend for CHIRP,
-> built around reusable RF intent rather than individual radio-memory spreadsheets.**
+RigManifest is a desktop configuration manager for programmable radios. It keeps
+frequency definitions independent of any one radio, combines them into reusable
+sets and profiles, and compiles those selections against the exact CHIRP driver and
+capabilities detected from a radio image.
 
-CHIRP supplies the radio-driver knowledge and target validation. RigManifest supplies
-the frequency library, reusable sets, profiles, radio inventory, compilation policy,
-and explanations needed to maintain multiple radios coherently.
+The result is a new CHIRP image with compatible memories and bank assignments, plus
+an explanation of every rename, omission, warning, or degraded mapping. The source
+image is never overwritten.
 
-Traditional radio-programming software starts with the destination radio:
+## Why RigManifest?
 
-> Edit memories 1–100 for this particular device.
+Traditional radio-programming tools begin with memory rows for one device.
+RigManifest begins with operator intent:
 
-RigManifest starts with operator intent:
-
-> Include my local repeaters set, the NOAA preset set, and my common simplex set.
-
-That intent is compiled for each radio according to its capabilities.
-
-```text
-Shared Frequency Catalog
-      +
-Frequency Sets
-      +
-Profiles / Intent
-      +
-Radio Capabilities
-      ↓
-RigManifest Compiler
-      ↓
-Radio-specific plan
-      ↓
-CHIRP applies memories and banks
-      ↓
-New CHIRP IMG / Radio
-```
-
-## Why
-
-CHIRP is the hardware engine and is generally good at programming radios.
-
-The frustrating part is everything before that:
-
-- deciding what belongs in each radio
-- keeping multiple radios consistent
-- handling different memory capacities
-- adapting labels
-- dealing with different receive/transmit ranges
-- managing banks or the lack of them
-- maintaining home, travel, emergency, and other reusable frequency sets
-- understanding why two radios end up with different configurations
-
-RigManifest focuses on that layer.
-
-## Initial architecture
+- “Home” can combine local repeaters, calling frequencies, and NOAA.
+- “Canada trip” can reuse some of the same sets and add trip-specific definitions.
+- The same profile can compile differently for an HT, mobile, or non-bank radio.
+- Band-plan guidance is visible but advisory; it never blocks compilation.
+- Radio-specific limits come from CHIRP instead of a parallel hand-maintained model.
 
 ```text
-Python Core
-├── compiler
-├── domain model
-├── CHIRP integration
-├── CHIRP image import/export
-└── CLI
-
-        ↕
-
-Svelte + TypeScript
-
-        ↓
-
-Tauri desktop shell
+Frequency definitions -> Sets -> Profiles --+
+                                              +-> Compile -> New CHIRP IMG
+CHIRP radio image -> Driver + capabilities --+              + diagnostics
 ```
 
-The UI is deliberately separate from the compiler.
+## Download
 
-## Adding a radio
+Get the latest build from [GitHub Releases](https://github.com/jongentsch/rigmanifest/releases/latest):
 
-Download the radio in CHIRP and save its `.img`, then add that image on RigManifest's
-My Radios page. CHIRP detects the exact model and variant. RigManifest imports its
-memories as reusable frequency definitions, its populated banks as sets, and a
-profile grouping those bank sets. The original image is stored unchanged in the
-workspace's `radios/<radio-id>/` directory. SQLite tracks the imported source and
-every compiled image version without storing their binary contents.
+| Platform | Package | Workspace behavior |
+| --- | --- | --- |
+| Windows x64 | Installer | Uses the normal per-user application-data directory |
+| Windows x64 | Portable ZIP | Keeps the workspace in `data/` beside the application |
+| Linux x86_64 | AppImage | Keeps the workspace in `data/` beside the AppImage |
+| Debian/Ubuntu x86_64 | `.deb` package | Uses the normal per-user application-data directory |
 
-## Initial CLI direction
+macOS packages are not currently produced. The release bundles include the Python
+runtime, RigManifest core, and pinned CHIRP dependency; users do not need a separate
+development environment.
 
-```bash
-rigmanifest compile home --target yaesu-vx6r
-rigmanifest compile home --target quansheng-uvk5
-rigmanifest compile home --target retevis-rt95
-```
+> RigManifest is early-release software. Keep the original image downloaded from
+> your radio and verify a generated image in CHIRP before uploading it to hardware.
+
+## Quick start
+
+1. Download the radio with CHIRP and save its `.img` file.
+2. Open **My radios**, choose **Add radio from IMG**, and select that image.
+3. Review the imported frequency definitions, bank-backed sets, and profile.
+4. Build or refine reusable sets in **Frequency library**.
+5. Combine sets and individual definitions into profiles such as Home, Travel, or
+   Emergency.
+6. Open **Compile & export**, choose one radio and any combination of profiles, sets,
+   and individual definitions, then compile.
+7. Review diagnostics and export a new CHIRP image. Open it in CHIRP to upload it to
+   the radio.
+
+RigManifest does not currently clone directly to or from a radio. CHIRP remains the
+hardware communication layer.
+
+See the [Getting Started guide](docs/getting-started.md) for a complete first-run
+walkthrough.
+
+## The model
+
+- A **frequency definition** describes target-independent RF intent: receive and
+  transmit behavior, signaling, mode, step, label, and notes. It is not a radio
+  channel or memory location.
+- A **frequency set** is an ordered, reusable group of definitions. Imported radio
+  banks become sets; built-in service presets are read-only sets.
+- A **profile** combines any number of sets and individual definitions for a place,
+  trip, or operating role.
+- A **radio** begins with a CHIRP image. That image identifies the exact driver,
+  available memories, banks, settings, and supported values.
+- A **compile** combines one radio with zero or more profiles, extra sets, and extra
+  definitions. Compatible intent becomes memories and bank mappings; incompatibilities
+  are reported instead of silently coerced.
+
+The [Concepts guide](docs/concepts.md) explains these boundaries and the relationship
+between RigManifest and CHIRP.
+
+## Documentation
+
+- [Getting Started](docs/getting-started.md) — install, import a radio, compile, and export
+- [User Guide](docs/user-guide.md) — page-by-page workflows with screenshots
+- [Core Concepts](docs/concepts.md) — definitions, sets, profiles, banks, and images
+- [Product Vision](docs/product-vision.md) — the problem and long-term direction
+- [Architecture](docs/architecture.md) — desktop, compiler, persistence, and updater boundaries
+- [CHIRP Integration](docs/chirp-integration.md) — driver, image, validation, and export strategy
+- [Domain Model](docs/domain-model.md) — canonical entities and invariants
+- [Compiler Design](docs/compiler-design.md) — deterministic selection and diagnostics
+- [US Amateur Frequency Practices](docs/us-amateur-frequency-practices.md) — sourced advisory-plan notes
+- [Desktop Development](desktop/README.md) — packaging, UI testing, and release details
 
 ## Development
 
-The first executable slice currently includes:
-
-- immutable typed frequency-definition, set, radio-model, and plan models
-- deterministic profile compilation
-- structured diagnostics and omissions
-- a pinned, headless CHIRP dependency and capability adapter
-- image-backed radio detection and capability discovery through CHIRP
-- CHIRP-managed IMG export that preserves settings and bank mappings
-- sourced read-only US FRS, GMRS, MURS, Citizens Band, aviation-guard, and
-  regulated 60-meter discrete-frequency sets
-- the `home` in-memory fixture
-- a Typer CLI
-- a versioned newline-delimited JSON sidecar boundary
-- a minimal Svelte 5 + Tauri 2 desktop UI for compiling, reviewing diagnostics,
-  and exporting CHIRP radio images
-- a dark-first Modern Workshop interface with persistent Dark, Light, and
-  System appearance modes
-- versioned SQLite persistence for user-owned frequency definitions, sets,
-  reusable profiles, radio instances, and advisory plan context, with first-run
-  local-storage migration and native database backups
-- Dockerized Playwright coverage for compile/export behavior, appearance
-  modes, accessibility, and visual regressions
-- a Windows installer containing the Python runtime, pinned CHIRP build, and
-  RigManifest compiler as a Tauri sidecar
-- cryptographically signed GitHub Release updates with automatic daily checks,
-  user-approved installation, and pre-update workspace backups
-
-Set up the Python project and run its tests:
+Requirements: Python 3.12+, Node.js, pnpm, Rust, and the
+[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 ```bash
 python -m venv .venv
 python -m pip install -e ".[dev]"
 python -m pytest
-```
 
-Exercise the first CLI path:
-
-```bash
-rigmanifest compile home --target yaesu-vx6r --output home-yaesu-vx6r.csv
-```
-
-Run the desktop app after completing the Python setup and installing the
-[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/):
-
-```bash
 cd desktop
 pnpm install
+pnpm check
 pnpm tauri dev
 ```
 
-Build the self-contained Windows installer from PowerShell:
-
-```powershell
-cd desktop
-pnpm bundle:windows
-```
-
-The installer is written under `desktop/src-tauri/target/release/bundle/nsis`.
-A portable ZIP is also written to `dist/portable`. Its workspace lives in the
-`data` folder beside `RigManifest.exe`, so moving or backing up the extracted
-folder moves the complete application state. Neither distribution requires
-Python, CHIRP, Node, or a source checkout on the destination computer.
-
-Normal pushes and pull requests run tests without producing distribution
-packages. Pushing a version tag such as `v0.1.0` runs the release workflow,
-verifies that the Python, desktop, and Tauri versions match the tag, builds on
-native Windows and Linux runners, and attaches the Windows installer, Windows
-portable ZIP, Linux Debian package, Linux AppImage, and checksums to the
-corresponding GitHub Release. It also publishes signed updater artifacts and a
-`latest.json` manifest consumed directly from GitHub Releases.
-
-Installed Windows and Linux AppImage builds can download, verify, install, and
-restart into an update from the Settings page. Update checks are automatic at
-most once every 24 hours by default, but installation always requires approval.
-Windows portable and Debian builds notify the user and open the matching GitHub
-Release for manual replacement. In-app installation writes a consistent SQLite
-backup under the workspace's `backups` directory before downloading the update.
-
-Run the deterministic renderer-level UI suite in Docker:
+Run the deterministic browser suite in Docker:
 
 ```bash
 cd desktop
@@ -184,51 +127,19 @@ docker compose -f compose.ui-tests.yaml build
 docker compose -f compose.ui-tests.yaml run --rm ui-tests
 ```
 
-The test image includes its own pinned Chromium runtime, so no host browser
-setup is required. See `desktop/README.md` for test scope and snapshot updates.
+CI runs Python tests with branch coverage, frontend checks/builds, Dockerized
+Playwright accessibility and visual tests, and Rust formatting, Clippy, and tests.
+Native packages are built only for version tags.
 
-During development, the desktop shell calls the Python compiler from the
-repository's `.venv` by default; set `RIGMANIFEST_PYTHON` to use another Python
-executable. Release bundles call only the frozen sidecar shipped with the app.
+## Project status
 
-The sample profile selects a user-owned `Home essentials` set and the read-only
-`US NOAA Weather Broadcasts` preset. The VX-6R radio model references the NOAA
-set as its factory `WX CH` set, so those definitions are reported separately
-and do not consume programmable memories or appear in the CHIRP CSV. Current
-CHIRP editing support for that factory set is explicitly recorded as unsupported.
+RigManifest is usable but still evolving. The current focus is reliable image-backed
+radio inventory, maintainable frequency intent, bank-aware compilation, explainable
+diagnostics, and safe public releases. Issues and focused pull requests are welcome.
 
-User-owned catalog records, radio instances, reusable profiles, and the default
-compile-time plan context are stored in a versioned SQLite database. Installed
-builds place it under the platform application-data directory. The Windows
-portable bundle and Linux AppImage place it in a `data` folder beside the
-application. Versioned radio images live under the sibling `radios` directory;
-workspace backups copy that directory alongside the backup database. A first run
-imports the earlier webview local-storage records once; the Library page can write
-a consistent native SQLite backup. Every compile
-request still sends the user catalog partition through the Python validation
-boundary and combines it with the immutable built-in preset partition.
-
-A compile selection is one radio plus zero or more profiles, additional sets, and
-additional individual frequency definitions. Profiles may themselves reference
-many sets and many individual definitions. Profile and compile-wide band plans add
-sourced warnings only; they never block compilation or remove a compatible memory.
-
-Frequency definitions are not restricted to the bands supported by the current radio
-inventory. A user may keep HF, VHF, UHF, or receive-only definitions in the shared
-catalog; compilation omits anything the selected target cannot safely represent and
-reports the reason.
-
-See `docs/first-slice-plan.md` for the architecture decisions and delivery
-sequence.
+CHIRP is an intentional upstream dependency and remains the authority for radio
+drivers, image formats, target-memory validation, and device communication.
 
 ## License
 
-RigManifest is licensed under the GNU General Public License v3.0.
-
-CHIRP is an intentional upstream dependency.
-
-## Status
-
-Functional first-slice implementation preparing for its first public release.
-
-Read `AGENTS.md` and the `docs/` directory before implementation.
+RigManifest is licensed under the [GNU General Public License v3.0](LICENSE).
