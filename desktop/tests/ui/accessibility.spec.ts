@@ -19,3 +19,12 @@ test("frequency catalog editor has no detectable accessibility violations", asyn
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
 });
+
+test("radio model search has no detectable accessibility violations", async ({ page }) => {
+  await page.goto("/radios");
+  await expect(page.getByRole("heading", { name: "My radios" })).toBeVisible();
+  await page.getByLabel("Find manufacturer or model").fill("quansheng");
+
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
+});

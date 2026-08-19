@@ -14,17 +14,23 @@
   let selectedRadioId = $state("");
   let failure = $state("");
   let saved = $state(false);
+  let modelQuery = $state("");
 
   let selectedRadio = $derived(radios.find((item) => item.id === selectedRadioId) ?? null);
   let selectedModel = $derived(
     catalog?.radio_models.find((item) => item.id === selectedRadio?.radioModelId) ?? null,
   );
+  let modelGroups = $derived(groupModels(catalog?.radio_models ?? [], modelQuery));
 
   onMount(async () => {
     try {
       catalog = await loadCatalog();
       radios = loadRadioInventory();
       selectedRadioId = radios[0]?.id ?? "";
+      const initialModel =
+        catalog.radio_models.find((item) => item.id === radios[0]?.radioModelId) ??
+        catalog.radio_models[0];
+      modelQuery = initialModel ? modelLabel(initialModel) : "";
     } catch (error) {
       failure = errorMessage(error);
     }
@@ -43,6 +49,7 @@
     const radio = createRadioInstance(model.id, model.memory_start);
     radios = [...radios, radio];
     selectedRadioId = radio.id;
+    modelQuery = modelLabel(model);
     saved = false;
   }
 
@@ -59,13 +66,21 @@
     saved = true;
   }
 
-  function changeModel(event: Event): void {
-    const radioModelId = (event.currentTarget as HTMLSelectElement).value;
-    const model = catalog?.radio_models.find((item) => item.id === radioModelId);
+  function chooseModel(model: RadioModelRecord): void {
     updateRadio({
-      radioModelId,
-      memoryStart: model?.memory_start ?? selectedRadio?.memoryStart ?? 1,
+      radioModelId: model.id,
+      memoryStart: model.memory_start,
     });
+    modelQuery = modelLabel(model);
+  }
+
+  function selectRadio(radio: RadioInstance): void {
+    selectedRadioId = radio.id;
+    const model = catalog?.radio_models.find(
+      (item) => item.id === radio.radioModelId,
+    );
+    modelQuery = model ? modelLabel(model) : "";
+    saved = false;
   }
 
   function errorMessage(error: unknown): string {
@@ -76,6 +91,26 @@
 
   function modelLabel(model: RadioModelRecord): string {
     return `${model.manufacturer} ${model.model}`;
+  }
+
+  function groupModels(
+    models: RadioModelRecord[],
+    query: string,
+  ): Array<{ manufacturer: string; models: RadioModelRecord[] }> {
+    const needle = query.trim().toLocaleLowerCase();
+    const filtered = models.filter((model) =>
+      `${model.manufacturer} ${model.model}`.toLocaleLowerCase().includes(needle),
+    );
+    const manufacturers = new Map<string, RadioModelRecord[]>();
+    for (const model of filtered) {
+      const group = manufacturers.get(model.manufacturer) ?? [];
+      group.push(model);
+      manufacturers.set(model.manufacturer, group);
+    }
+    return [...manufacturers.entries()].map(([manufacturer, groupedModels]) => ({
+      manufacturer,
+      models: groupedModels,
+    }));
   }
 </script>
 
@@ -110,7 +145,7 @@
             <button
               class:active={radio.id === selectedRadioId}
               class="radio-row"
-              onclick={() => selectedRadioId = radio.id}
+              onclick={() => selectRadio(radio)}
             >
               <span><strong>{radio.name}</strong><small>{catalog.radio_models.find((item) => item.id === radio.radioModelId)?.model ?? radio.radioModelId}</small></span>
             </button>
@@ -129,7 +164,30 @@
 
         <div class="form-grid">
           <label><span>Radio name</span><input value={selectedRadio.name} oninput={(event) => updateRadio({ name: event.currentTarget.value })} /></label>
-          <label><span>Radio model</span><select value={selectedRadio.radioModelId} onchange={changeModel}>{#each catalog.radio_models as model}<option value={model.id}>{modelLabel(model)}</option>{/each}</select></label>
+          <div class="model-picker full">
+            <label for="model-search"><span>Find manufacturer or model</span></label>
+            <input id="model-search" type="search" bind:value={modelQuery} autocomplete="off" placeholder="Search Yaesu, Quansheng, Retevisâ€¦" />
+            <div class="model-picker-results" aria-label="Radio model results" aria-live="polite">
+              {#each modelGroups as group (group.manufacturer)}
+                <section>
+                  <h3>{group.manufacturer}</h3>
+                  {#each group.models as model (model.id)}
+                    <button
+                      type="button"
+                      class:selected={model.id === selectedRadio.radioModelId}
+                      aria-pressed={model.id === selectedRadio.radioModelId}
+                      onclick={() => chooseModel(model)}
+                    >
+                      <span><strong>{model.model}</strong><small>{model.chirp_driver_reference ?? "No CHIRP driver"}</small></span>
+                      {#if model.id === selectedRadio.radioModelId}<b>Selected</b>{/if}
+                    </button>
+                  {/each}
+                </section>
+              {:else}
+                <p>No radio models match â€œ{modelQuery}â€.</p>
+              {/each}
+            </div>
+          </div>
           <label><span>First programmable memory</span><input type="number" min="0" value={selectedRadio.memoryStart} oninput={(event) => updateRadio({ memoryStart: event.currentTarget.valueAsNumber })} /></label>
           <label class="check-field"><input type="checkbox" checked={selectedRadio.mapSetsToBanks} onchange={(event) => updateRadio({ mapSetsToBanks: event.currentTarget.checked })} /><span>Map selected sets to radio banks when supported</span></label>
           <label class="full"><span>Notes</span><textarea rows="4" value={selectedRadio.notes} oninput={(event) => updateRadio({ notes: event.currentTarget.value })}></textarea></label>
