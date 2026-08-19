@@ -6,6 +6,25 @@ const [baseConfig, releaseConfig, packageManifest] = await Promise.all([
   readJson("src-tauri/tauri.release.conf.json"),
   readJson("package.json"),
 ]);
+const [pyproject, cargoManifest] = await Promise.all([
+  readFile("../pyproject.toml", "utf8"),
+  readFile("src-tauri/Cargo.toml", "utf8"),
+]);
+
+const manifestVersion = (source, label) => {
+  const match = source.match(/^version\s*=\s*"([^"]+)"/m);
+  if (!match) throw new Error(`Could not read the version from ${label}.`);
+  return match[1];
+};
+const versions = {
+  "package.json": packageManifest.version,
+  "tauri.conf.json": baseConfig.version,
+  "pyproject.toml": manifestVersion(pyproject, "pyproject.toml"),
+  "Cargo.toml": manifestVersion(cargoManifest, "Cargo.toml"),
+};
+if (new Set(Object.values(versions)).size !== 1) {
+  throw new Error(`Release versions are not synchronized: ${JSON.stringify(versions)}`);
+}
 
 if (baseConfig.bundle?.createUpdaterArtifacts === true) {
   throw new Error("Normal local Tauri builds must not create updater artifacts.");
