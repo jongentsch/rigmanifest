@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from rigmanifest.capabilities import VX6R_USA
+from rigmanifest.capabilities import BUILTIN_TARGETS, RT95, UVK5, VX6R_USA
 from rigmanifest.chirp_adapter import (
     CHIRP_COMMIT,
     ChirpCapabilityOverlay,
@@ -111,6 +111,55 @@ def test_initial_driver_families_map_through_the_same_adapter(
     assert model.capabilities.valid_tuning_steps_hz
     assert model.capabilities.valid_ctcss_tones_hz
     assert model.capabilities.valid_dtcs_codes
+
+
+@pytest.mark.parametrize(
+    ("target", "driver", "manufacturer", "upper_tx_hz"),
+    [
+        (UVK5, "Quansheng_UV-K5", "Quansheng", 470_000_000),
+        (RT95, "Retevis_RT95", "Retevis", 490_000_000),
+    ],
+)
+def test_additional_chirp_targets_are_built_in_and_sourced(
+    target: RadioModel,
+    driver: str,
+    manufacturer: str,
+    upper_tx_hz: int,
+) -> None:
+    assert BUILTIN_TARGETS[target.id] is target
+    assert target.chirp_driver_reference == driver
+    assert target.manufacturer == manufacturer
+    assert target.capabilities.memory_capacity == 200
+    assert target.capabilities.transmit_ranges[-1].upper_hz == upper_tx_hz
+    assert target.capabilities.source_notes[0].endswith(CHIRP_COMMIT)
+    assert len(target.capabilities.source_notes) == 3
+
+
+@pytest.mark.parametrize("target", [UVK5, RT95])
+def test_additional_targets_compile_and_validate_a_two_meter_memory(
+    target: RadioModel,
+) -> None:
+    definition = FrequencyDefinition(
+        id="two-meter-simplex",
+        name="Two meter simplex",
+        receive_frequency_hz=146_520_000,
+        transmit_behavior=TransmitBehavior.SAME,
+        transmit_access=SignalingSpec(
+            kind=SignalingKind.CTCSS,
+            ctcss_hz=100.0,
+        ),
+    )
+
+    plan = compile_profile(
+        _catalog_for(definition),
+        _profile(),
+        target,
+        memory_validator=chirp_memory_validator(target.chirp_driver_reference or ""),
+    )
+
+    assert plan.error_count == 0
+    assert len(plan.memories) == 1
+    assert plan.memories[0].receive_frequency_hz == 146_520_000
 
 
 def test_hf_definition_is_valid_catalog_intent_but_not_vx6_transmit_intent() -> None:

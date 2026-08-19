@@ -54,8 +54,13 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
             "frequency_set_ids": ["home-essentials", "us-noaa-weather"],
         }
     ]
-    assert result["radio_models"][0]["id"] == "yaesu-vx6r"
-    assert result["radio_models"][0]["factory_frequency_sets"] == [
+    assert [item["id"] for item in result["radio_models"]] == [
+        "quansheng-uv-k5",
+        "retevis-rt95",
+        "yaesu-vx6r",
+    ]
+    vx6 = next(item for item in result["radio_models"] if item["id"] == "yaesu-vx6r")
+    assert vx6["factory_frequency_sets"] == [
         {
             "frequency_set_id": "us-noaa-weather",
             "frequency_set_name": "US NOAA Weather Broadcasts",
@@ -64,6 +69,9 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
             "chirp_editing": "unsupported",
         }
     ]
+    assert next(
+        item for item in result["radio_models"] if item["id"] == "quansheng-uv-k5"
+    )["chirp_driver_reference"] == "Quansheng_UV-K5"
     assert len(result["frequency_definitions"]) == 13
     assert {item["origin"] for item in result["frequency_sets"]} == {
         "preset",

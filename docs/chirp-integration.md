@@ -43,6 +43,25 @@ The adapter currently obtains these facts from CHIRP:
 - bank support
 - separate receive-DCS and DCS-polarity support
 
+## Built-in targets
+
+The selectable target registry currently contains:
+
+- Yaesu VX-6R (USA), backed by `Yaesu_VX-6`;
+- Quansheng UV-K5 with stock firmware ranges, backed by `Quansheng_UV-K5`;
+- Retevis RT95 using CHIRP's permissive region variant until an image supplies its
+  region byte, backed by `Retevis_RT95`.
+
+The UV-K5 overlay limits transmission to the stock-manual 136-174 and 400-470 MHz
+ranges even though CHIRP intentionally exposes expanded receive/firmware bands. The
+RT95 driver exposes three region variants and, without an image, documents and uses
+136-174 and 400-490 MHz. Its transmit overlay matches that explicit CHIRP fallback.
+
+Sources: [CHIRP UV-K5 driver](https://github.com/kk7ds/chirp/blob/fa27a491d275f88b452d0488a51b4c85d4f7062a/chirp/drivers/uvk5.py),
+[CHIRP RT95 family driver](https://github.com/kk7ds/chirp/blob/fa27a491d275f88b452d0488a51b4c85d4f7062a/chirp/drivers/anytone778uv.py),
+[Retevis RT95 manual](https://v3.retevis.com/Themes/Retevis/Assets/files/download/Manuals_Mobile_Radios/RT95-Multi-Language-Manual.pdf),
+and the Quansheng UV-K5 user manual supplied with the radio.
+
 The compiler still owns selection, capacity policy, deterministic ordering, safety
 policy, diagnostics, and omission behavior. A compiled memory that passes the
 RigManifest capability checks is translated to `chirp_common.Memory` and passed to
