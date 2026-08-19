@@ -113,9 +113,11 @@ if (-not $SidecarOnly) {
         Pop-Location
     }
 
-    $releaseDirectory = Join-Path $desktopRoot "src-tauri/target/release"
-    $portableDirectory = Join-Path $repositoryRoot "build/portable-package/RigManifest"
     $tauriConfig = Get-Content (Join-Path $desktopRoot "src-tauri/tauri.conf.json") | ConvertFrom-Json
+    $releaseDirectory = Join-Path $desktopRoot "src-tauri/target/release"
+    $portableBuildId = [guid]::NewGuid().ToString("N")
+    $portableDirectory = Join-Path $repositoryRoot "build/portable-package/$portableBuildId/RigManifest"
+    $portableAssetsDirectory = Join-Path $desktopRoot "portable"
     $portableArchiveName = "RigManifest_$($tauriConfig.version)_x64-portable.zip"
     $portableArchive = Join-Path $repositoryRoot "dist/portable/$portableArchiveName"
     $portableArchiveDirectory = Split-Path -Parent $portableArchive
@@ -127,6 +129,8 @@ if (-not $SidecarOnly) {
         -Destination (Join-Path $portableDirectory "rigmanifest-sidecar.exe") -Force
     Copy-Item -LiteralPath (Join-Path $repositoryRoot "LICENSE") `
         -Destination (Join-Path $portableDirectory "LICENSE") -Force
+    Get-ChildItem -LiteralPath $portableAssetsDirectory | Copy-Item `
+        -Destination $portableDirectory -Recurse -Force
     Get-ChildItem -LiteralPath $portableDirectory | Compress-Archive `
         -DestinationPath $portableArchive -Force
     Write-Host "No-install portable archive ready: $portableArchive"

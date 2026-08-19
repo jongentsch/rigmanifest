@@ -154,13 +154,17 @@ pnpm bundle:windows
 ```
 
 The installer is written under `desktop/src-tauri/target/release/bundle/nsis`.
-A no-install ZIP is also written to `dist/portable`. Neither distribution
-requires Python, CHIRP, Node, or a source checkout on the destination computer.
+A portable ZIP is also written to `dist/portable`. Its workspace lives in the
+`data` folder beside `RigManifest.exe`, so moving or backing up the extracted
+folder moves the complete application state. Neither distribution requires
+Python, CHIRP, Node, or a source checkout on the destination computer.
 
 Normal pushes and pull requests run tests without producing distribution
 packages. Pushing a version tag such as `v0.1.0` runs the release workflow,
-verifies that the Python, desktop, and Tauri versions match the tag, and attaches
-both Windows packages to the corresponding GitHub Release.
+verifies that the Python, desktop, and Tauri versions match the tag, builds on
+native Windows and Linux runners, and attaches the Windows installer, Windows
+portable ZIP, Linux Debian package, Linux AppImage, and checksums to the
+corresponding GitHub Release.
 
 Run the deterministic renderer-level UI suite in Docker:
 
@@ -184,9 +188,10 @@ and do not consume programmable memories or appear in the CHIRP CSV. Current
 CHIRP editing support for that factory set is explicitly recorded as unsupported.
 
 User-owned catalog records, radio instances, reusable profiles, and the default
-compile-time plan context are
-stored in a versioned SQLite database under the platform application-data
-directory. A first run imports the earlier webview local-storage records once;
+compile-time plan context are stored in a versioned SQLite database. Installed
+builds place it under the platform application-data directory. The Windows
+portable bundle and Linux AppImage place it in a `data` folder beside the
+application. A first run imports the earlier webview local-storage records once;
 the Library page can write a consistent native SQLite backup. Every compile
 request still sends the user catalog partition through the Python validation
 boundary and combines it with the immutable built-in preset partition.

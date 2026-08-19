@@ -296,10 +296,11 @@ sends the complete user partition back across IPC; Python reconstructs and valid
 the shared catalog before invoking the compiler. SQLite is therefore an authoring
 store, not a trusted compiler input.
 
-The Rust shell chooses the platform application-data path. Python owns migrations,
+The Rust shell chooses either the platform application-data path for installed builds
+or the application-adjacent `data` path for portable builds. Python owns migrations,
 validation, atomic partition replacement, and consistent SQLite backups. Serialized
-frontend saves preserve edit order, and legacy webview keys are cleared only after
-the first database import succeeds.
+frontend saves preserve edit order, and legacy webview keys are cleared only after the
+first database import succeeds.
 
 CHIRP CSV import crosses the same validation boundary. A CHIRP memory is translated
 into a new user-owned frequency definition and provenance is retained in notes; its

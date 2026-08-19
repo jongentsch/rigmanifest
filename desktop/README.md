@@ -24,13 +24,13 @@ Dark is the first-run default, and the selected preference persists between
 launches.
 
 User catalog records, radio instances, reusable profiles, and advisory plan context persist in
-`rigmanifest.sqlite3` under the platform application-data directory. Existing
-webview local-storage records are imported once on first open. Use **Back up
-workspace** on the Frequency Library page to create a consistent SQLite copy.
-`RIGMANIFEST_DATABASE` can override the database path for isolated native smoke
-tests.
+`rigmanifest.sqlite3`. Installed builds use the platform application-data directory;
+portable builds use a `data` directory beside the application. Existing webview
+local-storage records are imported once on first open. Use **Back up workspace**
+on the Frequency Library page to create a consistent SQLite copy.
+`RIGMANIFEST_DATABASE` can override the database path for isolated native smoke tests.
 
-## Portable Windows bundle
+## Desktop distribution bundles
 
 After completing the development setup, build the sidecar and NSIS installer:
 
@@ -42,14 +42,31 @@ pnpm bundle:windows
 pinned CHIRP package into a target-triple-suffixed sidecar, smoke-tests its JSON
 catalog response, and then runs the Tauri release build. It produces both a
 self-contained installer under `src-tauri/target/release/bundle/nsis` and a
-no-install ZIP under the repository's `dist/portable` directory. Destination
-machines do not need Python, CHIRP, Node, or this repository.
+portable ZIP under the repository's `dist/portable` directory. The ZIP contains
+the app, sidecar, license, portable marker, instructions, and `data` directory.
+The workspace database stays in that directory rather than platform app data.
+Destination machines do not need Python, CHIRP, Node, or this repository.
 
 To build and smoke-test only the frozen sidecar:
 
 ```powershell
 pnpm sidecar:windows
 ```
+
+On Linux x64, build a Debian package and AppImage:
+
+```bash
+pnpm bundle:linux
+```
+
+The build freezes a native Linux sidecar and writes consistently named packages
+under `dist/linux`. The Debian package uses the normal platform application-data
+directory. AppImage sets its absolute source path at runtime; RigManifest uses
+that location to keep its workspace in a sibling `data` directory. After
+downloading an AppImage, make it executable with `chmod +x RigManifest_*.AppImage`.
+
+Tagged releases build Windows and Linux packages on their native runners and
+publish all four distributions plus `SHA256SUMS.txt` in one GitHub Release.
 
 ## Verification
 
@@ -79,6 +96,6 @@ docker compose -f compose.ui-tests.yaml run --rm ui-tests pnpm test:ui:update
 
 These tests cover the renderer and its contract with the desktop boundary;
 they do not replace native Tauri/WebDriver smoke tests for windowing or dialogs.
-The portable build script and tagged-release workflow exercise the frozen Python
-sidecar and build the native installer. Push and pull-request CI runs the test
+The platform build scripts and tagged-release workflow exercise the frozen Python
+sidecars and build the native packages. Push and pull-request CI runs the test
 suites without spending time on distribution packaging.

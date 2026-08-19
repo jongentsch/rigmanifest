@@ -120,11 +120,14 @@ rigmanifest/
 ## Persistence
 
 The desktop persists user-owned catalog records, radio instances, reusable profiles,
-and default advisory-plan context in a versioned SQLite database under the platform
-application-data directory. The Rust shell owns the database path and delegates
-schema migration, validation, atomic writes, and backup to the Python persistence
-boundary. On first open only, legacy webview local-storage records are supplied as
-an import candidate and cleared after the database confirms the migration.
+and default advisory-plan context in a versioned SQLite database. Installed builds
+use the platform application-data directory. A marker makes the Windows portable
+bundle use its adjacent `data` directory; the Linux AppImage derives the same layout
+from the AppImage runtime's absolute source path. The Rust shell owns this path
+selection and delegates schema migration, validation, atomic writes, and backup to
+the Python persistence boundary. On first open only, legacy webview local-storage
+records are supplied as an import candidate and cleared after the database confirms
+the migration.
 
 The Library page exposes a native save dialog for a consistent SQLite backup.
 Frontend saves are serialized so quick successive edits cannot arrive out of order.

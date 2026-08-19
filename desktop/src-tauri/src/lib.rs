@@ -1,10 +1,9 @@
 use serde_json::{json, Value};
 use std::env;
+use std::ffi::OsStr;
 #[cfg(debug_assertions)]
 use std::io::Write;
-#[cfg(debug_assertions)]
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 #[cfg(debug_assertions)]
 use std::process::{Command, Stdio};
 use tauri::Manager;
@@ -16,6 +15,10 @@ use std::os::windows::process::CommandExt;
 
 #[cfg(all(debug_assertions, windows))]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+const PORTABLE_MARKER_FILE: &str = "rigmanifest-portable.marker";
+const PORTABLE_DATA_DIRECTORY: &str = "data";
+const WORKSPACE_DATABASE_FILE: &str = "rigmanifest.sqlite3";
 
 #[cfg(debug_assertions)]
 fn source_root() -> Result<PathBuf, String> {
@@ -156,17 +159,46 @@ async fn invoke_python(app: &tauri::AppHandle, request: Value) -> Result<Value, 
     Err("bundled sidecar closed without returning a response".to_owned())
 }
 
+fn portable_data_directory_for(
+    executable: Option<&Path>,
+    appimage: Option<&OsStr>,
+    marker_exists: bool,
+) -> Option<PathBuf> {
+    if let Some(appimage_path) = appimage.map(PathBuf::from) {
+        return appimage_path
+            .parent()
+            .map(|directory| directory.join(PORTABLE_DATA_DIRECTORY));
+    }
+
+    let executable_directory = executable?.parent()?;
+    marker_exists.then(|| executable_directory.join(PORTABLE_DATA_DIRECTORY))
+}
+
+fn portable_data_directory() -> Option<PathBuf> {
+    let executable = env::current_exe().ok();
+    let marker_exists = executable
+        .as_deref()
+        .and_then(Path::parent)
+        .is_some_and(|directory| directory.join(PORTABLE_MARKER_FILE).is_file());
+    let appimage = env::var_os("APPIMAGE");
+    portable_data_directory_for(executable.as_deref(), appimage.as_deref(), marker_exists)
+}
+
 fn workspace_database_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     if let Some(path) = env::var_os("RIGMANIFEST_DATABASE") {
         return Ok(PathBuf::from(path));
     }
-    let directory = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| format!("failed to locate application data: {error}"))?;
+
+    let directory = if let Some(portable_directory) = portable_data_directory() {
+        portable_directory
+    } else {
+        app.path()
+            .app_data_dir()
+            .map_err(|error| format!("failed to locate application data: {error}"))?
+    };
     std::fs::create_dir_all(&directory)
-        .map_err(|error| format!("failed to create application data directory: {error}"))?;
-    Ok(directory.join("rigmanifest.sqlite3"))
+        .map_err(|error| format!("failed to create workspace data directory: {error}"))?;
+    Ok(directory.join(WORKSPACE_DATABASE_FILE))
 }
 
 #[tauri::command]
@@ -305,8 +337,10 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_sidecar_response;
+    use super::{parse_sidecar_response, portable_data_directory_for};
     use serde_json::Value;
+    use std::ffi::OsStr;
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn extracts_result_from_sidecar_response() {
@@ -324,6 +358,33 @@ mod tests {
         .expect_err("error response should fail");
 
         assert_eq!(error, "bad target");
+    }
+
+    #[test]
+    fn marked_bundle_keeps_workspace_beside_the_executable() {
+        let executable = Path::new("release").join("RigManifest.exe");
+
+        let directory = portable_data_directory_for(Some(&executable), None, true);
+
+        assert_eq!(directory, Some(PathBuf::from("release").join("data")));
+    }
+
+    #[test]
+    fn installed_bundle_does_not_override_platform_app_data() {
+        let executable = Path::new("installed").join("RigManifest.exe");
+
+        let directory = portable_data_directory_for(Some(&executable), None, false);
+
+        assert_eq!(directory, None);
+    }
+
+    #[test]
+    fn appimage_keeps_workspace_beside_the_image() {
+        let appimage = OsStr::new("release/RigManifest.AppImage");
+
+        let directory = portable_data_directory_for(None, Some(appimage), false);
+
+        assert_eq!(directory, Some(PathBuf::from("release").join("data")));
     }
 
     #[test]
