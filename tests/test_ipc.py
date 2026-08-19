@@ -21,7 +21,7 @@ def test_compile_request_returns_set_based_plan() -> None:
     assert response["id"] == "request-1"
     result = response["result"]
     assert isinstance(result, dict)
-    assert result["schema_version"] == 4
+    assert result["schema_version"] == 5
     assert result["summary"] == {
         "included": 13,
         "programmed": 3,
@@ -48,12 +48,14 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
 
     result = response["result"]
     assert isinstance(result, dict)
-    assert result["schema_version"] == 6
+    assert result["schema_version"] == 7
     assert result["profiles"] == [
         {
             "id": "home",
             "name": "Home",
+            "description": "Everyday local operating frequencies and weather coverage.",
             "frequency_set_ids": ["home-essentials", "us-noaa-weather"],
+            "frequency_definition_ids": [],
             "frequency_plan_id": "arrl-us-national",
         }
     ]
@@ -123,7 +125,7 @@ def test_workspace_requests_persist_and_backup_state(tmp_path) -> None:
         "method": "load_workspace",
         "params": {"database_path": str(database), "legacy_state": None},
     })["result"]
-    assert loaded["schema_version"] == 1
+    assert loaded["schema_version"] == 2
 
     loaded["radios"][0]["name"] = "Portable"
     saved = handle_request({
@@ -163,6 +165,62 @@ def test_compile_request_accepts_an_explicit_set_selection(tmp_path) -> None:
     assert response["result"]["summary"]["programmed"] == 3
     assert response["result"]["summary"]["factory_provided"] == 0
     assert output.read_text(encoding="utf-8").startswith("Location,Name,Frequency")
+
+
+def test_compile_request_composes_profiles_sets_and_direct_definitions() -> None:
+    response = handle_request(
+        {
+            "id": "selection",
+            "method": "compile",
+            "params": {
+                "target": "yaesu-vx6r",
+                "profiles": [
+                    {
+                        "id": "home",
+                        "name": "Home",
+                        "description": "",
+                        "frequency_set_ids": ["home-essentials"],
+                        "frequency_definition_ids": [],
+                        "frequency_plan_id": "kansas-repeater-council",
+                    },
+                    {
+                        "id": "vacation",
+                        "name": "Vacation",
+                        "description": "",
+                        "frequency_set_ids": ["home-essentials"],
+                        "frequency_definition_ids": ["us-noaa-weather-1"],
+                        "frequency_plan_id": "southern-nevada-repeater-council",
+                    },
+                ],
+                "additional_frequency_set_ids": [],
+                "additional_frequency_definition_ids": ["simplex-calling-2m"],
+                "advisory_plan_id": "arrl-us-national",
+            },
+        }
+    )
+
+    assert "error" not in response
+    result = response["result"]
+    assert [profile["id"] for profile in result["profiles"]] == [
+        "home",
+        "vacation",
+    ]
+    assert result["selection"] == {
+        "additional_frequency_set_ids": [],
+        "additional_frequency_definition_ids": ["simplex-calling-2m"],
+        "advisory_plan_id": "arrl-us-national",
+    }
+    calling = next(
+        memory
+        for memory in result["memories"]
+        if memory["source_frequency_definition_id"] == "simplex-calling-2m"
+    )
+    assert calling["source_profile_ids"] == ["home", "vacation"]
+    assert calling["selected_directly"] is True
+    assert any(
+        diagnostic["code"] == "PLAN_CONTEXT_CONFLICT"
+        for diagnostic in result["diagnostics"]
+    )
 
 
 def test_compile_request_accepts_persisted_user_catalog_records() -> None:

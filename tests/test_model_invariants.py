@@ -102,7 +102,6 @@ def test_catalog_lookup_failures_are_key_errors() -> None:
     "arguments",
     [
         ("", "Name", ("set",)),
-        ("id", "Name", ()),
         ("id", "Name", ("set", "set")),
     ],
 )

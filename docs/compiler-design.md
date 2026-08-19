@@ -4,7 +4,9 @@
 
 ```text
 Frequency Catalog
-+ Profile (selected frequency-set IDs)
++ Profiles (selected set and definition IDs)
++ Additional frequency sets and definitions
++ Optional compile-wide advisory plan
 + Radio Model
 + Compilation Settings
 ```
@@ -21,19 +23,23 @@ Compiled Radio Plan
 
 ## Pipeline
 
-1. Resolve the profile's selected frequency sets.
+1. Resolve all profile and one-off set/definition selections.
 2. Validate radio-model factory-set references against the catalog.
 3. Separate selected sets that are verified as factory-provided on the target.
 4. Resolve shared frequency definitions for the remaining sets.
-5. Deduplicate definitions while preserving all source-set references.
-6. Validate target compatibility.
-7. Transform representable fields and validate the normalized memory with the
+5. Deduplicate definitions while preserving source sets, profiles, and direct-selection provenance.
+6. Emit advisory-only frequency-plan warnings for unusual raster, offset, use, or conflicting contexts.
+7. Validate target compatibility.
+8. Transform representable fields and validate the normalized memory with the
    pinned CHIRP driver.
-8. Rank candidates deterministically.
-9. Resolve programmable-memory capacity.
-10. Map selected sets to radio banks where supported and requested.
-11. Assign memory numbers.
-12. Return the compiled plan and structured diagnostics.
+9. Rank candidates deterministically.
+10. Resolve programmable-memory capacity.
+11. Map selected sets to radio banks where supported and requested.
+12. Assign memory numbers.
+13. Return the compiled plan and structured diagnostics.
+
+Plan warnings are never omission reasons. Only target capability, CHIRP validation,
+or capacity policy can omit a selected frequency definition.
 
 ## Factory-set resolution
 

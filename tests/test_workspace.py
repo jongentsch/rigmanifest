@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 
 import pytest
 
+from rigmanifest.ipc import catalog_to_dict
 from rigmanifest.workspace import SQLiteWorkspace, default_workspace_state
 
 
@@ -17,15 +19,26 @@ def test_workspace_initializes_and_round_trips_state(tmp_path) -> None:
 
     state = default_workspace_state()
     state["radios"][0]["name"] = "Desk radio"
-    state["profile_plan_ids"]["home"] = "kansas-repeater-council"
+    state["profiles"] = [
+        {
+            "id": "weather",
+            "name": "Weather",
+            "description": "Receive-only weather profile",
+            "frequency_set_ids": ["us-noaa-weather"],
+            "frequency_definition_ids": [],
+            "frequency_plan_id": "kansas-repeater-council",
+        }
+    ]
     workspace.save(state)
 
     reloaded = workspace.load()
     assert reloaded["radios"][0]["name"] == "Desk radio"
-    assert reloaded["profile_plan_ids"]["home"] == "kansas-repeater-council"
+    assert reloaded["profiles"][0]["frequency_plan_id"] == "kansas-repeater-council"
 
     with sqlite3.connect(database) as connection:
-        assert connection.execute("SELECT version FROM schema_migrations").fetchone() == (1,)
+        assert connection.execute(
+            "SELECT MAX(version) FROM schema_migrations"
+        ).fetchone() == (2,)
 
 
 def test_first_open_imports_legacy_state_only_once(tmp_path) -> None:
@@ -41,6 +54,54 @@ def test_first_open_imports_legacy_state_only_once(tmp_path) -> None:
     assert first["migrated_legacy"] is True
     assert second["migrated_legacy"] is False
     assert second["radios"][0]["name"] == "Migrated radio"
+
+
+def test_schema_one_workspace_migrates_plan_preferences_into_profiles(tmp_path) -> None:
+    database = tmp_path / "workspace.sqlite3"
+    state = default_workspace_state()
+    catalog = catalog_to_dict()
+    state["user_catalog"] = {
+        "frequencyDefinitions": [
+            item
+            for item in catalog["frequency_definitions"]
+            if item["origin"] == "user"
+        ],
+        "frequencySets": [
+            item for item in catalog["frequency_sets"] if item["origin"] == "user"
+        ],
+    }
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "CREATE TABLE schema_migrations ("
+            "version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+        )
+        connection.execute("INSERT INTO schema_migrations(version) VALUES (1)")
+        connection.execute(
+            "CREATE TABLE workspace_state (key TEXT PRIMARY KEY, value_json TEXT NOT NULL)"
+        )
+        rows = {
+            "user_catalog": state["user_catalog"],
+            "radios": state["radios"],
+            "profile_plan_ids": {"home": "kansas-repeater-council"},
+        }
+        connection.executemany(
+            "INSERT INTO workspace_state(key, value_json) VALUES (?, ?)",
+            [(key, json.dumps(value)) for key, value in rows.items()],
+        )
+
+    migrated = SQLiteWorkspace(database).load()
+
+    assert migrated["profiles"][0]["id"] == "home"
+    assert migrated["profiles"][0]["frequency_plan_id"] == (
+        "kansas-repeater-council"
+    )
+    assert migrated["default_frequency_plan_id"] == "arrl-us-national"
+    with sqlite3.connect(database) as connection:
+        keys = {
+            row[0] for row in connection.execute("SELECT key FROM workspace_state")
+        }
+    assert "profile_plan_ids" not in keys
+    assert {"profiles", "default_frequency_plan_id"} <= keys
 
 
 def test_backup_is_a_readable_independent_database(tmp_path) -> None:
@@ -87,7 +148,8 @@ def test_corrupt_or_future_workspace_database_is_rejected(tmp_path) -> None:
         {"user_catalog": {"frequencyDefinitions": ["not-an-object"], "frequencySets": []}},
         {"radios": []},
         {"radios": ["not-an-object"]},
-        {"profile_plan_ids": {"home": 3}},
+        {"profiles": ["not-an-object"]},
+        {"default_frequency_plan_id": "missing"},
     ],
 )
 def test_invalid_workspace_state_is_rejected(tmp_path, change) -> None:

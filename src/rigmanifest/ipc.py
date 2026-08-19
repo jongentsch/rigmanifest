@@ -11,7 +11,7 @@ from rigmanifest.capabilities import BUILTIN_TARGETS
 from rigmanifest.catalog_io import catalog_with_user_records
 from rigmanifest.chirp_import import ChirpCatalogImport, import_chirp_csv
 from rigmanifest.chirp_adapter import chirp_memory_validator
-from rigmanifest.compiler import compile_profile
+from rigmanifest.compiler import compile_profiles
 from rigmanifest.exporters.chirp_csv import write_chirp_csv
 from rigmanifest.frequency_plans import BUILTIN_FREQUENCY_PLANS
 from rigmanifest.fixtures import BUILTIN_CATALOG, BUILTIN_PROFILES
@@ -22,6 +22,7 @@ from rigmanifest.models import (
     FrequencySet,
     SignalingSpec,
 )
+from rigmanifest.profile_io import profile_to_dict, profiles_from_records
 from rigmanifest.workspace import SQLiteWorkspace
 
 
@@ -30,10 +31,14 @@ class RequestError(ValueError):
 
 
 def compile_builtin(
-    profile_id: str,
+    profile_id: str | None,
     target_id: str,
     *,
     frequency_set_ids: Sequence[str] | None = None,
+    profiles: Sequence[Mapping[str, object]] | None = None,
+    additional_frequency_set_ids: Sequence[str] = (),
+    additional_frequency_definition_ids: Sequence[str] = (),
+    advisory_plan_id: str | None = None,
     user_frequency_definitions: Sequence[Mapping[str, object]] | None = None,
     user_frequency_sets: Sequence[Mapping[str, object]] | None = None,
     output_path: Path | None = None,
@@ -41,15 +46,9 @@ def compile_builtin(
 ) -> dict[str, Any]:
     """Compile built-in catalog data and return the stable application DTO."""
 
-    profile = BUILTIN_PROFILES.get(profile_id.casefold())
-    if profile is None:
-        raise RequestError(f"unknown profile: {profile_id}")
     target = BUILTIN_TARGETS.get(target_id.casefold())
     if target is None:
         raise RequestError(f"unknown target: {target_id}")
-    if frequency_set_ids is not None:
-        profile = replace(profile, frequency_set_ids=tuple(frequency_set_ids))
-
     if (user_frequency_definitions is None) != (user_frequency_sets is None):
         raise RequestError(
             "user_frequency_definitions and user_frequency_sets must be supplied together"
@@ -65,17 +64,37 @@ def compile_builtin(
         except ValueError as error:
             raise RequestError(str(error)) from error
 
+    if profiles is None:
+        if profile_id is None:
+            raise RequestError("a profile or profiles array is required")
+        profile = BUILTIN_PROFILES.get(profile_id.casefold())
+        if profile is None:
+            raise RequestError(f"unknown profile: {profile_id}")
+        if frequency_set_ids is not None:
+            profile = replace(profile, frequency_set_ids=tuple(frequency_set_ids))
+        selected_profiles = (profile,)
+    else:
+        try:
+            selected_profiles = profiles_from_records(profiles, catalog)
+        except ValueError as error:
+            raise RequestError(str(error)) from error
+
     try:
         validator = (
             chirp_memory_validator(target.chirp_driver_reference)
             if target.chirp_driver_reference
             else None
         )
-        plan = compile_profile(
+        plan = compile_profiles(
             catalog,
-            profile,
+            selected_profiles,
             target,
             settings,
+            additional_frequency_set_ids=tuple(additional_frequency_set_ids),
+            additional_frequency_definition_ids=tuple(
+                additional_frequency_definition_ids
+            ),
+            advisory_plan_id=advisory_plan_id,
             memory_validator=validator,
         )
     except ValueError as error:
@@ -106,14 +125,9 @@ def catalog_to_dict() -> dict[str, Any]:
     """Return shared preset/user catalog data without running compilation."""
 
     return {
-        "schema_version": 6,
+        "schema_version": 7,
         "profiles": [
-            {
-                "id": profile.id,
-                "name": profile.name,
-                "frequency_set_ids": list(profile.frequency_set_ids),
-                "frequency_plan_id": profile.frequency_plan_id,
-            }
+            profile_to_dict(profile)
             for profile in sorted(BUILTIN_PROFILES.values(), key=lambda item: item.id)
         ],
         "radio_models": [
@@ -200,12 +214,22 @@ def plan_to_dict(plan: CompiledRadioPlan) -> dict[str, Any]:
     """Convert a compiled plan into an explicit, versionable wire shape."""
 
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "compiler_version": plan.compiler_version,
         "profile": {
             "id": plan.profile.id,
             "name": plan.profile.name,
             "frequency_set_ids": list(plan.profile.frequency_set_ids),
+        },
+        "profiles": [profile_to_dict(profile) for profile in plan.profiles],
+        "selection": {
+            "additional_frequency_set_ids": list(
+                plan.additional_frequency_set_ids
+            ),
+            "additional_frequency_definition_ids": list(
+                plan.additional_frequency_definition_ids
+            ),
+            "advisory_plan_id": plan.advisory_plan_id,
         },
         "target": {
             "id": plan.target.id,
@@ -231,6 +255,8 @@ def plan_to_dict(plan: CompiledRadioPlan) -> dict[str, Any]:
             {
                 "source_frequency_definition_id": memory.source_frequency_definition_id,
                 "source_frequency_set_ids": list(memory.source_frequency_set_ids),
+                "source_profile_ids": list(memory.source_profile_ids),
+                "selected_directly": memory.selected_directly,
                 "memory_number": memory.memory_number,
                 "target_name": memory.target_name,
                 "receive_frequency_hz": memory.receive_frequency_hz,
@@ -395,16 +421,30 @@ def handle_request(request: Mapping[str, object]) -> dict[str, object]:
             raise RequestError("params must be an object")
 
         profile = params.get("profile")
+        profile_records = params.get("profiles")
         target = params.get("target")
         output = params.get("output_path")
         frequency_sets = params.get("frequency_set_ids")
+        additional_sets = params.get("additional_frequency_set_ids", [])
+        additional_definitions = params.get(
+            "additional_frequency_definition_ids",
+            [],
+        )
+        advisory_plan = params.get("advisory_plan_id")
         user_definitions = params.get("user_frequency_definitions")
         user_sets = params.get("user_frequency_sets")
         memory_start = params.get("memory_start")
         map_sets = params.get("map_sets_to_banks", True)
         use_factory = params.get("use_factory_sets", True)
-        if not isinstance(profile, str) or not isinstance(target, str):
-            raise RequestError("profile and target must be strings")
+        if not isinstance(target, str):
+            raise RequestError("target must be a string")
+        if profile_records is None and not isinstance(profile, str):
+            raise RequestError("profile must be a string when profiles are omitted")
+        if profile_records is not None and (
+            not isinstance(profile_records, list)
+            or not all(isinstance(item, Mapping) for item in profile_records)
+        ):
+            raise RequestError("profiles must be an object array")
         if output is not None and not isinstance(output, str):
             raise RequestError("output_path must be a string or null")
         if frequency_sets is not None and (
@@ -413,6 +453,18 @@ def handle_request(request: Mapping[str, object]) -> dict[str, object]:
             or not all(isinstance(item, str) for item in frequency_sets)
         ):
             raise RequestError("frequency_set_ids must be a non-empty string array")
+        for value, label in (
+            (additional_sets, "additional_frequency_set_ids"),
+            (additional_definitions, "additional_frequency_definition_ids"),
+        ):
+            if not isinstance(value, list) or not all(
+                isinstance(item, str) and item for item in value
+            ):
+                raise RequestError(f"{label} must be a string array")
+        if advisory_plan is not None and (
+            not isinstance(advisory_plan, str) or not advisory_plan
+        ):
+            raise RequestError("advisory_plan_id must be a non-empty string or null")
         if (user_definitions is None) != (user_sets is None):
             raise RequestError(
                 "user_frequency_definitions and user_frequency_sets must be supplied together"
@@ -444,9 +496,13 @@ def handle_request(request: Mapping[str, object]) -> dict[str, object]:
             raise RequestError(str(error)) from error
 
         result = compile_builtin(
-            profile,
+            profile if isinstance(profile, str) else None,
             target,
             frequency_set_ids=frequency_sets,
+            profiles=profile_records,
+            additional_frequency_set_ids=additional_sets,
+            additional_frequency_definition_ids=additional_definitions,
+            advisory_plan_id=advisory_plan,
             user_frequency_definitions=user_definitions,
             user_frequency_sets=user_sets,
             output_path=Path(output) if output is not None else None,

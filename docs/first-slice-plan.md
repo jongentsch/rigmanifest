@@ -40,7 +40,7 @@ resolves them as follows:
 - Desktop IPC: newline-delimited JSON over a Tauri sidecar's stdin/stdout. It
   is local, inspectable, and avoids binding the compiler to HTTP or Tauri.
 - Persistence: a versioned SQLite workspace stores the user-owned catalog
-  partition, radio instances, and profile plan preferences. It supports a one-time
+  partition, radio instances, reusable profiles, and advisory plan context. It supports a one-time
   legacy local-storage import and native backups, while every compile still submits
   the catalog partition to Python validation.
 - CHIRP integration: a pinned headless dependency supplies normalized driver facts

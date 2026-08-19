@@ -131,6 +131,8 @@ HOME_PROFILE = Profile(
     id="home",
     name="Home",
     frequency_set_ids=(HOME_ESSENTIALS_SET.id, US_NOAA_WEATHER_SET.id),
+    frequency_plan_id="arrl-us-national",
+    description="Everyday local operating frequencies and weather coverage.",
 )
 
 

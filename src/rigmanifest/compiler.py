@@ -29,6 +29,7 @@ from rigmanifest.models import (
     ToneMode,
     TransmitBehavior,
 )
+from rigmanifest.frequency_plans import PlanUse, matching_plan_segment
 
 
 MemoryValidator = Callable[[CompiledMemory], tuple[MemoryValidationIssue, ...]]
@@ -38,6 +39,9 @@ MemoryValidator = Callable[[CompiledMemory], tuple[MemoryValidationIssue, ...]]
 class _Selection:
     definition: FrequencyDefinition
     source_set_ids: tuple[str, ...]
+    source_profile_ids: tuple[str, ...]
+    advisory_plan_ids: tuple[str, ...]
+    selected_directly: bool
     selection_order: int
 
 
@@ -55,16 +59,107 @@ def compile_profile(
     *,
     memory_validator: MemoryValidator | None = None,
 ) -> CompiledRadioPlan:
-    """Compile selected sets for one target without mutating catalog records."""
+    """Compile one profile; retained as the CLI-compatible convenience boundary."""
+
+    return compile_profiles(
+        catalog,
+        (profile,),
+        target,
+        settings,
+        memory_validator=memory_validator,
+    )
+
+
+def compile_profiles(
+    catalog: FrequencyCatalog,
+    profiles: tuple[Profile, ...],
+    target: RadioModel,
+    settings: CompilationSettings | None = None,
+    *,
+    additional_frequency_set_ids: tuple[str, ...] = (),
+    additional_frequency_definition_ids: tuple[str, ...] = (),
+    advisory_plan_id: str | None = None,
+    memory_validator: MemoryValidator | None = None,
+) -> CompiledRadioPlan:
+    """Compile profiles plus ad-hoc selections for one target without mutation."""
 
     settings = settings or CompilationSettings()
-    selected_sets = _resolve_selected_sets(catalog, profile)
+    profiles = tuple(profiles)
+    additional_frequency_set_ids = tuple(additional_frequency_set_ids)
+    additional_frequency_definition_ids = tuple(additional_frequency_definition_ids)
+    if len({profile.id for profile in profiles}) != len(profiles):
+        raise ValueError("compile selection contains a duplicate profile")
+    if len(set(additional_frequency_set_ids)) != len(additional_frequency_set_ids):
+        raise ValueError("compile selection contains a duplicate additional set")
+    if len(set(additional_frequency_definition_ids)) != len(
+        additional_frequency_definition_ids
+    ):
+        raise ValueError("compile selection contains a duplicate additional definition")
+    if advisory_plan_id is not None:
+        matching_plan_segment(advisory_plan_id, 1)
+
     factory_by_set_id = _validated_factory_sets(catalog, target)
     diagnostics: list[Diagnostic] = []
     omitted: list[OmittedFrequencyDefinition] = []
     factory_coverage: list[FactorySetCoverage] = []
     source_sets_by_definition: dict[str, list[str]] = {}
+    source_profiles_by_definition: dict[str, list[str]] = {}
+    plan_ids_by_definition: dict[str, list[str]] = {}
+    directly_selected: dict[str, bool] = {}
     selection_order: dict[str, int] = {}
+    profile_by_id = {profile.id: profile for profile in profiles}
+
+    selected_set_ids: list[str] = []
+    profiles_by_set: dict[str, list[str]] = {}
+    additional_sets = set(additional_frequency_set_ids)
+    for profile in profiles:
+        if profile.frequency_plan_id is not None:
+            matching_plan_segment(profile.frequency_plan_id, 1)
+        for set_id in profile.frequency_set_ids:
+            if set_id not in selected_set_ids:
+                selected_set_ids.append(set_id)
+            sources = profiles_by_set.setdefault(set_id, [])
+            if profile.id not in sources:
+                sources.append(profile.id)
+    for set_id in additional_frequency_set_ids:
+        if set_id not in selected_set_ids:
+            selected_set_ids.append(set_id)
+
+    selected_sets = _resolve_selected_sets(catalog, tuple(selected_set_ids))
+
+    def record_definition(
+        definition_id: str,
+        *,
+        source_set_id: str | None = None,
+        source_profile_ids: tuple[str, ...] = (),
+        selected_directly: bool = False,
+    ) -> None:
+        try:
+            catalog.definition(definition_id)
+        except KeyError as error:
+            raise ValueError(
+                f"compile selection references unknown frequency definition: {definition_id}"
+            ) from error
+        if definition_id not in selection_order:
+            selection_order[definition_id] = len(selection_order)
+        if source_set_id is not None:
+            sources = source_sets_by_definition.setdefault(definition_id, [])
+            if source_set_id not in sources:
+                sources.append(source_set_id)
+        profile_sources = source_profiles_by_definition.setdefault(definition_id, [])
+        for profile_id in source_profile_ids:
+            if profile_id not in profile_sources:
+                profile_sources.append(profile_id)
+        plan_sources = plan_ids_by_definition.setdefault(definition_id, [])
+        for profile_id in source_profile_ids:
+            plan_id = profile_by_id[profile_id].frequency_plan_id or advisory_plan_id
+            if plan_id is not None and plan_id not in plan_sources:
+                plan_sources.append(plan_id)
+        if advisory_plan_id is not None and advisory_plan_id not in plan_sources:
+            plan_sources.append(advisory_plan_id)
+        directly_selected[definition_id] = (
+            directly_selected.get(definition_id, False) or selected_directly
+        )
 
     for frequency_set in selected_sets:
         factory_relation = factory_by_set_id.get(frequency_set.id)
@@ -90,17 +185,28 @@ def compile_profile(
             continue
 
         for member in frequency_set.ordered_members:
-            definition_id = member.frequency_definition_id
-            if definition_id not in selection_order:
-                selection_order[definition_id] = len(selection_order)
-            sources = source_sets_by_definition.setdefault(definition_id, [])
-            if frequency_set.id not in sources:
-                sources.append(frequency_set.id)
+            record_definition(
+                member.frequency_definition_id,
+                source_set_id=frequency_set.id,
+                source_profile_ids=tuple(profiles_by_set.get(frequency_set.id, ())),
+                selected_directly=frequency_set.id in additional_sets,
+            )
+
+    for profile in profiles:
+        for definition_id in profile.frequency_definition_ids:
+            record_definition(definition_id, source_profile_ids=(profile.id,))
+    for definition_id in additional_frequency_definition_ids:
+        record_definition(definition_id, selected_directly=True)
 
     selections = tuple(
         _Selection(
             definition=catalog.definition(definition_id),
-            source_set_ids=tuple(source_sets_by_definition[definition_id]),
+            source_set_ids=tuple(source_sets_by_definition.get(definition_id, ())),
+            source_profile_ids=tuple(
+                source_profiles_by_definition.get(definition_id, ())
+            ),
+            advisory_plan_ids=tuple(plan_ids_by_definition.get(definition_id, ())),
+            selected_directly=directly_selected.get(definition_id, False),
             selection_order=order,
         )
         for definition_id, order in sorted(
@@ -110,6 +216,7 @@ def compile_profile(
 
     candidates: list[_Candidate] = []
     for selection in selections:
+        diagnostics.extend(_frequency_plan_diagnostics(selection))
         incompatibility = _find_incompatibility(selection.definition, target)
         if incompatibility is not None:
             diagnostics.append(incompatibility)
@@ -189,9 +296,10 @@ def compile_profile(
             continue
         memories.append(memory)
 
+    primary_profile = profiles[0] if profiles else Profile("ad-hoc", "Ad hoc", ())
     return CompiledRadioPlan(
         target=target,
-        profile=profile,
+        profile=primary_profile,
         memories=tuple(memories),
         factory_sets=tuple(factory_coverage),
         omitted_frequency_definitions=tuple(omitted),
@@ -202,19 +310,25 @@ def compile_profile(
             used=len(memories),
             omitted_for_capacity=capacity_omission_count,
         ),
+        profiles=profiles,
+        additional_frequency_set_ids=additional_frequency_set_ids,
+        additional_frequency_definition_ids=additional_frequency_definition_ids,
+        advisory_plan_id=advisory_plan_id,
     )
 
 
 def _resolve_selected_sets(
     catalog: FrequencyCatalog,
-    profile: Profile,
+    set_ids: tuple[str, ...],
 ) -> tuple[FrequencySet, ...]:
     selected: list[FrequencySet] = []
-    for set_id in profile.frequency_set_ids:
+    for set_id in set_ids:
         try:
             selected.append(catalog.frequency_set(set_id))
         except KeyError as error:
-            raise ValueError(f"profile references unknown frequency set: {set_id}") from error
+            raise ValueError(
+                f"compile selection references unknown frequency set: {set_id}"
+            ) from error
     return tuple(selected)
 
 
@@ -254,6 +368,111 @@ def _factory_coverage(
         frequency_editing=relation.frequency_editing,
         chirp_editing=relation.chirp_editing,
     )
+
+
+def _frequency_plan_diagnostics(selection: _Selection) -> list[Diagnostic]:
+    definition = selection.definition
+    diagnostics: list[Diagnostic] = []
+    expectations: dict[str, tuple[str, int | None, int | None]] = {}
+    for requested_plan_id in selection.advisory_plan_ids:
+        match = matching_plan_segment(
+            requested_plan_id,
+            definition.receive_frequency_hz,
+        )
+        if match is None:
+            continue
+        matched_plan, segment = match
+        expectations[requested_plan_id] = (
+            segment.use.value,
+            segment.suggested_offset_hz,
+            segment.raster_spacing_hz,
+        )
+        details = {
+            "requested_plan_id": requested_plan_id,
+            "matched_plan_id": matched_plan.id,
+            "segment_id": segment.id,
+            "source_url": matched_plan.source_url,
+            "profile_ids": ",".join(selection.source_profile_ids),
+        }
+        on_raster = segment.is_on_raster(definition.receive_frequency_hz)
+        if on_raster is False:
+            diagnostics.append(
+                Diagnostic.with_details(
+                    code=DiagnosticCode.PLAN_RASTER_UNUSUAL,
+                    severity=Severity.WARNING,
+                    frequency_definition_id=definition.id,
+                    message=(
+                        f"{definition.name} is off the normal raster for "
+                        f"{segment.name}"
+                    ),
+                    details={
+                        **details,
+                        "raster_spacing_hz": segment.raster_spacing_hz,
+                    },
+                )
+            )
+        if segment.use is PlanUse.SIMPLEX and definition.transmit_behavior in {
+            TransmitBehavior.OFFSET,
+            TransmitBehavior.SPLIT,
+        }:
+            diagnostics.append(
+                Diagnostic.with_details(
+                    code=DiagnosticCode.PLAN_USE_MISMATCH,
+                    severity=Severity.WARNING,
+                    frequency_definition_id=definition.id,
+                    message=(
+                        f"{definition.name} uses repeater-style transmit behavior "
+                        f"in the selected plan's simplex segment"
+                    ),
+                    details=details,
+                )
+            )
+        if (
+            segment.use is PlanUse.REPEATER_OUTPUT
+            and segment.suggested_offset_hz is not None
+            and _transmit_delta(definition) != segment.suggested_offset_hz
+        ):
+            diagnostics.append(
+                Diagnostic.with_details(
+                    code=DiagnosticCode.PLAN_OFFSET_UNUSUAL,
+                    severity=Severity.WARNING,
+                    frequency_definition_id=definition.id,
+                    message=(
+                        f"{definition.name} does not use the "
+                        f"{segment.suggested_offset_hz / 1_000_000:+.3f} "
+                        f"MHz offset suggested by {segment.name}"
+                    ),
+                    details={
+                        **details,
+                        "suggested_offset_hz": segment.suggested_offset_hz,
+                        "actual_offset_hz": _transmit_delta(definition),
+                    },
+                )
+            )
+    if len(set(expectations.values())) > 1:
+        diagnostics.append(
+            Diagnostic.with_details(
+                code=DiagnosticCode.PLAN_CONTEXT_CONFLICT,
+                severity=Severity.WARNING,
+                frequency_definition_id=definition.id,
+                message=(
+                    f"{definition.name} has conflicting advice across the selected "
+                    "profile and compile plan contexts"
+                ),
+                details={
+                    "plan_ids": ",".join(expectations),
+                    "profile_ids": ",".join(selection.source_profile_ids),
+                },
+            )
+        )
+    return diagnostics
+
+
+def _transmit_delta(definition: FrequencyDefinition) -> int | None:
+    transmit_hz = definition.resolved_transmit_frequency_hz
+    if transmit_hz is None:
+        return None
+    return transmit_hz - definition.receive_frequency_hz
 
 
 def _find_incompatibility(
@@ -540,6 +759,8 @@ def _transform_definition(
             receive_squelch=definition.receive_squelch,
             bank_assignments=groups,
             applied_transformations=tuple(transformations),
+            source_profile_ids=selection.source_profile_ids,
+            selected_directly=selection.selected_directly,
         ),
         diagnostics,
     )

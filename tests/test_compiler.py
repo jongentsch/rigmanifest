@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from rigmanifest.compiler import compile_profile
+from rigmanifest.compiler import compile_profile, compile_profiles
 from rigmanifest.models import (
     CapabilityStatus,
     CatalogOrigin,
@@ -115,6 +115,91 @@ def make_catalog(
 
 def selected_profile(set_id: str = "selected") -> Profile:
     return Profile(id="test", name="Test", frequency_set_ids=(set_id,))
+
+
+def test_profiles_sets_and_direct_definitions_merge_with_provenance() -> None:
+    shared = make_definition("shared")
+    direct = make_definition("direct", frequency_hz=146_550_000)
+    catalog = make_catalog((shared,), set_id="shared-set")
+    catalog = FrequencyCatalog(catalog.definitions + (direct,), catalog.sets)
+
+    plan = compile_profiles(
+        catalog,
+        (
+            Profile("home", "Home", ("shared-set",), frequency_definition_ids=("direct",)),
+            Profile("travel", "Travel", ("shared-set",)),
+        ),
+        make_radio(),
+        additional_frequency_definition_ids=("shared",),
+    )
+
+    assert [memory.source_frequency_definition_id for memory in plan.memories] == [
+        "shared",
+        "direct",
+    ]
+    assert plan.memories[0].source_profile_ids == ("home", "travel")
+    assert plan.memories[0].source_frequency_set_ids == ("shared-set",)
+    assert plan.memories[0].selected_directly is True
+    assert plan.memories[1].source_profile_ids == ("home",)
+
+
+def test_profile_plan_conflicts_are_warnings_and_never_block_compilation() -> None:
+    definition = make_definition(
+        "boundary-repeater",
+        frequency_hz=147_000_000,
+        transmit_behavior=TransmitBehavior.OFFSET,
+        offset_hz=600_000,
+    )
+    catalog = make_catalog((definition,))
+
+    plan = compile_profiles(
+        catalog,
+        (
+            Profile("kansas", "Kansas", ("selected",), "kansas-repeater-council"),
+            Profile(
+                "nevada",
+                "Nevada",
+                ("selected",),
+                "southern-nevada-repeater-council",
+            ),
+        ),
+        make_radio(),
+    )
+
+    codes = {diagnostic.code for diagnostic in plan.diagnostics}
+    assert DiagnosticCode.PLAN_OFFSET_UNUSUAL in codes
+    assert DiagnosticCode.PLAN_CONTEXT_CONFLICT in codes
+    assert all(
+        diagnostic.severity is Severity.WARNING
+        for diagnostic in plan.diagnostics
+        if diagnostic.code in {
+            DiagnosticCode.PLAN_OFFSET_UNUSUAL,
+            DiagnosticCode.PLAN_CONTEXT_CONFLICT,
+        }
+    )
+    assert len(plan.memories) == 1
+
+
+def test_compile_wide_plan_warns_for_off_raster_frequency_without_omitting_it() -> None:
+    definition = make_definition(
+        "off-raster",
+        frequency_hz=147_005_000,
+        transmit_behavior=TransmitBehavior.OFFSET,
+        offset_hz=600_000,
+    )
+    plan = compile_profiles(
+        make_catalog((definition,)),
+        (),
+        make_radio(),
+        additional_frequency_set_ids=("selected",),
+        advisory_plan_id="kansas-repeater-council",
+    )
+
+    assert any(
+        item.code is DiagnosticCode.PLAN_RASTER_UNUSUAL
+        for item in plan.diagnostics
+    )
+    assert len(plan.memories) == 1
 
 
 @pytest.mark.parametrize(

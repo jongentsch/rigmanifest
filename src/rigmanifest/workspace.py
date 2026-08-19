@@ -10,9 +10,11 @@ from typing import Any
 
 from rigmanifest.catalog_io import catalog_with_user_records
 from rigmanifest.fixtures import BUILTIN_CATALOG, BUILTIN_PROFILES
+from rigmanifest.frequency_plans import BUILTIN_FREQUENCY_PLANS
+from rigmanifest.profile_io import profile_to_dict, profiles_from_records
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def default_workspace_state() -> dict[str, Any]:
@@ -32,10 +34,8 @@ def default_workspace_state() -> dict[str, Any]:
                 "notes": "",
             }
         ],
-        "profile_plan_ids": {
-            profile.id: profile.frequency_plan_id
-            for profile in BUILTIN_PROFILES.values()
-        },
+        "profiles": [],
+        "default_frequency_plan_id": "arrl-us-national",
     }
 
 
@@ -47,13 +47,16 @@ class SQLiteWorkspace:
         with self._connect() as connection:
             self._migrate(connection)
             rows = dict(connection.execute("SELECT key, value_json FROM workspace_state"))
+            needs_rewrite = bool(rows) and (
+                "profiles" not in rows or "default_frequency_plan_id" not in rows
+            )
             migrated_legacy = not rows and legacy_state is not None
             state = (
                 _validate_state(legacy_state)
                 if migrated_legacy
                 else _state_from_rows(rows)
             )
-            if not rows:
+            if not rows or needs_rewrite:
                 self._write(connection, state)
             return {**state, "migrated_legacy": migrated_legacy}
 
@@ -107,7 +110,8 @@ class SQLiteWorkspace:
         values = {
             "user_catalog": state["user_catalog"],
             "radios": state["radios"],
-            "profile_plan_ids": state["profile_plan_ids"],
+            "profiles": state["profiles"],
+            "default_frequency_plan_id": state["default_frequency_plan_id"],
         }
         connection.execute("DELETE FROM workspace_state")
         connection.executemany(
@@ -120,11 +124,32 @@ def _state_from_rows(rows: Mapping[str, str]) -> dict[str, Any]:
     if not rows:
         return default_workspace_state()
     try:
+        profiles_json = rows.get("profiles")
+        if profiles_json is None:
+            legacy_plan_ids = json.loads(rows.get("profile_plan_ids", "{}"))
+            profiles = [
+                {
+                    **profile_to_dict(profile),
+                    "frequency_plan_id": legacy_plan_ids.get(
+                        profile.id,
+                        profile.frequency_plan_id,
+                    ),
+                }
+                for profile in BUILTIN_PROFILES.values()
+            ]
+        else:
+            profiles = json.loads(profiles_json)
+        default_plan_json = rows.get("default_frequency_plan_id")
         candidate = {
             "schema_version": SCHEMA_VERSION,
             "user_catalog": json.loads(rows["user_catalog"]),
             "radios": json.loads(rows["radios"]),
-            "profile_plan_ids": json.loads(rows["profile_plan_ids"]),
+            "profiles": profiles,
+            "default_frequency_plan_id": (
+                json.loads(default_plan_json)
+                if default_plan_json is not None
+                else "arrl-us-national"
+            ),
         }
     except (KeyError, json.JSONDecodeError) as error:
         raise ValueError(f"workspace database contains invalid state: {error}") from error
@@ -134,7 +159,8 @@ def _state_from_rows(rows: Mapping[str, str]) -> dict[str, Any]:
 def _validate_state(state: Mapping[str, object]) -> dict[str, Any]:
     user_catalog = state.get("user_catalog")
     radios = state.get("radios")
-    plan_ids = state.get("profile_plan_ids")
+    profiles = state.get("profiles")
+    default_plan_id = state.get("default_frequency_plan_id")
     if not isinstance(user_catalog, Mapping):
         raise ValueError("workspace user_catalog must be an object")
     definitions = user_catalog.get("frequencyDefinitions")
@@ -143,19 +169,25 @@ def _validate_state(state: Mapping[str, object]) -> dict[str, Any]:
         raise ValueError("workspace user catalog arrays are required")
     if not all(isinstance(item, Mapping) for item in definitions + sets):
         raise ValueError("workspace user catalog records must be objects")
-    catalog_with_user_records(BUILTIN_CATALOG, definitions, sets)
+    catalog = catalog_with_user_records(BUILTIN_CATALOG, definitions, sets)
     if not isinstance(radios, list) or not radios or not all(_valid_radio(item) for item in radios):
         raise ValueError("workspace radios must be a non-empty valid array")
-    if not isinstance(plan_ids, Mapping) or not all(
-        isinstance(key, str) and isinstance(value, str) and value
-        for key, value in plan_ids.items()
+    if not isinstance(profiles, list) or not all(
+        isinstance(item, Mapping) for item in profiles
     ):
-        raise ValueError("workspace profile plan preferences must be string mappings")
+        raise ValueError("workspace profiles must be an object array")
+    parsed_profiles = profiles_from_records(profiles, catalog)
+    if default_plan_id is not None and (
+        not isinstance(default_plan_id, str)
+        or default_plan_id not in BUILTIN_FREQUENCY_PLANS
+    ):
+        raise ValueError("workspace default frequency plan must reference a known plan")
     return {
         "schema_version": SCHEMA_VERSION,
         "user_catalog": {"frequencyDefinitions": definitions, "frequencySets": sets},
         "radios": radios,
-        "profile_plan_ids": dict(plan_ids),
+        "profiles": [profile_to_dict(profile) for profile in parsed_profiles],
+        "default_frequency_plan_id": default_plan_id,
     }
 
 

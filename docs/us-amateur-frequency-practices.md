@@ -344,24 +344,14 @@ Warnings or sourced suggestions are more appropriate for:
 Do not impose a raster on continuous HF, weak-signal, experimental, satellite, or
 other nonchannelized activity merely because a radio happens to tune in fixed steps.
 
-## Review questions before implementation
+## Implemented decisions
 
-The implementation is advisory-only, models independent transmit/receive signaling,
-and does not import a repeater directory. Profiles can select ARRL national advice,
-the Kansas Repeater Council plan, or the Southern Nevada Repeater Council plan.
-Regional matches take precedence and the ARRL national plan remains the fallback.
-
-1. Should the first implementation support one selected regional plan per profile,
-   or resolve plans from a saved station/location?
-2. Should plan checking initially be advisory only, leaving regulatory legality
-   checks for a later licensing/location feature?
-3. Do we want the full transmit-access/receive-squelch model now, or introduce it in
-   a migration after the shared catalog UI stabilizes?
-4. Should imported repeater-directory facts be stored as user-owned definitions with
-   provenance, given that licensed online data integrations are outside the MVP?
-5. Which coordinator regions should be first-class fixtures after the national
-   baseline: the user's home region plus one deliberately conflicting region would
-   be enough to test precedence and offset-sign behavior.
+Plan checking is advisory-only and models independent transmit-access and
+receive-squelch intent. A profile can save one plan context, while compilation can
+add another context across the complete build. Regional matches take precedence
+within their plan and ARRL national segments remain the fallback. Conflicting plan
+contexts produce an explicit warning; neither conflicts nor other plan advice block
+or omit memories. Repeater-directory integrations remain outside the MVP.
 
 ## Primary sources
 

@@ -196,18 +196,21 @@ memory through its CHIRP driver.
 
 ## Profile
 
-A profile is a saved selection of frequency sets.
+A profile is a reusable, target-independent selection of frequency sets and
+individual frequency definitions. It may carry a saved advisory frequency plan.
 
 ```text
 Profile
 - id
 - name
+- description
 - frequency_set_ids[]
+- frequency_definition_ids[]
+- frequency_plan_id?
 ```
 
-Users program radios by selecting sets. If individual definitions need special
-treatment, the user can create another user-owned set instead of embedding target
-memory rows in a profile.
+Profiles never contain radio memory rows or radio-specific encodings. At compile
+time, users may combine multiple profiles and add one-off sets or definitions.
 
 ## Frequency plans
 
@@ -230,6 +233,8 @@ from a band segment.
 CompiledMemory
 - source_frequency_definition_id
 - source_frequency_set_ids[]
+- source_profile_ids[]
+- selected_directly
 - memory_number
 - target_name
 - receive_frequency
@@ -251,6 +256,10 @@ FactorySetCoverage
 CompiledRadioPlan
 - target_radio_model
 - profile
+- profiles[]
+- additional_frequency_set_ids[]
+- additional_frequency_definition_ids[]
+- advisory_plan_id?
 - memories[]
 - factory_sets[]
 - omitted_frequency_definitions[]
@@ -269,7 +278,7 @@ frequencies.
 3. User sets may reference shared preset definitions without copying them.
 4. Radio models never define frequencies directly.
 5. Factory availability is a radio-model-to-preset-set relationship.
-6. Profiles select sets, not radio memory rows.
+6. Profiles select sets and definitions, not radio memory rows.
 7. Exporters consume compiled memories and make no selection decisions.
 8. Diagnostics explain every meaningful omission or degradation.
 9. Signaling intent is stored independently by direction; target encodings are derived.
@@ -277,8 +286,8 @@ frequencies.
 
 ## Desktop persistence boundary
 
-The desktop stores the user-owned catalog partition, radio instances, and
-per-profile frequency-plan preferences in a versioned SQLite workspace. The
+The desktop stores the user-owned catalog partition, radio instances, reusable
+profiles, and default advisory plan in a versioned SQLite workspace. The
 workspace schema is independent of catalog schema v2, which separates transmit
 access from receive squelch; a one-time import upgrades stored v1 combined-tone
 records without changing their source frequency definitions. On load, the UI

@@ -59,8 +59,11 @@ frequency definitions directly.
 
 ### Profiles and programming selection
 
-A profile is a saved list of frequency-set IDs. The compile/export page lets the user
-choose which sets to program for a particular radio.
+A profile is a saved reusable loadout containing zero or more frequency-set IDs and
+zero or more individual frequency-definition IDs. It may also carry an advisory
+frequency-plan context. The compile/export page combines one radio with zero or more
+profiles, additional sets, and additional individual definitions. The compiler
+deduplicates shared definitions while retaining every source for review.
 
 ### Compiler
 
@@ -77,6 +80,7 @@ Evaluate at least:
 - maximum label length
 - receive-only handling
 - set-to-bank mapping where modeled
+- advisory band-plan raster, offset, and use checks
 
 Radio capability facts come from the pinned headless CHIRP dependency. Sourced
 overlays fill only gaps in `RadioFeatures`, such as separate transmit ranges. The
@@ -99,6 +103,7 @@ The compiled plan contains:
 
 - target radio model
 - selected frequency-set IDs
+- selected profiles and one-off definitions
 - ordered programmable memories
 - factory-set coverage
 - assigned memory numbers
@@ -107,6 +112,9 @@ The compiled plan contains:
 - omissions
 - diagnostics
 - capacity summary
+
+Band-plan diagnostics are warnings. They never omit a compatible memory or prevent
+CSV export.
 
 ### CHIRP CSV export
 

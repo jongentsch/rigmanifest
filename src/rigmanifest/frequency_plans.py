@@ -329,3 +329,23 @@ BUILTIN_FREQUENCY_PLANS = {
     KANSAS_REPEATER_COUNCIL.id: KANSAS_REPEATER_COUNCIL,
     SOUTHERN_NEVADA_REPEATER_COUNCIL.id: SOUTHERN_NEVADA_REPEATER_COUNCIL,
 }
+
+
+def matching_plan_segment(
+    plan_id: str,
+    frequency_hz: int,
+) -> tuple[FrequencyPlan, FrequencyPlanSegment] | None:
+    """Return the most specific advisory segment, with the US plan as fallback."""
+
+    try:
+        selected = BUILTIN_FREQUENCY_PLANS[plan_id]
+    except KeyError as error:
+        raise ValueError(f"unknown frequency plan: {plan_id}") from error
+    segment = selected.matching_segment(frequency_hz)
+    if segment is not None:
+        return selected, segment
+    if selected.id != ARRL_US_NATIONAL.id:
+        fallback = ARRL_US_NATIONAL.matching_segment(frequency_hz)
+        if fallback is not None:
+            return ARRL_US_NATIONAL, fallback
+    return None

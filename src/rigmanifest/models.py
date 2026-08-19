@@ -81,6 +81,10 @@ class DiagnosticCode(StrEnum):
     CAPABILITY_DATA_INCOMPLETE = "CAPABILITY_DATA_INCOMPLETE"
     TARGET_MEMORY_REJECTED = "TARGET_MEMORY_REJECTED"
     TARGET_MEMORY_WARNING = "TARGET_MEMORY_WARNING"
+    PLAN_OFFSET_UNUSUAL = "PLAN_OFFSET_UNUSUAL"
+    PLAN_RASTER_UNUSUAL = "PLAN_RASTER_UNUSUAL"
+    PLAN_USE_MISMATCH = "PLAN_USE_MISMATCH"
+    PLAN_CONTEXT_CONFLICT = "PLAN_CONTEXT_CONFLICT"
 
 
 @dataclass(frozen=True, slots=True)
@@ -289,21 +293,30 @@ class FrequencyCatalog:
 
 @dataclass(frozen=True, slots=True)
 class Profile:
-    """A saved selection of frequency sets."""
+    """A reusable operating loadout of sets and individual definitions."""
 
     id: str
     name: str
     frequency_set_ids: tuple[str, ...]
-    frequency_plan_id: str = "arrl-us-national"
+    frequency_plan_id: str | None = None
+    frequency_definition_ids: tuple[str, ...] = ()
+    description: str = ""
 
     def __post_init__(self) -> None:
-        if not self.id or not self.name or not self.frequency_plan_id:
+        if not self.id or not self.name:
             raise ValueError("profile ID and name are required")
-        if not self.frequency_set_ids:
-            raise ValueError("profile requires at least one frequency set")
+        if self.frequency_plan_id is not None and not self.frequency_plan_id:
+            raise ValueError("profile frequency plan must be null or non-empty")
         object.__setattr__(self, "frequency_set_ids", tuple(self.frequency_set_ids))
+        object.__setattr__(
+            self,
+            "frequency_definition_ids",
+            tuple(self.frequency_definition_ids),
+        )
         if len(self.frequency_set_ids) != len(set(self.frequency_set_ids)):
             raise ValueError("profile contains a duplicate frequency set")
+        if len(self.frequency_definition_ids) != len(set(self.frequency_definition_ids)):
+            raise ValueError("profile contains a duplicate frequency definition")
 
 
 @dataclass(frozen=True, slots=True)
@@ -449,6 +462,8 @@ class CompiledMemory:
     receive_squelch: SignalingSpec
     bank_assignments: tuple[str, ...] = ()
     applied_transformations: tuple[DiagnosticCode, ...] = ()
+    source_profile_ids: tuple[str, ...] = ()
+    selected_directly: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -499,7 +514,27 @@ class CompiledRadioPlan:
     omitted_frequency_definitions: tuple[OmittedFrequencyDefinition, ...]
     diagnostics: tuple[Diagnostic, ...]
     capacity_summary: CapacitySummary
+    profiles: tuple[Profile, ...] | None = None
+    additional_frequency_set_ids: tuple[str, ...] = ()
+    additional_frequency_definition_ids: tuple[str, ...] = ()
+    advisory_plan_id: str | None = None
     compiler_version: str = "0.3.0"
+
+    def __post_init__(self) -> None:
+        if self.profiles is None:
+            object.__setattr__(self, "profiles", (self.profile,))
+        else:
+            object.__setattr__(self, "profiles", tuple(self.profiles))
+        object.__setattr__(
+            self,
+            "additional_frequency_set_ids",
+            tuple(self.additional_frequency_set_ids),
+        )
+        object.__setattr__(
+            self,
+            "additional_frequency_definition_ids",
+            tuple(self.additional_frequency_definition_ids),
+        )
 
     @property
     def warning_count(self) -> int:

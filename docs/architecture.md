@@ -115,8 +115,8 @@ rigmanifest/
 
 ## Persistence
 
-The desktop persists user-owned catalog records, radio instances, and per-profile
-frequency-plan preferences in a versioned SQLite database under the platform
+The desktop persists user-owned catalog records, radio instances, reusable profiles,
+and default advisory-plan context in a versioned SQLite database under the platform
 application-data directory. The Rust shell owns the database path and delegates
 schema migration, validation, atomic writes, and backup to the Python persistence
 boundary. On first open only, legacy webview local-storage records are supplied as
