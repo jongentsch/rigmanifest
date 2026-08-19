@@ -401,6 +401,18 @@ def test_sidecar_skips_blank_lines_and_rejects_non_object_json() -> None:
     assert "JSON object" in response["error"]["message"]
 
 
+def test_sidecar_once_mode_exits_after_first_response() -> None:
+    input_stream = StringIO(
+        '{"id":1,"method":"catalog"}\n{"id":2,"method":"catalog"}\n'
+    )
+    output_stream = StringIO()
+
+    serve(input_stream, output_stream, once=True)
+
+    responses = [json.loads(line) for line in output_stream.getvalue().splitlines()]
+    assert [response["id"] for response in responses] == [1]
+
+
 @pytest.mark.parametrize(
     "payload",
     [

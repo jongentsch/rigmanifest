@@ -120,6 +120,8 @@ The first executable slice currently includes:
   local-storage migration and native database backups
 - Dockerized Playwright coverage for compile/export behavior, appearance
   modes, accessibility, and visual regressions
+- a Windows installer containing the Python runtime, pinned CHIRP build, and
+  RigManifest compiler as a Tauri sidecar
 
 Set up the Python project and run its tests:
 
@@ -144,6 +146,17 @@ pnpm install
 pnpm tauri dev
 ```
 
+Build the self-contained Windows installer from PowerShell:
+
+```powershell
+cd desktop
+pnpm bundle:windows
+```
+
+The installer is written under `desktop/src-tauri/target/release/bundle/nsis`.
+A no-install ZIP is also written to `dist/portable`. Neither distribution
+requires Python, CHIRP, Node, or a source checkout on the destination computer.
+
 Run the deterministic renderer-level UI suite in Docker:
 
 ```bash
@@ -155,9 +168,9 @@ docker compose -f compose.ui-tests.yaml run --rm ui-tests
 The test image includes its own pinned Chromium runtime, so no host browser
 setup is required. See `desktop/README.md` for test scope and snapshot updates.
 
-The desktop shell calls the same Python compiler through the JSON sidecar. In
-this first source-based slice it expects the repository's `.venv` by default;
-set `RIGMANIFEST_PYTHON` to use another Python executable.
+During development, the desktop shell calls the Python compiler from the
+repository's `.venv` by default; set `RIGMANIFEST_PYTHON` to use another Python
+executable. Release bundles call only the frozen sidecar shipped with the app.
 
 The sample profile selects a user-owned `Home essentials` set and the read-only
 `US NOAA Weather Broadcasts` preset. The VX-6R radio model references the NOAA

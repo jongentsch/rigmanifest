@@ -70,6 +70,10 @@ Responsibilities:
 
 The desktop uses one-request newline-delimited JSON messages over a local Python
 sidecar's stdin/stdout. Tauri launches the process without opening a network port.
+Debug builds resolve the repository's Python environment. Windows release builds
+instead launch a PyInstaller-frozen sidecar registered through Tauri's
+`externalBin` bundle configuration, so the installed application has no external
+Python or CHIRP runtime dependency.
 
 Catalog requests return immutable presets plus the starter user partition. Compile
 requests include the current user-owned definitions and sets. Python validates that

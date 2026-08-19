@@ -1,8 +1,9 @@
 # RigManifest Desktop
 
 This is the Svelte 5 + TypeScript interface and Tauri 2 shell for RigManifest.
-The Rust command layer launches the repository's Python JSON sidecar, keeping
-all compilation and radio-capability semantics in the Python core.
+The Rust command layer launches a Python JSON sidecar, keeping all compilation
+and radio-capability semantics in the Python core. Development builds use the
+repository environment; release builds use a frozen, installer-shipped sidecar.
 
 ## Development
 
@@ -28,6 +29,27 @@ webview local-storage records are imported once on first open. Use **Back up
 workspace** on the Frequency Library page to create a consistent SQLite copy.
 `RIGMANIFEST_DATABASE` can override the database path for isolated native smoke
 tests.
+
+## Portable Windows bundle
+
+After completing the development setup, build the sidecar and NSIS installer:
+
+```powershell
+pnpm bundle:windows
+```
+
+`scripts/build-portable.ps1` freezes RigManifest, the Python runtime, and the
+pinned CHIRP package into a target-triple-suffixed sidecar, smoke-tests its JSON
+catalog response, and then runs the Tauri release build. It produces both a
+self-contained installer under `src-tauri/target/release/bundle/nsis` and a
+no-install ZIP under the repository's `dist/portable` directory. Destination
+machines do not need Python, CHIRP, Node, or this repository.
+
+To build and smoke-test only the frozen sidecar:
+
+```powershell
+pnpm sidecar:windows
+```
 
 ## Verification
 
@@ -56,8 +78,6 @@ docker compose -f compose.ui-tests.yaml run --rm ui-tests pnpm test:ui:update
 ```
 
 These tests cover the renderer and its contract with the desktop boundary;
-they do not replace native Tauri/WebDriver smoke tests for windowing, dialogs,
-or the Python sidecar process.
-
-Packaging the Python compiler as a distributable Tauri sidecar is deliberately
-deferred. The current desktop build is a source-tree development slice.
+they do not replace native Tauri/WebDriver smoke tests for windowing or dialogs.
+The portable build script and Windows CI job exercise the frozen Python sidecar
+and build the native installer.

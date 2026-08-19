@@ -11,6 +11,8 @@
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "test:ui": "svelte-kit sync && playwright test",
     "test:ui:update": "svelte-kit sync && playwright test --update-snapshots",
+    "sidecar:windows": "powershell -ExecutionPolicy Bypass -File scripts/build-portable.ps1 -SidecarOnly",
+    "bundle:windows": "powershell -ExecutionPolicy Bypass -File scripts/build-portable.ps1",
     "tauri": "tauri"
   },
   "license": "GPL-3.0-only",
