@@ -210,6 +210,19 @@ test("stores the library advisory context independently of profiles", async ({ p
   await expect(plan).toHaveValue("southern-nevada-repeater-council");
 });
 
+test("selects a frequency definition by clicking anywhere in its row", async ({ page }) => {
+  await page.goto("/library");
+
+  const repeaterRow = page.getByRole("row", { name: /70cm Local Repeater/ });
+  await repeaterRow.getByText("444.500000 MHz").click();
+
+  await expect(
+    page.getByRole("heading", { name: "70cm Local Repeater", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Receive MHz")).toHaveValue("444.5");
+  await expect(page.getByLabel("Frequency catalog summary")).toHaveCount(0);
+});
+
 test("backs up the durable workspace through the native boundary", async ({ page }) => {
   await page.goto("/library");
 

@@ -110,6 +110,22 @@
     saved = false;
   }
 
+  function selectDefinitionRow(
+    node: HTMLTableRowElement,
+    definitionId: string,
+  ): { destroy: () => void } {
+    const handleClick = (event: MouseEvent): void => {
+      const target = event.target as HTMLElement;
+      if (target.closest("[data-row-action]")) return;
+      selectedDefinitionId = definitionId;
+    };
+
+    node.addEventListener("click", handleClick);
+    return {
+      destroy: () => node.removeEventListener("click", handleClick),
+    };
+  }
+
   function persist(next: WorkspaceCatalog): void {
     catalog = next;
     saved = false;
@@ -478,15 +494,6 @@
       <div><strong>Loading frequency catalog</strong><p>Resolving sets and definitions.</p></div>
     </section>
   {:else}
-    <section class="plan-context" aria-label="Frequency plan context">
-      <label>
-        <span>Advisory context for definitions</span>
-        <select value={selectedPlanId} onchange={(event) => selectPlan(event.currentTarget.value)}>
-          {#each catalog.frequency_plans as frequencyPlan}<option value={frequencyPlan.id}>{frequencyPlan.name} · {frequencyPlan.jurisdiction}</option>{/each}
-        </select>
-      </label>
-      <p>This supplies sourced editing advice only. It is never stored on a frequency definition and never blocks compilation.</p>
-    </section>
     {#if importFailure}
       <div class="banner banner--error" role="alert"><strong>Import failed.</strong><span>{importFailure}</span></div>
     {:else if importMessage}
@@ -498,12 +505,6 @@
     {#if saved && !importMessage}
       <div class="banner banner--success" role="status"><strong>Catalog saved.</strong><span>User-owned records are stored locally.</span></div>
     {/if}
-
-    <div class="catalog-summary" aria-label="Frequency catalog summary">
-      <div><strong>{catalog.frequency_definitions.length}</strong><span>Definitions</span></div>
-      <div><strong>{catalog.frequency_sets.filter((item) => !item.read_only).length}</strong><span>My sets</span></div>
-      <div><strong>{catalog.frequency_sets.filter((item) => item.read_only).length}</strong><span>Preset sets</span></div>
-    </div>
 
     <div class="catalog-layout">
       <aside class="workspace-panel set-browser" aria-labelledby="set-browser-heading">
@@ -596,7 +597,11 @@
               </thead>
               <tbody>
                 {#each selectedDefinitions as item (item.definition.id)}
-                  <tr class:active-record={item.definition.id === selectedDefinitionId}>
+                  <tr
+                    class:active-record={item.definition.id === selectedDefinitionId}
+                    class="selectable-record"
+                    use:selectDefinitionRow={item.definition.id}
+                  >
                     <td class="memory-number">
                       {#if selectedSet.read_only}
                         {item.member.channel_designator ?? "—"}
@@ -609,7 +614,7 @@
                     <td>{definitionTxSummary(item.definition)}</td>
                     <td>{item.definition.mode}</td>
                     <td><span class:badge--preset={item.definition.read_only} class="record-badge compact">{item.definition.origin}</span></td>
-                    {#if !selectedSet.read_only}<td><button class="text-button" onclick={() => removeMembership(item.definition.id)}>Remove</button></td>{/if}
+                    {#if !selectedSet.read_only}<td><button class="text-button" data-row-action onclick={() => removeMembership(item.definition.id)}>Remove</button></td>{/if}
                   </tr>
                 {:else}
                   <tr><td colspan={selectedSet.read_only ? 6 : 7} class="empty-table">This set has no frequency definitions yet.</td></tr>
@@ -620,8 +625,17 @@
 
           {#if selectedDefinition}
             <div class="definition-editor-heading">
-              <div><p class="section-label">Shared definition</p><h3>{selectedDefinition.name}</h3></div>
-              <span>{selectedDefinition.read_only ? "Preset definitions cannot be edited." : "Changes apply everywhere this definition is used."}</span>
+              <div>
+                <p class="section-label">Shared definition</p>
+                <h3>{selectedDefinition.name}</h3>
+                <span class="definition-usage">{selectedDefinition.read_only ? "Preset definitions cannot be edited." : "Changes apply everywhere this definition is used."}</span>
+              </div>
+              <label class="definition-advisory">
+                <span>Advisory plan</span>
+                <select aria-label="Advisory context for definitions" value={selectedPlanId} onchange={(event) => selectPlan(event.currentTarget.value)}>
+                  {#each catalog.frequency_plans as frequencyPlan}<option value={frequencyPlan.id}>{frequencyPlan.name} · {frequencyPlan.jurisdiction}</option>{/each}
+                </select>
+              </label>
             </div>
 
             {#if selectedDefinition.read_only}

@@ -867,75 +867,6 @@ code {
   font-size: 10px;
 }
 
-.catalog-summary {
-  display: flex;
-  gap: 14px;
-  max-width: 1500px;
-  margin: 0 auto 14px;
-}
-
-.plan-context {
-  display: grid;
-  grid-template-columns: minmax(150px, 0.45fr) minmax(280px, 1fr) minmax(280px, 1.3fr);
-  gap: 12px;
-  align-items: end;
-  margin-bottom: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
-  background: var(--surface);
-}
-
-.plan-context label {
-  display: grid;
-  gap: 5px;
-}
-
-.plan-context label > span {
-  color: var(--muted);
-  font-size: 9px;
-  font-weight: 700;
-}
-
-.plan-context select {
-  min-height: 36px;
-  padding: 6px 9px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  color: var(--text);
-  background: var(--input);
-}
-
-.plan-context p {
-  margin: 0 0 8px;
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.45;
-}
-
-.catalog-summary > div {
-  min-width: 120px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.catalog-summary strong,
-.catalog-summary span {
-  display: block;
-}
-
-.catalog-summary strong {
-  font-family: "Cascadia Mono", Consolas, monospace;
-  font-size: 17px;
-}
-
-.catalog-summary span {
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 10px;
-}
-
 .catalog-layout,
 .radio-layout {
   display: grid;
@@ -1312,6 +1243,10 @@ code {
   background: var(--row-hover);
 }
 
+.data-table tr.selectable-record {
+  cursor: pointer;
+}
+
 .empty-table {
   height: 92px;
   color: var(--muted);
@@ -1320,6 +1255,7 @@ code {
 
 .definition-editor-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
@@ -1339,9 +1275,34 @@ code {
   font-size: 13px;
 }
 
-.definition-editor-heading > span {
+.definition-usage {
+  display: block;
+  margin-top: 5px;
   color: var(--muted);
   font-size: 9px;
+}
+
+.definition-advisory {
+  display: grid;
+  flex: 0 1 300px;
+  gap: 4px;
+  min-width: 220px;
+}
+
+.definition-advisory > span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.definition-advisory select {
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  color: var(--text);
+  background: var(--input);
+  font-size: 10px;
 }
 
 .definition-facts {
