@@ -205,3 +205,56 @@ def test_invalid_workspace_state_is_rejected(tmp_path, change) -> None:
     state = {**default_workspace_state(), **change}
     with pytest.raises(ValueError):
         SQLiteWorkspace(tmp_path / "workspace.sqlite3").save(state)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"radio_id": ""}, "metadata"),
+        ({"image": b""}, "metadata"),
+        ({"original_filename": ""}, "metadata"),
+        ({"driver_reference": ""}, "metadata"),
+        ({"kind": "backup"}, "kind"),
+    ],
+)
+def test_radio_image_metadata_is_validated(tmp_path, overrides, message) -> None:
+    arguments = {
+        "radio_id": "radio-1",
+        "image": b"image",
+        "original_filename": "source.img",
+        "driver_reference": "Yaesu_VX-6",
+        "kind": "source",
+        **overrides,
+    }
+    with pytest.raises(ValueError, match=message):
+        SQLiteWorkspace(tmp_path / "workspace.sqlite3").store_radio_image(**arguments)
+
+
+def test_missing_and_unknown_radio_images_are_reported(tmp_path) -> None:
+    workspace = SQLiteWorkspace(tmp_path / "workspace.sqlite3")
+
+    with pytest.raises(ValueError, match="does not have"):
+        workspace.radio_image_path("missing")
+    with pytest.raises(ValueError, match="unknown"):
+        workspace.radio_image_version("missing")
+
+    version = workspace.store_radio_image(
+        "radio / unsafe",
+        b"image",
+        original_filename="source.img",
+        driver_reference="Yaesu_VX-6",
+    )
+    version.path.unlink()
+    with pytest.raises(ValueError, match="is missing"):
+        workspace.radio_image_path("radio / unsafe")
+
+
+def test_blank_unsafe_radio_id_gets_a_safe_directory(tmp_path) -> None:
+    version = SQLiteWorkspace(tmp_path / "workspace.sqlite3").store_radio_image(
+        "...",
+        b"image",
+        original_filename="source.img",
+        driver_reference="Yaesu_VX-6",
+    )
+
+    assert version.path.parent.name.startswith("radio-")

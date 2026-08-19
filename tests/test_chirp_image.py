@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
 from chirp import chirp_common, memmap
 from chirp.drivers.vx6 import POWER_LEVELS, VX6Radio
 
 from rigmanifest.chirp_image import (
+    _compiled_to_chirp,
+    _power_level,
+    _setting_count,
     image_memory_validator,
     import_chirp_image,
     load_chirp_image,
@@ -13,7 +19,14 @@ from rigmanifest.chirp_image import (
 )
 from rigmanifest.compiler import compile_profiles
 from rigmanifest.ipc import handle_request
-from rigmanifest.models import CompilationSettings, FrequencyCatalog
+from rigmanifest.models import (
+    CompilationSettings,
+    CompiledMemory,
+    FrequencyCatalog,
+    Mode,
+    SignalingSpec,
+    TransmitBehavior,
+)
 
 
 def _vx6_image(path: Path) -> Path:
@@ -218,3 +231,98 @@ def test_image_import_and_compile_are_available_through_ipc(tmp_path: Path) -> N
         }
     )["result"]["versions"]
     assert [item["kind"] for item in versions] == ["compiled", "source"]
+
+
+@pytest.mark.parametrize(
+    ("filename", "radio_id", "message"),
+    [
+        ("source.csv", "radio", "requires"),
+        ("missing.img", "radio", "does not exist"),
+        ("source.img", " ", "must not be blank"),
+    ],
+)
+def test_image_import_validates_its_inputs(
+    tmp_path: Path, filename: str, radio_id: str, message: str
+) -> None:
+    path = tmp_path / filename
+    if filename == "source.img":
+        path.write_bytes(b"image")
+
+    with pytest.raises(ValueError, match=message):
+        import_chirp_image(path, radio_id=radio_id)
+
+
+def _compiled_memory(**changes) -> CompiledMemory:
+    memory = CompiledMemory(
+        source_frequency_definition_id="frequency",
+        source_frequency_set_ids=(),
+        memory_number=1,
+        target_name="TEST",
+        receive_frequency_hz=146_520_000,
+        transmit_behavior=TransmitBehavior.SAME,
+        transmit_frequency_hz=None,
+        offset_hz=None,
+        mode=Mode.FM,
+        transmit_access=SignalingSpec(),
+        receive_squelch=SignalingSpec(),
+        tuning_step_hz=5_000,
+    )
+    return replace(memory, **changes)
+
+
+@pytest.mark.parametrize(
+    ("memory", "duplex", "offset"),
+    [
+        (_compiled_memory(transmit_behavior=TransmitBehavior.DISABLED), "off", 0),
+        (
+            _compiled_memory(
+                transmit_behavior=TransmitBehavior.SPLIT,
+                transmit_frequency_hz=145_000_000,
+            ),
+            "split",
+            145_000_000,
+        ),
+        (
+            _compiled_memory(
+                transmit_behavior=TransmitBehavior.OFFSET,
+                offset_hz=-600_000,
+            ),
+            "-",
+            600_000,
+        ),
+    ],
+)
+def test_compiled_memory_transmit_modes_map_to_chirp(memory, duplex, offset) -> None:
+    features = SimpleNamespace(
+        valid_skips=[""],
+        valid_tuning_steps=[5.0],
+        valid_power_levels=[],
+    )
+
+    converted = _compiled_to_chirp(memory, features, None)
+
+    assert (converted.duplex, converted.offset) == (duplex, offset)
+
+
+def test_power_selection_supports_fallback_label_and_nearest_level() -> None:
+    low = chirp_common.PowerLevel("Low", watts=1)
+    high = chirp_common.PowerLevel("High", watts=5)
+    features = SimpleNamespace(valid_power_levels=[low, high])
+
+    assert _power_level(_compiled_memory(), features, "fallback") == "fallback"
+    assert _power_level(
+        _compiled_memory(power_dbm=float(high), power_label="High"),
+        features,
+        None,
+    ) is high
+    assert _power_level(
+        _compiled_memory(power_dbm=float(low) + 0.1, power_label="Unknown"),
+        features,
+        None,
+    ) is low
+
+
+def test_setting_count_handles_radios_without_settings() -> None:
+    radio = SimpleNamespace(get_features=lambda: SimpleNamespace(has_settings=False))
+
+    assert _setting_count(radio) == 0
