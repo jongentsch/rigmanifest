@@ -26,6 +26,8 @@ def test_compile_request_returns_versioned_plan() -> None:
         "warnings": 3,
         "errors": 1,
     }
+    assert len(result["channel_library"]) == 4
+    assert result["channel_library"][0]["id"] == "local-2m-repeater"
     assert any(
         item["code"] == "TX_DISABLE_NOT_REPRESENTABLE"
         for item in result["diagnostics"]

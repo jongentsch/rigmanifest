@@ -96,7 +96,9 @@ The first executable slice currently includes:
 - CHIRP-compatible CSV export
 - the `home` in-memory fixture
 - a Typer CLI
-- a versioned newline-delimited JSON sidecar boundary for the future desktop UI
+- a versioned newline-delimited JSON sidecar boundary
+- a minimal Svelte 5 + Tauri 2 desktop UI for compiling, reviewing diagnostics,
+  and exporting CHIRP CSV files
 
 Set up the Python project and run its tests:
 
@@ -112,6 +114,19 @@ Exercise the first CLI path:
 rigmanifest compile home --target yaesu-vx6r --output home-yaesu-vx6r.csv
 ```
 
+Run the desktop app after completing the Python setup and installing the
+[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/):
+
+```bash
+cd desktop
+pnpm install
+pnpm tauri dev
+```
+
+The desktop shell calls the same Python compiler through the JSON sidecar. In
+this first source-based slice it expects the repository's `.venv` by default;
+set `RIGMANIFEST_PYTHON` to use another Python executable.
+
 The sample profile intentionally includes a receive-only NOAA channel. The
 current VX-6R capability overlay omits it with an error because CHIRP's VX-6R
 driver does not expose a safe transmit-disable representation. The CSV is
@@ -123,7 +138,7 @@ sequence.
 
 ## License
 
-RigManifest is intended to be released under GPLv3-compatible terms.
+RigManifest is licensed under the GNU General Public License v3.0.
 
 CHIRP is an intentional upstream dependency.
 

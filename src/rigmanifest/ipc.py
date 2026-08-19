@@ -36,6 +36,20 @@ def compile_builtin(
         write_chirp_csv(plan, output_path)
 
     result = plan_to_dict(plan)
+    result["channel_library"] = [
+        {
+            "id": channel.id,
+            "name": channel.name,
+            "receive_frequency_hz": channel.receive_frequency_hz,
+            "transmit_behavior": channel.transmit_behavior.value,
+            "transmit_frequency_hz": channel.resolved_transmit_frequency_hz,
+            "offset_hz": channel.offset_hz,
+            "mode": channel.mode.value,
+            "tags": sorted(channel.tags),
+            "priority": channel.priority.name.lower(),
+        }
+        for channel in sorted(HOME_CHANNELS, key=lambda item: item.id)
+    ]
     result["csv_path"] = str(output_path) if output_path is not None else None
     return result
 
