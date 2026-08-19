@@ -104,7 +104,7 @@ def catalog_to_dict() -> dict[str, Any]:
     """Return shared preset/user catalog data without running compilation."""
 
     return {
-        "schema_version": 5,
+        "schema_version": 6,
         "profiles": [
             {
                 "id": profile.id,
@@ -312,6 +312,10 @@ def _set_to_dict(frequency_set: FrequencySet) -> dict[str, Any]:
         "origin": frequency_set.origin.value,
         "read_only": frequency_set.read_only,
         "description": frequency_set.description,
+        "jurisdiction": frequency_set.jurisdiction,
+        "source_label": frequency_set.source_label,
+        "source_url": frequency_set.source_url,
+        "reviewed_at": frequency_set.reviewed_at,
         "members": [
             {
                 "frequency_definition_id": member.frequency_definition_id,

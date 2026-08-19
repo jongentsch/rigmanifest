@@ -48,7 +48,7 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
 
     result = response["result"]
     assert isinstance(result, dict)
-    assert result["schema_version"] == 5
+    assert result["schema_version"] == 6
     assert result["profiles"] == [
         {
             "id": "home",
@@ -84,7 +84,11 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
     )
     assert two_meter["suggested_offset_hz"] == -600_000
     assert two_meter["raster_spacing_hz"] is None
-    assert len(result["frequency_definitions"]) == 13
+    assert len(result["frequency_definitions"]) == 98
+    assert len(result["frequency_sets"]) == 8
+    frs = next(item for item in result["frequency_sets"] if item["id"] == "us-frs")
+    assert frs["source_url"].endswith("section-95.563")
+    assert frs["reviewed_at"] == "2026-08-19"
     assert {item["origin"] for item in result["frequency_sets"]} == {
         "preset",
         "user",

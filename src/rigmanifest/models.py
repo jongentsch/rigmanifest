@@ -33,6 +33,8 @@ class Mode(StrEnum):
     NFM = "NFM"
     AM = "AM"
     WFM = "WFM"
+    USB = "USB"
+    CW = "CW"
 
 
 class ToneMode(StrEnum):
@@ -208,6 +210,10 @@ class FrequencySet:
     origin: CatalogOrigin
     members: tuple[FrequencySetMember, ...]
     description: str = ""
+    jurisdiction: str | None = None
+    source_label: str | None = None
+    source_url: str | None = None
+    reviewed_at: str | None = None
 
     def __post_init__(self) -> None:
         if not self.id or not self.name:

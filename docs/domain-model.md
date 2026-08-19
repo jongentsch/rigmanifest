@@ -49,6 +49,7 @@ frequency_set
 - origin: PRESET | USER
 - name
 - description
+- jurisdiction? / source_label? / source_url? / reviewed_at?
 
 frequency_set_member
 - frequency_set_id       -> frequency_set.id

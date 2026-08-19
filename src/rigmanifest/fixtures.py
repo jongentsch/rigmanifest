@@ -13,6 +13,7 @@ from rigmanifest.models import (
     SignalingSpec,
     TransmitBehavior,
 )
+from rigmanifest.preset_catalog import SERVICE_PRESET_DEFINITIONS, SERVICE_PRESET_SETS
 
 
 HOME_FREQUENCY_DEFINITIONS: tuple[FrequencyDefinition, ...] = (
@@ -101,6 +102,10 @@ US_NOAA_WEATHER_SET = FrequencySet(
     name="US NOAA Weather Broadcasts",
     origin=CatalogOrigin.PRESET,
     description="Read-only US weather broadcast preset set.",
+    jurisdiction="United States / North America",
+    source_label="Yaesu VX-6R/E operating manual and NOAA Weather Radio",
+    source_url="https://www.weather.gov/nwr/station_listing",
+    reviewed_at="2026-08-19",
     members=tuple(
         FrequencySetMember(
             frequency_definition_id=definition.id,
@@ -113,8 +118,12 @@ US_NOAA_WEATHER_SET = FrequencySet(
 
 
 BUILTIN_CATALOG = FrequencyCatalog(
-    definitions=HOME_FREQUENCY_DEFINITIONS + NOAA_FREQUENCY_DEFINITIONS,
-    sets=(HOME_ESSENTIALS_SET, US_NOAA_WEATHER_SET),
+    definitions=(
+        HOME_FREQUENCY_DEFINITIONS
+        + NOAA_FREQUENCY_DEFINITIONS
+        + SERVICE_PRESET_DEFINITIONS
+    ),
+    sets=(HOME_ESSENTIALS_SET, US_NOAA_WEATHER_SET) + SERVICE_PRESET_SETS,
 )
 
 

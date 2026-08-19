@@ -97,6 +97,10 @@ export interface FrequencySetRecord {
   origin: CatalogOrigin;
   read_only: boolean;
   description: string;
+  jurisdiction?: string | null;
+  source_label?: string | null;
+  source_url?: string | null;
+  reviewed_at?: string | null;
   members: FrequencySetMemberRecord[];
 }
 

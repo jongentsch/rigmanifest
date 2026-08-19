@@ -104,6 +104,8 @@ The first executable slice currently includes:
 - a pinned, headless CHIRP dependency and capability adapter
 - a USA Yaesu VX-6R target composed from CHIRP facts and sourced overlays
 - CHIRP-compatible CSV export
+- sourced read-only US FRS, GMRS, MURS, Citizens Band, aviation-guard, and
+  regulated 60-meter discrete-frequency sets
 - the `home` in-memory fixture
 - a Typer CLI
 - a versioned newline-delimited JSON sidecar boundary

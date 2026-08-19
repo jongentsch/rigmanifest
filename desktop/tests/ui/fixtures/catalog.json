@@ -1,5 +1,5 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "profiles": [
     {
       "id": "home",
@@ -111,6 +111,10 @@
       "origin": "preset",
       "read_only": true,
       "description": "Read-only US weather broadcast preset set.",
+      "jurisdiction": "United States / North America",
+      "source_label": "NOAA Weather Radio",
+      "source_url": "https://www.weather.gov/nwr/station_listing",
+      "reviewed_at": "2026-08-19",
       "members": [
         {
           "frequency_definition_id": "us-noaa-weather-1",

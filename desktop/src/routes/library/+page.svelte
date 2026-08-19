@@ -514,6 +514,16 @@
 
           {#if selectedSet.read_only}
             <p class="panel-description">{selectedSet.description}</p>
+            {#if selectedSet.source_label}
+              <p class="preset-source">
+                <span>{selectedSet.jurisdiction ?? "Published preset"} · reviewed {selectedSet.reviewed_at ?? "date unavailable"}</span>
+                {#if selectedSet.source_url}
+                  <a href={selectedSet.source_url} target="_blank" rel="noreferrer">{selectedSet.source_label}</a>
+                {:else}
+                  <strong>{selectedSet.source_label}</strong>
+                {/if}
+              </p>
+            {/if}
           {:else}
             <div class="set-editor-fields">
               <label><span>Set name</span><input value={selectedSet.name} onchange={(event) => event.currentTarget.value.trim() && updateSelectedSet({ name: event.currentTarget.value.trim() })} /></label>
@@ -583,7 +593,7 @@
                 {:else if selectedDefinition.transmit_behavior === "split"}
                   <label><span>Transmit MHz</span><input type="number" min="0.000001" step="0.000001" value={(selectedDefinition.transmit_frequency_hz ?? selectedDefinition.receive_frequency_hz) / 1_000_000} onchange={(event) => updateFrequency("transmit_frequency_hz", event.currentTarget.valueAsNumber)} /></label>
                 {/if}
-                <label><span>Mode</span><select value={selectedDefinition.mode} onchange={(event) => updateDefinition({ mode: event.currentTarget.value })}><option>FM</option><option>NFM</option><option>AM</option><option>WFM</option></select></label>
+                <label><span>Mode</span><select value={selectedDefinition.mode} onchange={(event) => updateDefinition({ mode: event.currentTarget.value })}><option>FM</option><option>NFM</option><option>AM</option><option>WFM</option><option>USB</option><option>CW</option></select></label>
                 {#if planSuggestion}
                   <aside class="plan-suggestion wide" aria-label="Frequency plan suggestion">
                     <div>

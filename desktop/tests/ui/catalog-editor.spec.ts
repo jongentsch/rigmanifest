@@ -168,6 +168,18 @@ test("shows sourced plan advice and only applies an offset on request", async ({
   await expect(suggestion).toContainText("12.5 kHz raster: off raster");
 });
 
+test("shows preset provenance without making the set editable", async ({ page }) => {
+  await page.goto("/library");
+  await page.getByRole("button", { name: /US NOAA Weather Broadcasts/ }).click();
+
+  await expect(page.getByText("United States / North America · reviewed 2026-08-19")).toBeVisible();
+  await expect(page.getByRole("link", { name: "NOAA Weather Radio" })).toHaveAttribute(
+    "href",
+    "https://www.weather.gov/nwr/station_listing",
+  );
+  await expect(page.getByText("Preset definitions cannot be edited.")).toBeVisible();
+});
+
 test("imports a CHIRP CSV into reusable definitions and a set", async ({ page }) => {
   await page.goto("/library");
 

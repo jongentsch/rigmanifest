@@ -822,6 +822,21 @@ code {
   line-height: 1.5;
 }
 
+.preset-source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: -6px 0 0;
+  padding: 0 16px 12px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.preset-source a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .set-editor-fields,
 .definition-form {
   display: grid;
