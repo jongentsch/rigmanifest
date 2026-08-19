@@ -52,6 +52,9 @@ jobs:
       - name: Check Svelte and TypeScript
         run: docker compose -f compose.ui-tests.yaml run --rm ui-tests pnpm check
 
+      - name: Verify local and release packaging separation
+        run: docker compose -f compose.ui-tests.yaml run --rm ui-tests pnpm check:packaging
+
       - name: Build desktop frontend
         run: docker compose -f compose.ui-tests.yaml run --rm ui-tests pnpm build
 

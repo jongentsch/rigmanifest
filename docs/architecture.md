@@ -148,6 +148,11 @@ Release and verifies every installable artifact against the public updater key e
 in the application. The corresponding encrypted private key exists only in the release
 environment and the repository owner's external backup.
 
+Updater artifact generation is enabled only by the release-specific Tauri configuration.
+Normal local package commands are unsigned and never discover or load backup keys. The
+tagged-release workflow selects the release configuration and supplies the signing key
+through GitHub Actions secrets.
+
 Installed Windows and AppImage distributions use Tauri's native updater. Windows
 portable and Debian distributions use the same version check but never invoke the
 installer; they direct the user to the release instead. Before an in-app installation,

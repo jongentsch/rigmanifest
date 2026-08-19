@@ -10,14 +10,20 @@ sidecar_work="$repository_root/build/sidecar"
 sidecar_source="$repository_root/src/rigmanifest/sidecar.py"
 binary_directory="$desktop_root/src-tauri/binaries"
 linux_dist="$repository_root/dist/linux"
-local_key_root="$(dirname "$repository_root")"
+release_build=false
 
-if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" \
-    && -f "$local_key_root/rigmanifest-updater.key" \
-    && -f "$local_key_root/rigmanifest-updater-password.txt" ]]; then
-    TAURI_SIGNING_PRIVATE_KEY="$(<"$local_key_root/rigmanifest-updater.key")"
-    TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(<"$local_key_root/rigmanifest-updater-password.txt")"
-    export TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+if [[ "${1:-}" == "--release" ]]; then
+    release_build=true
+elif [[ $# -gt 0 ]]; then
+    echo "Usage: $0 [--release]" >&2
+    exit 2
+fi
+
+if [[ "$release_build" == true \
+    && ( -z "${TAURI_SIGNING_PRIVATE_KEY:-}" \
+      || -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ) ]]; then
+    echo "Signed release builds require the Tauri signing environment variables." >&2
+    exit 1
 fi
 
 if [[ ! -x "$python" ]]; then
@@ -63,9 +69,14 @@ if payload.get("id") != "portable-smoke" or not payload.get("result", {}).get("s
     raise SystemExit(f"Frozen sidecar smoke test returned an invalid response: {payload!r}")
 '
 
+tauri_config="src-tauri/tauri.portable.conf.json"
+if [[ "$release_build" == true ]]; then
+    tauri_config="src-tauri/tauri.release.conf.json"
+fi
+
 (
     cd "$desktop_root"
-    pnpm tauri build --config src-tauri/tauri.portable.conf.json --bundles deb,appimage
+    pnpm tauri build --config "$tauri_config" --bundles deb,appimage
 )
 
 version="$("$python" -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["version"])' "$desktop_root/src-tauri/tauri.conf.json")"
@@ -73,13 +84,23 @@ deb_package="$(find "$desktop_root/src-tauri/target/release/bundle/deb" -maxdept
 appimage_package="$(find "$desktop_root/src-tauri/target/release/bundle/appimage" -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
 appimage_signature="${appimage_package}.sig"
 
-if [[ -z "$deb_package" || -z "$appimage_package" || ! -f "$appimage_signature" ]]; then
-    echo "Tauri did not produce the Debian package, AppImage, and updater signature." >&2
+if [[ -z "$deb_package" || -z "$appimage_package" ]]; then
+    echo "Tauri did not produce both Debian and AppImage packages." >&2
+    exit 1
+fi
+
+if [[ "$release_build" == true && ! -f "$appimage_signature" ]]; then
+    echo "Tauri did not produce the AppImage updater signature." >&2
     exit 1
 fi
 
 cp "$deb_package" "$linux_dist/RigManifest_${version}_amd64.deb"
 cp "$appimage_package" "$linux_dist/RigManifest_${version}_x86_64.AppImage"
-cp "$appimage_signature" "$linux_dist/RigManifest_${version}_x86_64.AppImage.sig"
+if [[ "$release_build" == true ]]; then
+    cp "$appimage_signature" "$linux_dist/RigManifest_${version}_x86_64.AppImage.sig"
+else
+    rm -f "${deb_package}.sig" "$appimage_signature"
+    rm -f "$linux_dist/RigManifest_${version}_x86_64.AppImage.sig"
+fi
 
 echo "Linux packages ready in $linux_dist"

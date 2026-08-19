@@ -84,11 +84,12 @@ builds require these GitHub Actions secrets:
 - `TAURI_SIGNING_PRIVATE_KEY`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
 
-For the repository owner's local release builds, the platform scripts automatically
-load `rigmanifest-updater.key` and `rigmanifest-updater-password.txt` from the
-directory immediately above the Git repository when the signing environment variables
-are not already set. Never commit those files. Losing the key or password prevents
-future releases from updating existing installations.
+Ordinary `bundle:windows` and `bundle:linux` builds never read signing files and do
+not create updater signatures. Only the tagged-release workflow calls the explicit
+`bundle:windows:release` and `bundle:linux:release` commands. Those commands fail
+closed when either GitHub Actions secret is unavailable; they never generate or rotate
+keys. Never commit the backup files. Losing the key or password prevents future
+releases from updating existing installations.
 
 ## Verification
 

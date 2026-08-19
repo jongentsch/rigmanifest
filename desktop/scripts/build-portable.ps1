@@ -1,5 +1,6 @@
 param(
-    [switch]$SidecarOnly
+    [switch]$SidecarOnly,
+    [switch]$Release
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,6 +11,12 @@ $sidecarDist = Join-Path $repositoryRoot "dist/sidecar"
 $sidecarWork = Join-Path $repositoryRoot "build/sidecar"
 $sidecarSource = Join-Path $repositoryRoot "src/rigmanifest/sidecar.py"
 $binaryDirectory = Join-Path $desktopRoot "src-tauri/binaries"
+
+if ($Release -and
+    (-not $env:TAURI_SIGNING_PRIVATE_KEY -or
+     -not $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD)) {
+    throw "Signed release builds require the Tauri signing environment variables."
+}
 
 if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
     throw "Python environment not found at $python. Run the repository setup steps first."
@@ -102,21 +109,16 @@ if ($smokePayload.id -ne "portable-smoke" -or -not $smokePayload.result.schema_v
 Write-Host "Portable sidecar ready: $tauriSidecar"
 
 if (-not $SidecarOnly) {
-    if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
-        $localKeyRoot = Split-Path -Parent $repositoryRoot
-        $localKeyFile = Join-Path $localKeyRoot "rigmanifest-updater.key"
-        $localPasswordFile = Join-Path $localKeyRoot "rigmanifest-updater-password.txt"
-        if ((Test-Path -LiteralPath $localKeyFile -PathType Leaf) -and
-            (Test-Path -LiteralPath $localPasswordFile -PathType Leaf)) {
-            $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content -LiteralPath $localKeyFile -Raw
-            $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = `
-                (Get-Content -LiteralPath $localPasswordFile -Raw).TrimEnd()
-        }
+    $buildConfig = if ($Release) {
+        "src-tauri/tauri.release.conf.json"
+    }
+    else {
+        "src-tauri/tauri.portable.conf.json"
     }
 
     Push-Location $desktopRoot
     try {
-        pnpm tauri build --config src-tauri/tauri.portable.conf.json
+        pnpm tauri build --config $buildConfig
         if ($LASTEXITCODE -ne 0) {
             throw "Tauri portable bundle failed with exit code $LASTEXITCODE."
         }
@@ -133,6 +135,11 @@ if (-not $SidecarOnly) {
     $portableArchiveName = "RigManifest_$($tauriConfig.version)_x64-portable.zip"
     $portableArchive = Join-Path $repositoryRoot "dist/portable/$portableArchiveName"
     $portableArchiveDirectory = Split-Path -Parent $portableArchive
+    if (-not $Release) {
+        $installerSignature = Join-Path $releaseDirectory `
+            "bundle/nsis/RigManifest_$($tauriConfig.version)_x64-setup.exe.sig"
+        Remove-Item -LiteralPath $installerSignature -Force -ErrorAction SilentlyContinue
+    }
     New-Item -ItemType Directory -Force `
         -Path $portableDirectory, $portableArchiveDirectory | Out-Null
     Copy-Item -LiteralPath (Join-Path $releaseDirectory "rigmanifest-desktop.exe") `
