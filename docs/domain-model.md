@@ -283,3 +283,8 @@ UI combines those records with immutable presets returned by Python. On compile,
 sends the complete user partition back across IPC; Python reconstructs and validates
 the shared catalog before invoking the compiler. Local storage is therefore an
 authoring store, not a trusted compiler input.
+
+CHIRP CSV import crosses the same validation boundary. A CHIRP memory is translated
+into a new user-owned frequency definition and provenance is retained in notes; its
+radio memory number is not promoted into canonical identity. The resulting set and
+definitions are persisted through the ordinary user-catalog path.

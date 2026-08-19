@@ -132,11 +132,26 @@ fn load_catalog() -> Result<Value, String> {
     }))
 }
 
+#[tauri::command]
+fn import_chirp_csv(source_path: String) -> Result<Value, String> {
+    invoke_python(json!({
+        "id": "desktop",
+        "method": "import_chirp_csv",
+        "params": {
+            "source_path": source_path,
+        }
+    }))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![compile_profile, load_catalog])
+        .invoke_handler(tauri::generate_handler![
+            compile_profile,
+            import_chirp_csv,
+            load_catalog
+        ])
         .run(tauri::generate_context!())
         .expect("error while running RigManifest");
 }

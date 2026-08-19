@@ -1,6 +1,7 @@
 import type {
   CompileConfiguration,
   CompileResult,
+  ChirpCatalogImportResult,
   UserCatalogRecords,
   WorkspaceCatalog,
 } from "$lib/types";
@@ -9,7 +10,7 @@ import catalogFixture from "../fixtures/catalog.json";
 import compileHome from "../fixtures/compile-home.json";
 
 interface UiTestCall {
-  method: "chooseCsvOutputPath" | "compileProfile";
+  method: "chooseChirpImportPath" | "chooseCsvOutputPath" | "compileProfile" | "importChirpCsv";
   profile: string;
   target: string;
   outputPath?: string | null;
@@ -88,4 +89,62 @@ export async function chooseCsvOutputPath(
 ): Promise<string> {
   record({ method: "chooseCsvOutputPath", profile, target });
   return `/exports/${profile}-${target}.csv`;
+}
+
+export async function chooseChirpImportPath(): Promise<string> {
+  record({ method: "chooseChirpImportPath", profile: "", target: "" });
+  return "/imports/road-trip.csv";
+}
+
+export async function importChirpCsv(
+  sourcePath: string,
+): Promise<ChirpCatalogImportResult> {
+  record({ method: "importChirpCsv", profile: sourcePath, target: "" });
+  const definitionId = "user-import-road-trip-test-1";
+  return {
+    source_path: sourcePath,
+    definition_count: 1,
+    frequency_definitions: [
+      {
+        id: definitionId,
+        name: "Road repeater",
+        origin: "user",
+        read_only: false,
+        receive_frequency_hz: 147_300_000,
+        transmit_behavior: "offset",
+        transmit_frequency_hz: null,
+        offset_hz: 600_000,
+        mode: "FM",
+        transmit_access: {
+          kind: "ctcss",
+          ctcss_hz: 100,
+          dcs_code: null,
+          dcs_polarity: "N",
+        },
+        receive_squelch: {
+          kind: "none",
+          ctcss_hz: null,
+          dcs_code: null,
+          dcs_polarity: "N",
+        },
+        tags: ["chirp-import"],
+        priority: "normal",
+        notes: "Imported from road-trip.csv, CHIRP memory 1.",
+      },
+    ],
+    frequency_set: {
+      id: "user-set-import-road-trip-test",
+      name: "Imported road-trip",
+      origin: "user",
+      read_only: false,
+      description: "Imported from CHIRP CSV road-trip.csv.",
+      members: [
+        {
+          frequency_definition_id: definitionId,
+          position: 0,
+          channel_designator: null,
+        },
+      ],
+    },
+  };
 }

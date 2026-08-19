@@ -1095,6 +1095,13 @@ code {
   gap: 8px;
 }
 
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 8px;
+}
+
 .radio-list-body {
   padding: 10px;
 }

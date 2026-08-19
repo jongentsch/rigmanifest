@@ -1,7 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import { loadCatalog } from "$lib/api";
+  import {
+    chooseChirpImportPath,
+    importChirpCsv,
+    loadCatalog,
+  } from "$lib/api";
   import { saveWorkspaceUserCatalog } from "$lib/catalog";
   import { definitionTxSummary, mhz, offsetSummary } from "$lib/format";
   import type {
@@ -21,6 +25,9 @@
   let existingDefinitionId = $state("");
   let failure = $state("");
   let saved = $state(false);
+  let importing = $state(false);
+  let importMessage = $state("");
+  let importFailure = $state("");
 
   let selectedSet = $derived(
     catalog?.frequency_sets.find((item) => item.id === selectedSetId) ?? null,
@@ -118,6 +125,34 @@
     });
     selectSet(frequencySet.id);
     saved = true;
+  }
+
+  async function importCsv(): Promise<void> {
+    if (!catalog || importing) return;
+    importing = true;
+    importMessage = "";
+    importFailure = "";
+    try {
+      const sourcePath = await chooseChirpImportPath();
+      if (!sourcePath) return;
+      const imported = await importChirpCsv(sourcePath);
+      const next: WorkspaceCatalog = {
+        ...catalog,
+        frequency_definitions: [
+          ...catalog.frequency_definitions,
+          ...imported.frequency_definitions,
+        ],
+        frequency_sets: [...catalog.frequency_sets, imported.frequency_set],
+      };
+      persist(next);
+      selectSet(imported.frequency_set.id);
+      saved = true;
+      importMessage = `Imported ${imported.definition_count} frequency definitions into ${imported.frequency_set.name}.`;
+    } catch (error) {
+      importFailure = errorMessage(error);
+    } finally {
+      importing = false;
+    }
   }
 
   function removeSet(): void {
@@ -392,7 +427,10 @@
       <h1>Frequency library</h1>
       <p>Build your own sets from shared definitions. Presets remain read-only.</p>
     </div>
-    <button class="button button--primary" onclick={addSet} disabled={!catalog}>Add set</button>
+    <div class="header-actions">
+      <button class="button button--secondary" onclick={importCsv} disabled={!catalog || importing}>{importing ? "Importingâ€¦" : "Import CHIRP CSV"}</button>
+      <button class="button button--primary" onclick={addSet} disabled={!catalog}>Add set</button>
+    </div>
   </header>
 
   {#if failure}
@@ -405,7 +443,12 @@
       <div><strong>Loading frequency catalog</strong><p>Resolving sets and definitions.</p></div>
     </section>
   {:else}
-    {#if saved}
+    {#if importFailure}
+      <div class="banner banner--error" role="alert"><strong>Import failed.</strong><span>{importFailure}</span></div>
+    {:else if importMessage}
+      <div class="banner banner--success" role="status"><strong>CHIRP CSV imported.</strong><span>{importMessage}</span></div>
+    {/if}
+    {#if saved && !importMessage}
       <div class="banner banner--success" role="status"><strong>Catalog saved.</strong><span>User-owned records are stored locally.</span></div>
     {/if}
 

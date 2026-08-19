@@ -1,4 +1,4 @@
 from rigmanifest.cli import app
 
 
-app()
+app()  # pragma: no cover - module entry point

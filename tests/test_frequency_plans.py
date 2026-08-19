@@ -63,6 +63,20 @@ def test_frequency_plan_rejects_duplicate_segment_ids(
         )
 
 
+def test_frequency_plan_requires_source_metadata() -> None:
+    with pytest.raises(ValueError, match="metadata"):
+        FrequencyPlan(
+            "",
+            "Plan",
+            "Somewhere",
+            AuthorityTier.NATIONAL_RECOMMENDATION,
+            "2026-08-19",
+            "Source",
+            "https://example.com",
+            (),
+        )
+
+
 @pytest.mark.parametrize(
     "arguments",
     [

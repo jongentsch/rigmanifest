@@ -70,5 +70,5 @@ def compile_command(
         raise typer.Exit(code=1)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - module entry point
     app()

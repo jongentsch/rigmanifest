@@ -126,9 +126,21 @@ unrepresentable result.
 
 ## Export and later direct programming
 
-CHIRP CSV remains the first external artifact. Direct image and radio programming can
-later reuse the same normalized-memory adapter and CHIRP drivers. It remains outside
-the MVP until compilation and validation are stable.
+CHIRP generic CSV is bidirectional. Export serializes compiled memories. Import uses
+CHIRP's own `CSVRadio` parser and converts every non-empty CHIRP memory into a
+user-owned frequency definition, preserving duplex/split/receive-only intent,
+independent signaling, DCS polarity, mode, label, comment, source filename, and
+source memory location. One user-owned frequency set references the imported
+definitions, after which they behave exactly like records authored in RigManifest.
+
+Import does not treat a CHIRP memory location as part of canonical RF identity and
+does not call every imported frequency a channel. Unsupported modes or malformed
+CSV fail visibly rather than being coerced. Re-importing creates a separate set with
+collision-resistant IDs, so it cannot overwrite an existing user catalog.
+
+Direct image and radio programming can later reuse the same normalized-memory adapter
+and CHIRP drivers. It remains outside the MVP until compilation and validation are
+stable.
 
 ## License
 

@@ -33,5 +33,5 @@ def main() -> None:
     serve(sys.stdin, sys.stdout)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - module entry point
     main()

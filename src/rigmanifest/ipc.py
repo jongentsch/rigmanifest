@@ -8,12 +8,19 @@ from typing import Any, Mapping, Sequence
 
 from rigmanifest.capabilities import BUILTIN_TARGETS
 from rigmanifest.catalog_io import catalog_with_user_records
+from rigmanifest.chirp_import import ChirpCatalogImport, import_chirp_csv
 from rigmanifest.chirp_adapter import chirp_memory_validator
 from rigmanifest.compiler import compile_profile
 from rigmanifest.exporters.chirp_csv import write_chirp_csv
 from rigmanifest.frequency_plans import BUILTIN_FREQUENCY_PLANS
 from rigmanifest.fixtures import BUILTIN_CATALOG, BUILTIN_PROFILES
-from rigmanifest.models import CompilationSettings, CompiledRadioPlan, SignalingSpec
+from rigmanifest.models import (
+    CompilationSettings,
+    CompiledRadioPlan,
+    FrequencyDefinition,
+    FrequencySet,
+    SignalingSpec,
+)
 
 
 class RequestError(ValueError):
@@ -81,43 +88,14 @@ def compile_builtin(
 
 def frequency_definitions_to_list() -> list[dict[str, Any]]:
     return [
-        {
-            "id": definition.id,
-            "name": definition.name,
-            "origin": definition.origin.value,
-            "read_only": definition.read_only,
-            "receive_frequency_hz": definition.receive_frequency_hz,
-            "transmit_behavior": definition.transmit_behavior.value,
-            "transmit_frequency_hz": definition.transmit_frequency_hz,
-            "offset_hz": definition.offset_hz,
-            "mode": definition.mode.value,
-            "transmit_access": _signaling_to_dict(definition.transmit_access),
-            "receive_squelch": _signaling_to_dict(definition.receive_squelch),
-            "tags": sorted(definition.tags),
-            "priority": definition.priority.name.lower(),
-            "notes": definition.notes,
-        }
+        _definition_to_dict(definition)
         for definition in sorted(BUILTIN_CATALOG.definitions, key=lambda item: item.id)
     ]
 
 
 def frequency_sets_to_list() -> list[dict[str, Any]]:
     return [
-        {
-            "id": frequency_set.id,
-            "name": frequency_set.name,
-            "origin": frequency_set.origin.value,
-            "read_only": frequency_set.read_only,
-            "description": frequency_set.description,
-            "members": [
-                {
-                    "frequency_definition_id": member.frequency_definition_id,
-                    "position": member.position,
-                    "channel_designator": member.channel_designator,
-                }
-                for member in frequency_set.ordered_members
-            ],
-        }
+        _set_to_dict(frequency_set)
         for frequency_set in sorted(BUILTIN_CATALOG.sets, key=lambda item: item.id)
     ]
 
@@ -308,6 +286,55 @@ def _signaling_to_dict(signaling: SignalingSpec) -> dict[str, object]:
     }
 
 
+def _definition_to_dict(definition: FrequencyDefinition) -> dict[str, Any]:
+    return {
+        "id": definition.id,
+        "name": definition.name,
+        "origin": definition.origin.value,
+        "read_only": definition.read_only,
+        "receive_frequency_hz": definition.receive_frequency_hz,
+        "transmit_behavior": definition.transmit_behavior.value,
+        "transmit_frequency_hz": definition.transmit_frequency_hz,
+        "offset_hz": definition.offset_hz,
+        "mode": definition.mode.value,
+        "transmit_access": _signaling_to_dict(definition.transmit_access),
+        "receive_squelch": _signaling_to_dict(definition.receive_squelch),
+        "tags": sorted(definition.tags),
+        "priority": definition.priority.name.lower(),
+        "notes": definition.notes,
+    }
+
+
+def _set_to_dict(frequency_set: FrequencySet) -> dict[str, Any]:
+    return {
+        "id": frequency_set.id,
+        "name": frequency_set.name,
+        "origin": frequency_set.origin.value,
+        "read_only": frequency_set.read_only,
+        "description": frequency_set.description,
+        "members": [
+            {
+                "frequency_definition_id": member.frequency_definition_id,
+                "position": member.position,
+                "channel_designator": member.channel_designator,
+            }
+            for member in frequency_set.ordered_members
+        ],
+    }
+
+
+def _import_to_dict(imported: ChirpCatalogImport) -> dict[str, Any]:
+    return {
+        "source_path": str(imported.source_path),
+        "definition_count": imported.definition_count,
+        "frequency_definitions": [
+            _definition_to_dict(definition)
+            for definition in imported.frequency_definitions
+        ],
+        "frequency_set": _set_to_dict(imported.frequency_set),
+    }
+
+
 def handle_request(request: Mapping[str, object]) -> dict[str, object]:
     """Handle one sidecar request without reading frontend state."""
 
@@ -316,6 +343,18 @@ def handle_request(request: Mapping[str, object]) -> dict[str, object]:
         method = request.get("method")
         if method == "catalog":
             return {"id": request_id, "result": catalog_to_dict()}
+        if method == "import_chirp_csv":
+            params = request.get("params")
+            if not isinstance(params, Mapping):
+                raise RequestError("params must be an object")
+            source_path = params.get("source_path")
+            if not isinstance(source_path, str) or not source_path:
+                raise RequestError("source_path must be a non-empty string")
+            try:
+                imported = import_chirp_csv(Path(source_path))
+            except ValueError as error:
+                raise RequestError(str(error)) from error
+            return {"id": request_id, "result": _import_to_dict(imported)}
         if method != "compile":
             raise RequestError("unsupported method")
         params = request.get("params")

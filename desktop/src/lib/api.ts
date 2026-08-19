@@ -1,10 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 
 import { mergeStoredUserCatalog, userCatalogFromWorkspace } from "$lib/catalog";
 import type {
   CompileConfiguration,
   CompileResult,
+  ChirpCatalogImportResult,
   WorkspaceCatalog,
 } from "$lib/types";
 
@@ -65,4 +66,25 @@ export async function chooseCsvOutputPath(
     defaultPath: `${profile}-${target}.csv`,
     filters: [{ name: "CHIRP CSV", extensions: ["csv"] }],
   });
+}
+
+export async function chooseChirpImportPath(): Promise<string | null> {
+  const uiTestApi = await loadUiTestApi();
+  if (uiTestApi) return uiTestApi.chooseChirpImportPath();
+
+  const selected = await open({
+    title: "Import CHIRP CSV",
+    multiple: false,
+    directory: false,
+    filters: [{ name: "CHIRP CSV", extensions: ["csv"] }],
+  });
+  return typeof selected === "string" ? selected : null;
+}
+
+export async function importChirpCsv(
+  sourcePath: string,
+): Promise<ChirpCatalogImportResult> {
+  const uiTestApi = await loadUiTestApi();
+  if (uiTestApi) return uiTestApi.importChirpCsv(sourcePath);
+  return invoke<ChirpCatalogImportResult>("import_chirp_csv", { sourcePath });
 }

@@ -167,3 +167,29 @@ test("shows sourced plan advice and only applies an offset on request", async ({
   await expect(suggestion).toContainText("33 cm repeater outputs");
   await expect(suggestion).toContainText("12.5 kHz raster: off raster");
 });
+
+test("imports a CHIRP CSV into reusable definitions and a set", async ({ page }) => {
+  await page.goto("/library");
+
+  await page.getByRole("button", { name: "Import CHIRP CSV" }).click();
+
+  await expect(page.getByRole("status")).toContainText(
+    "Imported 1 frequency definitions into Imported road-trip",
+  );
+  await expect(page.getByRole("heading", { name: "Imported road-trip" })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Road repeater/ })).toContainText(
+    "147.300000 MHz",
+  );
+  await expect(page.getByLabel("Notes")).toHaveValue(
+    "Imported from road-trip.csv, CHIRP memory 1.",
+  );
+
+  await page.reload();
+  await page.getByRole("button", { name: /Imported road-trip/ }).click();
+  await expect(page.getByRole("row", { name: /Road repeater/ })).toBeVisible();
+
+  await page.getByRole("link", { name: "Compile & export" }).click();
+  await expect(
+    page.getByRole("checkbox", { name: /Imported road-trip/ }),
+  ).toBeVisible();
+});

@@ -57,6 +57,7 @@ def test_chirp_signaling_round_trip(
         {"kind": SignalingKind.NONE, "dcs_polarity": "R"},
         {"kind": SignalingKind.CTCSS},
         {"kind": SignalingKind.CTCSS, "ctcss_hz": 100.0, "dcs_code": 23},
+        {"kind": SignalingKind.CTCSS, "ctcss_hz": 100.0, "dcs_polarity": "R"},
         {"kind": SignalingKind.DCS},
         {"kind": SignalingKind.DCS, "dcs_code": 23, "ctcss_hz": 100.0},
         {"kind": SignalingKind.DCS, "dcs_code": 23, "dcs_polarity": "X"},

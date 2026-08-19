@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from io import StringIO
 
+import pytest
+
 from rigmanifest.ipc import handle_request
 from rigmanifest.sidecar import serve
 
@@ -291,3 +293,39 @@ def test_sidecar_emits_one_compact_json_response_per_line() -> None:
     assert responses[0]["error"]["code"] == "INVALID_REQUEST"
     assert responses[1]["id"] is None
     assert responses[1]["error"]["code"] == "INVALID_JSON"
+
+
+def test_sidecar_skips_blank_lines_and_rejects_non_object_json() -> None:
+    input_stream = StringIO("\n[]\n")
+    output_stream = StringIO()
+
+    serve(input_stream, output_stream)
+
+    response = json.loads(output_stream.getvalue())
+    assert response["error"]["code"] == "INVALID_JSON"
+    assert "JSON object" in response["error"]["message"]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"id": "bad", "method": "unknown"},
+        {"id": "bad", "method": "compile"},
+        {"id": "bad", "method": "compile", "params": {}},
+        {"id": "bad", "method": "compile", "params": {"profile": "home", "target": "yaesu-vx6r", "output_path": 1}},
+        {"id": "bad", "method": "compile", "params": {"profile": "home", "target": "yaesu-vx6r", "frequency_set_ids": []}},
+        {"id": "bad", "method": "compile", "params": {"profile": "home", "target": "yaesu-vx6r", "user_frequency_definitions": []}},
+        {"id": "bad", "method": "compile", "params": {"profile": "home", "target": "yaesu-vx6r", "user_frequency_definitions": "bad", "user_frequency_sets": []}},
+        {"id": "bad", "method": "compile", "params": {"profile": "home", "target": "yaesu-vx6r", "user_frequency_definitions": [], "user_frequency_sets": "bad"}},
+        {"id": "bad", "method": "compile", "params": {"profile": "home", "target": "yaesu-vx6r", "memory_start": True}},
+        {"id": "bad", "method": "compile", "params": {"profile": "home", "target": "yaesu-vx6r", "map_sets_to_banks": "yes"}},
+        {"id": "bad", "method": "compile", "params": {"profile": "home", "target": "yaesu-vx6r", "memory_start": -1}},
+        {"id": "bad", "method": "compile", "params": {"profile": "missing", "target": "yaesu-vx6r"}},
+        {"id": "bad", "method": "compile", "params": {"profile": "home", "target": "yaesu-vx6r", "frequency_set_ids": ["missing"]}},
+        {"id": "bad", "method": "import_chirp_csv", "params": {"source_path": "missing.csv"}},
+    ],
+)
+def test_invalid_ipc_shapes_return_safe_errors(payload: dict[str, object]) -> None:
+    response = handle_request(payload)
+
+    assert response["error"]["code"] == "INVALID_REQUEST"

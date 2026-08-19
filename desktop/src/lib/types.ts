@@ -173,6 +173,13 @@ export interface UserCatalogRecords {
   frequencySets: FrequencySetRecord[];
 }
 
+export interface ChirpCatalogImportResult {
+  source_path: string;
+  definition_count: number;
+  frequency_definitions: FrequencyDefinitionRecord[];
+  frequency_set: FrequencySetRecord;
+}
+
 export interface CompileConfiguration {
   memoryStart: number;
   mapSetsToBanks: boolean;
