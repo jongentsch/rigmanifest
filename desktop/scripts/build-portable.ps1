@@ -70,11 +70,19 @@ $smokeStartInfo.RedirectStandardOutput = $true
 $smokeStartInfo.RedirectStandardError = $true
 $smokeProcess = New-Object System.Diagnostics.Process
 $smokeProcess.StartInfo = $smokeStartInfo
-[void]$smokeProcess.Start()
+$originalConsoleInputEncoding = [Console]::InputEncoding
 $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
-$smokeInput = $utf8WithoutBom.GetBytes("{`"id`":`"portable-smoke`",`"method`":`"catalog`"}`n")
-$smokeProcess.StandardInput.BaseStream.Write($smokeInput, 0, $smokeInput.Length)
-$smokeProcess.StandardInput.Close()
+try {
+    # Process.StandardInput inherits Console.InputEncoding on Windows PowerShell 5.
+    # A BOM-emitting encoding corrupts the first newline-delimited JSON request.
+    [Console]::InputEncoding = $utf8WithoutBom
+    [void]$smokeProcess.Start()
+    $smokeProcess.StandardInput.WriteLine('{"id":"portable-smoke","method":"catalog"}')
+    $smokeProcess.StandardInput.Close()
+}
+finally {
+    [Console]::InputEncoding = $originalConsoleInputEncoding
+}
 $smokeResponse = $smokeProcess.StandardOutput.ReadToEnd()
 $smokeError = $smokeProcess.StandardError.ReadToEnd()
 $smokeProcess.WaitForExit()
