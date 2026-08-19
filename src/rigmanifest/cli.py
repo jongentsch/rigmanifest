@@ -9,7 +9,7 @@ import typer
 from rigmanifest.capabilities import BUILTIN_TARGETS
 from rigmanifest.compiler import compile_profile
 from rigmanifest.exporters.chirp_csv import write_chirp_csv
-from rigmanifest.fixtures import BUILTIN_PROFILES, HOME_CHANNELS
+from rigmanifest.fixtures import BUILTIN_CATALOG, BUILTIN_PROFILES
 from rigmanifest.models import Severity
 
 
@@ -42,22 +42,25 @@ def compile_command(
         choices = ", ".join(sorted(BUILTIN_TARGETS))
         raise typer.BadParameter(f"unknown target {target!r}; choose from: {choices}")
 
-    plan = compile_profile(HOME_CHANNELS, selected_profile, selected_target)
+    plan = compile_profile(BUILTIN_CATALOG, selected_profile, selected_target)
     output_path = output or Path(f"{selected_profile.id}-{selected_target.id}.csv")
     write_chirp_csv(plan, output_path)
 
     typer.echo(f"Profile: {selected_profile.name}")
     typer.echo(f"Target: {selected_target.model}")
     typer.echo("")
-    typer.echo(f"Included: {len(plan.memories)}")
-    typer.echo(f"Omitted: {len(plan.omitted_channels)}")
+    typer.echo(f"Programmed: {len(plan.memories)}")
+    typer.echo(f"Factory-provided: {plan.factory_definition_count}")
+    typer.echo(f"Factory sets: {len(plan.factory_sets)}")
+    typer.echo(f"Omitted: {len(plan.omitted_frequency_definitions)}")
     typer.echo(f"Warnings: {plan.warning_count}")
     typer.echo(f"Errors: {plan.error_count}")
     typer.echo("")
     for diagnostic in plan.diagnostics:
-        channel = f" [{diagnostic.channel_id}]" if diagnostic.channel_id else ""
+        subject_id = diagnostic.frequency_definition_id or diagnostic.frequency_set_id
+        subject = f" [{subject_id}]" if subject_id else ""
         typer.echo(
-            f"{diagnostic.severity.value.upper()} {diagnostic.code.value}{channel}: "
+            f"{diagnostic.severity.value.upper()} {diagnostic.code.value}{subject}: "
             f"{diagnostic.message}"
         )
     typer.echo("")

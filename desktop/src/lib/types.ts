@@ -1,7 +1,12 @@
 export type Severity = "info" | "warning" | "error";
+export type CatalogOrigin = "preset" | "user";
+export type CapabilityStatus = "supported" | "unsupported" | "unknown";
 
 export interface PlanSummary {
   included: number;
+  programmed: number;
+  factory_provided: number;
+  factory_sets: number;
   omitted: number;
   warnings: number;
   errors: number;
@@ -23,7 +28,8 @@ export interface ToneSpec {
 }
 
 export interface CompiledMemory {
-  source_channel_id: string;
+  source_frequency_definition_id: string;
+  source_frequency_set_ids: string[];
   memory_number: number;
   target_name: string;
   receive_frequency_hz: number;
@@ -36,41 +42,126 @@ export interface CompiledMemory {
   applied_transformations: string[];
 }
 
-export interface OmittedChannel {
-  channel_id: string;
+export interface OmittedFrequencyDefinition {
+  frequency_definition_id: string;
   reason: string;
+}
+
+export interface FactorySetCoverage {
+  frequency_set_id: string;
+  frequency_set_name: string;
+  interface_label: string;
+  frequency_definition_ids: string[];
+  definition_count: number;
+  frequency_editing: CapabilityStatus;
+  chirp_editing: CapabilityStatus;
 }
 
 export interface Diagnostic {
   code: string;
   severity: Severity;
-  channel_id: string | null;
+  frequency_definition_id: string | null;
+  frequency_set_id: string | null;
   message: string;
   details: Record<string, string>;
 }
 
-export interface ChannelRecord {
+export interface FrequencyDefinitionRecord {
   id: string;
   name: string;
+  origin: CatalogOrigin;
+  read_only: boolean;
   receive_frequency_hz: number;
   transmit_behavior: string;
   transmit_frequency_hz: number | null;
   offset_hz: number | null;
   mode: string;
+  tone: ToneSpec;
   tags: string[];
   priority: string;
+  notes: string;
+}
+
+export interface FrequencySetMemberRecord {
+  frequency_definition_id: string;
+  position: number;
+  channel_designator: string | null;
+}
+
+export interface FrequencySetRecord {
+  id: string;
+  name: string;
+  origin: CatalogOrigin;
+  read_only: boolean;
+  description: string;
+  members: FrequencySetMemberRecord[];
+}
+
+export interface ProfileRecord {
+  id: string;
+  name: string;
+  frequency_set_ids: string[];
+}
+
+export interface FactoryFrequencySetRecord {
+  frequency_set_id: string;
+  frequency_set_name: string;
+  interface_label: string;
+  frequency_editing: CapabilityStatus;
+  chirp_editing: CapabilityStatus;
+}
+
+export interface RadioModelRecord {
+  id: string;
+  manufacturer: string;
+  model: string;
+  memory_capacity: number;
+  memory_start: number;
+  max_label_length: number;
+  supports_banks: boolean;
+  bank_count: number;
+  factory_frequency_sets: FactoryFrequencySetRecord[];
+}
+
+export interface WorkspaceCatalog {
+  schema_version: number;
+  profiles: ProfileRecord[];
+  radio_models: RadioModelRecord[];
+  frequency_sets: FrequencySetRecord[];
+  frequency_definitions: FrequencyDefinitionRecord[];
+}
+
+export interface UserCatalogRecords {
+  frequencyDefinitions: FrequencyDefinitionRecord[];
+  frequencySets: FrequencySetRecord[];
+}
+
+export interface CompileConfiguration {
+  memoryStart: number;
+  mapSetsToBanks: boolean;
+  useFactorySets: boolean;
+  frequencySetIds: string[];
+}
+
+export interface RadioInstance {
+  id: string;
+  name: string;
+  radioModelId: string;
+  memoryStart: number;
+  mapSetsToBanks: boolean;
+  notes: string;
 }
 
 export interface CompileResult {
   schema_version: number;
   compiler_version: string;
-  profile: { id: string; name: string };
+  profile: ProfileRecord;
   target: { id: string; manufacturer: string; model: string };
   summary: PlanSummary;
   capacity: CapacitySummary;
   memories: CompiledMemory[];
-  omitted_channels: OmittedChannel[];
+  factory_sets: FactorySetCoverage[];
+  omitted_frequency_definitions: OmittedFrequencyDefinition[];
   diagnostics: Diagnostic[];
-  channel_library: ChannelRecord[];
   csv_path: string | null;
 }

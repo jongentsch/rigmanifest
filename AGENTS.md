@@ -29,7 +29,7 @@ The application has three primary layers:
 ```text
 Python Core
 ├── domain model
-├── channel library
+├── shared frequency catalog and sets
 ├── profiles / intent
 ├── radio capabilities
 ├── compiler
@@ -54,10 +54,10 @@ Do not put compiler logic, capability logic, selection rules, or CHIRP semantics
 ## Product principles
 
 1. User intent is the source of truth.
-2. Channels/frequencies do not belong to a specific radio.
+2. Frequency definitions and sets do not belong to a specific radio.
 3. Radios are compilation targets with explicit capabilities and constraints.
 4. Compilation must explain compromises instead of silently mutating or dropping data.
-5. Canonical channel data must remain unchanged by compilation.
+5. Canonical frequency definitions and sets must remain unchanged by compilation.
 6. CHIRP CSV is the first supported output target.
 7. Direct radio programming is deferred until the compiler proves useful.
 8. CHIRP integration should be embraced rather than reimplemented where practical.
@@ -126,7 +126,7 @@ Do not add these unless explicitly requested:
 - Svelte + TypeScript.
 - Tauri for desktop packaging.
 - The frontend should render:
-  - channel library
+  - frequency definitions and sets
   - radio inventory
   - profiles
   - compile results
@@ -145,7 +145,9 @@ At minimum, compiler behavior should be covered for:
 - label truncation
 - unsupported mode
 - unsupported tone mode
-- explicit inclusion/exclusion
+- set selection
+- preset/user definition sharing
+- factory frequency-set coverage
 - deterministic ranking
 - deterministic memory numbering
 - group degradation
@@ -159,7 +161,7 @@ CHIRP adapter behavior should have tests against representative feature mappings
 
 The first meaningful end-to-end path is:
 
-1. Define a small channel library fixture.
+1. Define a small shared frequency catalog with preset and user-owned sets.
 2. Define a `Home` profile.
 3. Define or derive a minimal Yaesu VX-6R capability model.
 4. Compile `Home` for the VX-6R.
@@ -168,6 +170,6 @@ The first meaningful end-to-end path is:
 7. Add a CLI command:
    `rigmanifest compile home --target yaesu-vx6r`
 8. Add a minimal Svelte screen that invokes the same compiler flow.
-9. Add the UV-K5 as a second target and prove the same profile compiles differently.
+9. Add the UV-K5 as a second target and prove the same selected sets compile differently.
 
 Do not expand beyond that slice until it works cleanly.

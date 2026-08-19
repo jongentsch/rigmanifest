@@ -10,12 +10,14 @@ Traditional radio-programming software starts with the destination radio:
 
 RigManifest starts with operator intent:
 
-> Include my local repeaters, NOAA weather, common simplex channels, and selected receive-only frequencies.
+> Include my local repeaters set, the NOAA preset set, and my common simplex set.
 
 That intent is compiled for each radio according to its capabilities.
 
 ```text
-Channel Library
+Shared Frequency Catalog
+      +
+Frequency Sets
       +
 Profiles / Intent
       +
@@ -44,7 +46,7 @@ The frustrating part is everything before that:
 - adapting labels
 - dealing with different receive/transmit ranges
 - managing banks or the lack of them
-- maintaining home, travel, emergency, and other reusable profiles
+- maintaining home, travel, emergency, and other reusable frequency sets
 - understanding why two radios end up with different configurations
 
 RigManifest focuses on that layer.
@@ -89,7 +91,7 @@ rigmanifest compile home --target retevis-rt95
 
 The first executable slice currently includes:
 
-- immutable typed domain models
+- immutable typed frequency-definition, set, radio-model, and plan models
 - deterministic profile compilation
 - structured diagnostics and omissions
 - a conservative USA Yaesu VX-6R capability definition
@@ -101,6 +103,8 @@ The first executable slice currently includes:
   and exporting CHIRP CSV files
 - a dark-first Modern Workshop interface with persistent Dark, Light, and
   System appearance modes
+- local create/edit persistence for user-owned frequency definitions and sets,
+  including reuse of shared preset definitions
 - Dockerized Playwright coverage for compile/export behavior, appearance
   modes, accessibility, and visual regressions
 
@@ -142,11 +146,16 @@ The desktop shell calls the same Python compiler through the JSON sidecar. In
 this first source-based slice it expects the repository's `.venv` by default;
 set `RIGMANIFEST_PYTHON` to use another Python executable.
 
-The sample profile intentionally includes a receive-only NOAA channel. The
-current VX-6R capability overlay omits it with an error because CHIRP's VX-6R
-driver does not expose a safe transmit-disable representation. The CSV is
-still written for the three safe memories, and the command exits with status
-1 so the safety degradation cannot be missed.
+The sample profile selects a user-owned `Home essentials` set and the read-only
+`US NOAA Weather Broadcasts` preset. The VX-6R radio model references the NOAA
+set as its factory `WX CH` set, so those definitions are reported separately
+and do not consume programmable memories or appear in the CHIRP CSV. Current
+CHIRP editing support for that factory set is explicitly recorded as unsupported.
+
+User-owned catalog records are currently stored in the desktop webview's local
+storage. Every compile request sends that user partition through the Python
+validation boundary and combines it with the immutable built-in preset partition.
+SQLite remains the planned durable-storage replacement after the workflow settles.
 
 See `docs/first-slice-plan.md` for the architecture decisions and delivery
 sequence.

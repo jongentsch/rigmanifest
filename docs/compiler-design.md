@@ -3,45 +3,54 @@
 ## Inputs
 
 ```text
-Channel Library
-+ Profile
-+ Radio Capabilities
-+ Compilation Policy
+Frequency Catalog
++ Profile (selected frequency-set IDs)
++ Radio Model
++ Compilation Settings
 ```
 
 ## Output
 
 ```text
 Compiled Radio Plan
-+ Diagnostics
+├── programmable memories
+├── factory-set coverage
+├── omissions
+└── diagnostics
 ```
 
 ## Pipeline
 
+1. Resolve the profile's selected frequency sets.
+2. Validate radio-model factory-set references against the catalog.
+3. Separate selected sets that are verified as factory-provided on the target.
+4. Resolve shared frequency definitions for the remaining sets.
+5. Deduplicate definitions while preserving all source-set references.
+6. Validate target compatibility.
+7. Transform representable fields.
+8. Rank candidates deterministically.
+9. Resolve programmable-memory capacity.
+10. Map selected sets to radio banks where supported and requested.
+11. Assign memory numbers.
+12. Return the compiled plan and structured diagnostics.
+
+## Factory-set resolution
+
+Factory availability is set-based:
+
 ```text
-1. Resolve profile
-2. Select candidate channels
-3. Apply exclusions
-4. Validate target compatibility
-5. Transform representable fields
-6. Rank candidates
-7. Resolve capacity
-8. Map logical groups
-9. Assign memory numbers
-10. Produce diagnostics
-11. Return compiled plan
+selected frequency_set.id
+        ==
+radio_model.factory_frequency_sets.frequency_set_id
 ```
 
-## Candidate selection
+If the relationship exists and factory coverage is enabled, the compiler records one
+`FactorySetCoverage` and does not generate duplicate programmable memories for that
+set.
 
-Initial selectors:
-
-- explicit inclusion
-- tag inclusion
-- geographic radius
-- priority threshold
-
-Explicit exclusions override broad inclusions.
+Frequency equality is never used to infer factory coverage. If the same shared
+frequency definition is referenced through a different user-owned set, that user set
+is compiled normally.
 
 ## Compatibility validation
 
@@ -56,125 +65,54 @@ diagnostic: RX_FREQUENCY_UNSUPPORTED
 
 ### Transmit frequency
 
-If TX is required but unsupported:
-
-- do not silently change semantics
-- either omit, downgrade only under explicit policy, or emit an error
+If transmission is required but unsupported, omit it and report the reason. Mandatory
+definitions raise the diagnostic severity to error.
 
 ### Receive-only
 
-If receive-only intent cannot be represented safely:
+If `TransmitBehavior.DISABLED` cannot be represented safely in a programmable memory:
 
-- emit a strong diagnostic
-- do not silently enable transmission
+```text
+omit
+diagnostic: TX_DISABLE_NOT_REPRESENTABLE
+severity: error
+```
 
-### Mode
+A verified factory set can satisfy receive-only intent without requiring CHIRP to
+represent a programmable `duplex=off` memory.
 
-Do not silently convert incompatible modes.
+### Mode and tone
 
-### Tone
-
-Unsupported tone modes require explicit diagnostics.
+Unsupported modes and tone semantics are omitted with structured diagnostics. They are
+never silently converted.
 
 ## Field transformations
 
-### Label shortening
+Target label normalization and shortening are deterministic and diagnostic-producing.
+Canonical frequency definitions remain unchanged.
 
-Initial strategy may be truncation.
+## Ranking and capacity
 
-Always preserve:
-
-- original label
-- compiled label
-- diagnostic
-
-### Character filtering
-
-Normalize only when deterministic and safe.
-
-## Ranking
-
-Initial ranking should be deterministic.
-
-Suggested order:
+Initial ranking:
 
 1. mandatory
-2. explicit inclusions
-3. high priority
-4. distance
-5. normal priority
-6. low priority
-7. stable ID tie-breaker
+2. high
+3. normal
+4. low
+5. stable set-selection order
+6. stable definition ID
 
-## Capacity resolution
+Capacity applies only to programmable memories. Factory-provided definitions do not
+consume user-memory capacity.
 
-If valid candidates exceed capacity:
+## Set-to-bank mapping
 
-```text
-select highest-ranked N
-omit remainder
-```
-
-All omissions must remain visible in the compiled result.
-
-## Logical group mapping
-
-If a target supports compatible banks:
-
-- map groups
-
-If not:
-
-- preserve logical metadata
-- emit `GROUPING_DEGRADED`
-
-## Memory assignment
-
-Assign memory numbers only after final selection.
-
-Memory ordering must be deterministic.
-
-## Diagnostics
-
-Severity:
-
-### Info
-harmless normalization
-
-### Warning
-label truncation, grouping loss, optional feature loss
-
-### Error
-unsafe TX degradation, mandatory channel impossible, invalid canonical data
+Selected non-factory sets may map to radio banks. If the target has no compatible bank
+support, logical source-set metadata remains in the plan and the compiler emits
+`GROUPING_DEGRADED`.
 
 ## Export
 
-The exporter consumes `CompiledRadioPlan`.
-
-It does not:
-
-- evaluate profiles
-- rank channels
-- query capabilities
-- decide omissions
-- silently change semantics
-
-## CLI example
-
-```bash
-rigmanifest compile home --target retevis-rt95
-```
-
-Potential output:
-
-```text
-Profile: Home
-Target: Retevis RT95
-
-Included: 87
-Omitted: 6
-Warnings: 4
-Errors: 0
-
-CSV written: home-retevis-rt95.csv
-```
+The exporter consumes `CompiledRadioPlan.memories` only. It does not export factory
+coverage, evaluate sets, rank definitions, query capabilities, or alter transmit
+semantics.

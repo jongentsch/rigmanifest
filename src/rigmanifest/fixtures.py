@@ -1,8 +1,11 @@
-"""Small in-memory fixtures used by the first CLI and desktop slice."""
+"""Small fact-based catalog fixtures used by the first vertical slice."""
 
 from rigmanifest.models import (
-    Channel,
-    LogicalGroup,
+    CatalogOrigin,
+    FrequencyCatalog,
+    FrequencyDefinition,
+    FrequencySet,
+    FrequencySetMember,
     Mode,
     Priority,
     Profile,
@@ -12,8 +15,8 @@ from rigmanifest.models import (
 )
 
 
-HOME_CHANNELS: tuple[Channel, ...] = (
-    Channel(
+HOME_FREQUENCY_DEFINITIONS: tuple[FrequencyDefinition, ...] = (
+    FrequencyDefinition(
         id="local-2m-repeater",
         name="2m Local Repeater",
         receive_frequency_hz=146_910_000,
@@ -23,7 +26,7 @@ HOME_CHANNELS: tuple[Channel, ...] = (
         tags=frozenset({"local-repeater"}),
         priority=Priority.HIGH,
     ),
-    Channel(
+    FrequencyDefinition(
         id="local-70cm-repeater",
         name="70cm Local Repeater",
         receive_frequency_hz=444_500_000,
@@ -33,16 +36,7 @@ HOME_CHANNELS: tuple[Channel, ...] = (
         tags=frozenset({"local-repeater"}),
         priority=Priority.HIGH,
     ),
-    Channel(
-        id="noaa-weather-1",
-        name="NOAA Weather 1",
-        receive_frequency_hz=162_550_000,
-        transmit_behavior=TransmitBehavior.DISABLED,
-        mode=Mode.FM,
-        tags=frozenset({"weather"}),
-        priority=Priority.NORMAL,
-    ),
-    Channel(
+    FrequencyDefinition(
         id="simplex-calling-2m",
         name="2m Calling",
         receive_frequency_hz=146_520_000,
@@ -53,22 +47,75 @@ HOME_CHANNELS: tuple[Channel, ...] = (
 )
 
 
+NOAA_FREQUENCY_DEFINITIONS: tuple[FrequencyDefinition, ...] = tuple(
+    FrequencyDefinition(
+        id=f"us-noaa-weather-{index}",
+        name=f"NOAA Weather {index}",
+        receive_frequency_hz=frequency_hz,
+        transmit_behavior=TransmitBehavior.DISABLED,
+        origin=CatalogOrigin.PRESET,
+        mode=Mode.FM,
+        tags=frozenset({"weather", "noaa"}),
+        priority=Priority.NORMAL,
+        notes="Frequency published in the Yaesu VX-6R/E operating manual WX list.",
+    )
+    for index, frequency_hz in enumerate(
+        (
+            162_550_000,
+            162_400_000,
+            162_475_000,
+            162_425_000,
+            162_450_000,
+            162_500_000,
+            162_525_000,
+            161_650_000,
+            161_775_000,
+            163_275_000,
+        ),
+        start=1,
+    )
+)
+
+
+HOME_ESSENTIALS_SET = FrequencySet(
+    id="home-essentials",
+    name="Home essentials",
+    origin=CatalogOrigin.USER,
+    description="User-owned set for the first local operating configuration.",
+    members=(
+        FrequencySetMember("simplex-calling-2m", position=0),
+        FrequencySetMember("local-2m-repeater", position=1),
+        FrequencySetMember("local-70cm-repeater", position=2),
+    ),
+)
+
+
+US_NOAA_WEATHER_SET = FrequencySet(
+    id="us-noaa-weather",
+    name="US NOAA Weather Broadcasts",
+    origin=CatalogOrigin.PRESET,
+    description="Read-only US weather broadcast preset set.",
+    members=tuple(
+        FrequencySetMember(
+            frequency_definition_id=definition.id,
+            position=index,
+            channel_designator=f"WX{index + 1}",
+        )
+        for index, definition in enumerate(NOAA_FREQUENCY_DEFINITIONS)
+    ),
+)
+
+
+BUILTIN_CATALOG = FrequencyCatalog(
+    definitions=HOME_FREQUENCY_DEFINITIONS + NOAA_FREQUENCY_DEFINITIONS,
+    sets=(HOME_ESSENTIALS_SET, US_NOAA_WEATHER_SET),
+)
+
+
 HOME_PROFILE = Profile(
     id="home",
     name="Home",
-    include_tags=frozenset({"local-repeater", "weather", "simplex"}),
-    groups=(
-        LogicalGroup(
-            id="local-repeaters",
-            name="Local Repeaters",
-            include_tags=frozenset({"local-repeater"}),
-        ),
-        LogicalGroup(
-            id="simplex",
-            name="Simplex",
-            include_tags=frozenset({"simplex"}),
-        ),
-    ),
+    frequency_set_ids=(HOME_ESSENTIALS_SET.id, US_NOAA_WEATHER_SET.id),
 )
 
 

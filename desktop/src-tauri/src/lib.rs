@@ -47,7 +47,7 @@ fn parse_sidecar_response(stdout: &[u8]) -> Result<Value, String> {
         .ok_or_else(|| "Python response did not contain a result".to_owned())
 }
 
-fn invoke_python(profile: &str, target: &str, output_path: Option<&str>) -> Result<Value, String> {
+fn invoke_python(request: Value) -> Result<Value, String> {
     let root = source_root()?;
     let python = python_executable(&root);
     if !python.is_file() {
@@ -56,16 +56,6 @@ fn invoke_python(profile: &str, target: &str, output_path: Option<&str>) -> Resu
             python.display()
         ));
     }
-
-    let request = json!({
-        "id": "desktop",
-        "method": "compile",
-        "params": {
-            "profile": profile,
-            "target": target,
-            "output_path": output_path,
-        }
-    });
 
     let mut command = Command::new(&python);
     command
@@ -110,15 +100,43 @@ fn compile_profile(
     profile: String,
     target: String,
     output_path: Option<String>,
+    frequency_set_ids: Option<Vec<String>>,
+    memory_start: Option<u32>,
+    map_sets_to_banks: Option<bool>,
+    use_factory_sets: Option<bool>,
+    user_frequency_definitions: Option<Vec<Value>>,
+    user_frequency_sets: Option<Vec<Value>>,
 ) -> Result<Value, String> {
-    invoke_python(&profile, &target, output_path.as_deref())
+    invoke_python(json!({
+        "id": "desktop",
+        "method": "compile",
+        "params": {
+            "profile": profile,
+            "target": target,
+            "output_path": output_path,
+            "frequency_set_ids": frequency_set_ids,
+            "memory_start": memory_start,
+            "map_sets_to_banks": map_sets_to_banks.unwrap_or(true),
+            "use_factory_sets": use_factory_sets.unwrap_or(true),
+            "user_frequency_definitions": user_frequency_definitions,
+            "user_frequency_sets": user_frequency_sets,
+        }
+    }))
+}
+
+#[tauri::command]
+fn load_catalog() -> Result<Value, String> {
+    invoke_python(json!({
+        "id": "desktop",
+        "method": "catalog",
+    }))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![compile_profile])
+        .invoke_handler(tauri::generate_handler![compile_profile, load_catalog])
         .run(tauri::generate_context!())
         .expect("error while running RigManifest");
 }

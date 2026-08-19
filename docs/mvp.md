@@ -4,17 +4,20 @@
 
 The first release exists to answer:
 
-> Is capability-aware intent compilation meaningfully better than maintaining separate CHIRP memory lists by hand?
+> Is capability-aware set compilation meaningfully better than maintaining separate
+> CHIRP memory lists by hand?
 
 Everything in the MVP should serve that experiment.
 
 ## v0.1 scope
 
-### Channel library
+### Shared frequency catalog
 
-Canonical channel records should support at least:
+The catalog stores preset and user-owned frequency definitions in one table. Canonical
+records support at least:
 
 - stable internal ID
+- origin (`PRESET` or `USER`)
 - display name
 - receive frequency
 - transmit behavior
@@ -24,63 +27,55 @@ Canonical channel records should support at least:
 - optional coordinates
 - tags
 - priority
-- receive-only intent
 - notes
 
-No radio-specific memory number belongs in canonical channel data.
+No radio-specific memory number belongs in a frequency definition.
+
+### Frequency sets
+
+Preset and user-owned sets use the same set and membership tables.
+
+- preset sets and their definitions are read-only
+- user sets may reference either preset or user-owned definitions
+- memberships are ordered
+- genuinely channelized services may include a membership-level designation
+
+Initial examples:
+
+- `Home essentials` (user-owned)
+- `US NOAA Weather Broadcasts` (preset)
 
 ### Radio inventory
 
-Support radio instances such as:
+Support user-named radio instances such as:
 
 - Yaesu VX-6R
 - Quansheng UV-K5
 - Retevis RT95
 
-Each instance references a model/capability definition.
+Each instance references a radio model and user configuration. Radio models contain
+capabilities and may reference verified factory-provided preset sets. They never store
+frequency definitions directly.
 
-### Profiles
+### Profiles and programming selection
 
-Profiles should support:
-
-- include by tag
-- exclude by tag
-- explicit inclusion
-- explicit exclusion
-- optional geographic radius
-- minimum priority
-- basic logical groups
-
-Example:
-
-```yaml
-name: Home
-
-include:
-  - tag: local-repeater
-  - tag: weather
-  - tag: simplex
-
-exclude:
-  - tag: temporary
-
-radius:
-  center: home
-  miles: 40
-```
+A profile is a saved list of frequency-set IDs. The compile/export page lets the user
+choose which sets to program for a particular radio.
 
 ### Compiler
 
 Evaluate at least:
 
-- memory capacity
+- selected frequency sets
+- verified factory-set coverage
+- programmable-memory capacity
 - receive frequency range
 - transmit frequency range
 - supported modes
 - supported tone modes
 - maximum label length
 - receive-only handling
-- bank/group support where modeled
+- set-to-bank mapping where modeled
 
 ### Diagnostics
 
@@ -88,7 +83,7 @@ Return structured diagnostics with:
 
 - code
 - severity
-- channel reference
+- frequency-definition or set reference
 - human-readable message
 - machine-readable details
 
@@ -96,20 +91,22 @@ Return structured diagnostics with:
 
 The compiled plan contains:
 
-- target radio
-- ordered compiled memories
+- target radio model
+- selected frequency-set IDs
+- ordered programmable memories
+- factory-set coverage
 - assigned memory numbers
-- target-specific names
-- mapped groups
+- target-specific labels
+- mapped banks
 - omissions
 - diagnostics
 - capacity summary
 
 ### CHIRP CSV export
 
-The first external artifact is CHIRP-compatible CSV.
-
-The exporter consumes the compiled plan and does not make capability or selection decisions.
+The first external artifact is CHIRP-compatible CSV. The exporter serializes only
+programmable memories. It does not duplicate factory-provided sets or make capability,
+selection, or transmit-safety decisions.
 
 ### CLI
 
@@ -119,20 +116,21 @@ Initial command:
 rigmanifest compile home --target yaesu-vx6r
 ```
 
-Support file output and human-readable diagnostics.
-
 ### Desktop UI
 
-The first desktop UI only needs enough functionality to prove the same vertical slice:
+The first desktop UI proves the same vertical slice with separate pages for:
 
-- view a small channel library
-- choose a profile
-- choose a radio
-- compile
-- inspect diagnostics
-- export CSV
+- frequency definitions and sets
+- user radio inventory
+- set selection, compilation, diagnostics, and CHIRP CSV export
 
-Do not build the entire product shell before the compiler works.
+Preset sets must be visibly read-only. Factory-provided sets must be set apart from
+programmable output.
+
+Users can create, rename, and delete their own sets; create and edit their own
+frequency definitions; add either preset or user definitions to a user set; and
+remove memberships without deleting shared definitions. User records persist across
+desktop sessions and are validated by Python before compilation.
 
 ## Initial target sequence
 
@@ -158,9 +156,10 @@ Do not build the entire product shell before the compiler works.
 
 The MVP succeeds if a user can:
 
-1. Maintain one canonical library.
-2. Define `Home`.
-3. Compile it for at least two radios.
-4. Understand why the results differ.
-5. Export valid CHIRP CSVs.
-6. Import those CSVs into CHIRP and program the radios normally.
+1. Maintain one shared frequency catalog.
+2. Reuse definitions across preset and user-owned sets without copying them.
+3. Select sets for a radio.
+4. Compile the same selection for at least two radio models.
+5. See which selected sets are factory-provided on each model.
+6. Understand why programmable results differ.
+7. Export valid CHIRP CSVs.

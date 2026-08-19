@@ -21,9 +21,9 @@ Operators tend to think in terms such as:
 - nearby repeaters
 - repeaters along a route
 - NOAA weather
-- common simplex channels
+- common simplex frequencies
 - calling frequencies
-- emergency channels
+- emergency frequencies
 - receive-only services
 - scan groups
 - operating regions
@@ -52,11 +52,11 @@ A `Home` profile may mean:
 
 - include analog repeaters within 40 miles
 - include NOAA weather
-- include common simplex/calling channels
+- include common simplex/calling frequency sets
 - include selected receive-only services
 - group local repeaters together
 - group simplex together
-- prefer high-priority local channels when capacity is constrained
+- prefer high-priority local frequency definitions when capacity is constrained
 
 That same profile should compile differently for different radios.
 
@@ -77,7 +77,7 @@ A compiler result must answer:
 Example:
 
 ```text
-TUSCARAWAS REPEATER
+TUSCARAWAS REPEATER FREQUENCY
 
 VX-6R
 ✓ Included

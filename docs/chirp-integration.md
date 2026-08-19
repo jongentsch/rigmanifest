@@ -22,6 +22,11 @@ Radio
 
 This proves the core product without coupling the MVP to CHIRP internals.
 
+CHIRP CSV rows and `chirp_common.Memory` objects represent destination radio
+memory locations. They are adapter formats, not RigManifest frequency definitions.
+CHIRP's separately named stock-configuration CSV files are useful source datasets,
+but they do not model normalized set membership or radio-model factory availability.
+
 ## Phase 2: Capability extraction
 
 CHIRP drivers expose normalized feature information through structures such as `RadioFeatures`.
@@ -90,6 +95,11 @@ Examples:
 - firmware-specific caveats
 - target-specific naming strategies
 - compiler warnings not represented by CHIRP
+- radio-model relationships to verified factory frequency sets
+
+Factory-set coverage is never inferred from CHIRP memory-row frequency matching.
+A radio model references a preset frequency set by stable ID. Current driver support
+for reading or editing that factory interface is recorded independently.
 
 ## License direction
 

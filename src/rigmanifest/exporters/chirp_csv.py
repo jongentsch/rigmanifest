@@ -82,7 +82,7 @@ def _row(memory: CompiledMemory) -> tuple[str, ...]:
         "5.00",
         "",
         "",
-        f"RigManifest source: {memory.source_channel_id}",
+        f"RigManifest source: {memory.source_frequency_definition_id}",
         "",
         "",
         "",

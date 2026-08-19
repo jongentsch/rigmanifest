@@ -7,11 +7,16 @@ from io import StringIO
 from rigmanifest.compiler import compile_profile
 from rigmanifest.exporters.chirp_csv import CHIRP_CSV_HEADER, render_chirp_csv
 from rigmanifest.models import (
-    Channel,
+    CatalogOrigin,
+    FrequencyCatalog,
+    FrequencyDefinition,
     FrequencyRange,
+    FrequencySet,
+    FrequencySetMember,
     Mode,
     Profile,
     RadioCapabilities,
+    RadioModel,
     ToneMode,
     ToneSpec,
     TransmitBehavior,
@@ -19,15 +24,15 @@ from rigmanifest.models import (
 
 
 def test_chirp_csv_uses_canonical_header_and_duplex_semantics() -> None:
-    channels = (
-        Channel(
+    definitions = (
+        FrequencyDefinition(
             "same",
             "Same",
             146_520_000,
             TransmitBehavior.SAME,
             tags=frozenset({"all"}),
         ),
-        Channel(
+        FrequencyDefinition(
             "negative",
             "Negative",
             146_910_000,
@@ -36,7 +41,7 @@ def test_chirp_csv_uses_canonical_header_and_duplex_semantics() -> None:
             tone=ToneSpec(mode=ToneMode.TONE, encode_hz=100.0),
             tags=frozenset({"all"}),
         ),
-        Channel(
+        FrequencyDefinition(
             "split",
             "Split",
             145_000_000,
@@ -44,7 +49,7 @@ def test_chirp_csv_uses_canonical_header_and_duplex_semantics() -> None:
             transmit_frequency_hz=147_000_000,
             tags=frozenset({"all"}),
         ),
-        Channel(
+        FrequencyDefinition(
             "disabled",
             "Disabled",
             162_550_000,
@@ -52,24 +57,40 @@ def test_chirp_csv_uses_canonical_header_and_duplex_semantics() -> None:
             tags=frozenset({"all"}),
         ),
     )
-    profile = Profile("all", "All", include_tags=frozenset({"all"}))
-    target = RadioCapabilities(
+    catalog = FrequencyCatalog(
+        definitions,
+        (
+            FrequencySet(
+                "all",
+                "All",
+                CatalogOrigin.USER,
+                tuple(
+                    FrequencySetMember(item.id, index)
+                    for index, item in enumerate(definitions)
+                ),
+            ),
+        ),
+    )
+    profile = Profile("all", "All", ("all",))
+    target = RadioModel(
         id="csv-target",
         manufacturer="Test",
         model="CSV Target",
-        memory_capacity=10,
-        receive_ranges=(FrequencyRange(100_000_000, 500_000_000),),
-        transmit_ranges=(FrequencyRange(100_000_000, 500_000_000),),
-        supported_modes=frozenset({Mode.FM}),
-        supported_tone_modes=frozenset({ToneMode.NONE, ToneMode.TONE}),
-        max_label_length=12,
-        supported_label_characters=" ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-        supports_banks=False,
-        supports_transmit_disable=True,
-        supports_split=True,
+        capabilities=RadioCapabilities(
+            memory_capacity=10,
+            receive_ranges=(FrequencyRange(100_000_000, 500_000_000),),
+            transmit_ranges=(FrequencyRange(100_000_000, 500_000_000),),
+            supported_modes=frozenset({Mode.FM}),
+            supported_tone_modes=frozenset({ToneMode.NONE, ToneMode.TONE}),
+            max_label_length=12,
+            supported_label_characters=" ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            supports_banks=False,
+            supports_transmit_disable=True,
+            supports_split=True,
+        ),
     )
 
-    plan = compile_profile(channels, profile, target)
+    plan = compile_profile(catalog, profile, target)
     rendered = render_chirp_csv(plan)
     reader = csv.DictReader(StringIO(rendered))
     rows = {row["Comment"].removeprefix("RigManifest source: "): row for row in reader}
@@ -89,28 +110,41 @@ def test_chirp_csv_uses_canonical_header_and_duplex_semantics() -> None:
 
 def test_exporter_does_not_reapply_capacity_or_selection() -> None:
     # A rendered plan is serialized as-is; the exporter owns no compiler policy.
-    channel = Channel(
+    definition = FrequencyDefinition(
         "only",
         "Only",
         146_520_000,
         TransmitBehavior.SAME,
         tags=frozenset({"all"}),
     )
-    profile = Profile("all", "All", include_tags=frozenset({"all"}))
-    target = RadioCapabilities(
+    catalog = FrequencyCatalog(
+        (definition,),
+        (
+            FrequencySet(
+                "all",
+                "All",
+                CatalogOrigin.USER,
+                (FrequencySetMember("only", 0),),
+            ),
+        ),
+    )
+    profile = Profile("all", "All", ("all",))
+    target = RadioModel(
         id="target",
         manufacturer="Test",
         model="Target",
-        memory_capacity=1,
-        receive_ranges=(FrequencyRange(100_000_000, 500_000_000),),
-        transmit_ranges=(FrequencyRange(100_000_000, 500_000_000),),
-        supported_modes=frozenset({Mode.FM}),
-        supported_tone_modes=frozenset({ToneMode.NONE}),
-        max_label_length=8,
-        supported_label_characters=" ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-        supports_banks=False,
+        capabilities=RadioCapabilities(
+            memory_capacity=1,
+            receive_ranges=(FrequencyRange(100_000_000, 500_000_000),),
+            transmit_ranges=(FrequencyRange(100_000_000, 500_000_000),),
+            supported_modes=frozenset({Mode.FM}),
+            supported_tone_modes=frozenset({ToneMode.NONE}),
+            max_label_length=8,
+            supported_label_characters=" ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+            supports_banks=False,
+        ),
     )
-    plan = compile_profile((channel,), profile, target)
+    plan = compile_profile(catalog, profile, target)
     manually_numbered = replace(
         plan,
         memories=(replace(plan.memories[0], memory_number=42),),

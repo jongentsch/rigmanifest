@@ -19,8 +19,8 @@ Python 3.12+
 
 Responsibilities:
 
-- canonical domain model
-- profile evaluation
+- canonical frequency catalog and set model
+- set/profile evaluation
 - radio capability model
 - compiler
 - diagnostics
@@ -35,7 +35,7 @@ Svelte + TypeScript
 
 Responsibilities:
 
-- channel library management
+- frequency definition and set management
 - radio inventory
 - profile editing
 - compiler result display
@@ -55,24 +55,13 @@ Responsibilities:
 
 ## Process boundary
 
-The exact Python ↔ Tauri communication mechanism is intentionally undecided.
+The desktop uses one-request newline-delimited JSON messages over a local Python
+sidecar's stdin/stdout. Tauri launches the process without opening a network port.
 
-Preferred qualities:
-
-- local-only
-- simple
-- debuggable
-- no unnecessary network exposure
-- easy to invoke in development and packaged builds
-
-Candidates include:
-
-- localhost HTTP API
-- stdin/stdout JSON-RPC
-- local socket
-- Tauri sidecar process communication
-
-Choose the simplest approach that packages reliably.
+Catalog requests return immutable presets plus the starter user partition. Compile
+requests include the current user-owned definitions and sets. Python validates that
+payload, rejects preset impersonation or broken references, combines it with the
+built-in preset partition, and then calls the same compiler used by the CLI.
 
 ## Core isolation
 
@@ -113,7 +102,12 @@ rigmanifest/
 
 ## Persistence
 
-Use SQLite for the desktop application unless the first vertical slice proves JSON simpler.
+The current vertical slice persists user-owned catalog records and radio instances
+in the desktop webview's local storage. This proves the editing and compilation
+workflow without allowing frontend state to bypass Python validation.
+
+Move the same records behind SQLite repository interfaces before catalog size,
+migrations, backups, or multi-window behavior make local storage inappropriate.
 
 Persistence should not leak database rows into compiler APIs.
 

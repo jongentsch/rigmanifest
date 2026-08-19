@@ -1,30 +1,77 @@
 # Domain Model
 
-The most important separation is:
+The central separation is:
 
 ```text
-Canonical Data
+Shared Frequency Catalog
     ↓
-Profile / Intent
+Selected Frequency Sets
     ↓
-Capabilities
+Radio Model + Capabilities + Factory Set Relationships
     ↓
 Compiler
     ↓
-Compiled Radio Plan
+Programmable Radio Memories + Factory Set Coverage
     ↓
 Exporter
 ```
 
-## Channel
+## Terminology
 
-Represents a communications resource independently of any target radio.
+A frequency definition is not a radio channel.
 
-Suggested fields:
+`Channel` is reserved for contexts where it is genuinely part of an interface or
+standard: a numbered GMRS/FRS/CB designation, a radio memory location, or CHIRP's
+radio-memory terminology.
+
+## Shared catalog tables
+
+Preset and user-owned records live in the same tables. They are distinguished by
+origin and mutability, not by separate schemas.
 
 ```text
-Channel
+frequency_definition
 - id
+- origin: PRESET | USER
+- name
+- receive_frequency_hz
+- transmit_behavior
+- transmit_frequency_hz
+- offset_hz
+- mode
+- tone fields
+- priority
+- notes
+
+frequency_set
+- id
+- origin: PRESET | USER
+- name
+- description
+
+frequency_set_member
+- frequency_set_id       -> frequency_set.id
+- frequency_definition_id -> frequency_definition.id
+- position
+- channel_designator?    # only when the set is genuinely channelized
+```
+
+Preset definitions and preset sets are read-only. A user set may reference either
+preset or user-owned definitions, so users can reuse canonical data without copying
+it. A preset set may reference only preset definitions, which prevents a read-only
+set from changing through a mutable dependency.
+
+A user set may be empty while it is being authored. Empty sets compile to no radio
+memories; they do not require placeholder frequency definitions.
+
+## FrequencyDefinition
+
+Represents canonical RF intent independently of any set or target radio.
+
+```text
+FrequencyDefinition
+- id
+- origin
 - name
 - receive_frequency
 - transmit_behavior
@@ -32,24 +79,35 @@ Channel
 - offset
 - mode
 - tone
-- location
 - tags[]
 - priority
-- receive_only
 - notes
-- source_metadata
 ```
 
-A canonical channel does not contain:
+It never contains:
 
-- memory number
-- truncated target label
-- radio bank assignment
-- target-specific workaround
+- a radio memory number
+- a target-shortened label
+- a radio bank assignment
+- a factory interface label
+- a CHIRP workaround
+
+## FrequencySet
+
+A named, ordered collection of references to shared frequency definitions.
+
+Examples:
+
+- US NOAA Weather Broadcasts (preset, read-only)
+- US MURS (preset, read-only)
+- My Home Essentials (user-owned)
+- Repeaters Along I-77 (user-owned)
+
+For channelized services, `FrequencySetMember.channel_designator` records labels such
+as `FRS 1`, `GMRS 15`, or `WX1`. The base frequency definition remains a frequency
+definition.
 
 ## Transmit behavior
-
-Initial model:
 
 ```text
 TransmitBehavior
@@ -59,92 +117,43 @@ TransmitBehavior
 - DISABLED
 ```
 
-## Tone
+`DISABLED` is explicit receive-only intent. Compilation must never silently replace
+it with a transmittable memory.
 
-Initial model should cover common analog use without attempting every edge case.
-
-Possible shape:
-
-```text
-ToneSpec
-- mode
-- encode_tone
-- decode_tone
-- dtcs_code
-- dtcs_polarity
-```
-
-## Location
-
-```text
-Location
-- latitude
-- longitude
-- locality
-- region
-```
-
-Coordinates matter for geographic selectors.
-
-## Tags
-
-Examples:
-
-```text
-local-repeater
-weather
-simplex
-rail
-airband
-emergency
-Tuscarawas
-ARES
-travel
-```
-
-Tags carry user intent, not radio semantics.
-
-## Priority
-
-Initial values:
-
-```text
-MANDATORY
-HIGH
-NORMAL
-LOW
-```
-
-## RadioModel
+## RadioModel and capabilities
 
 ```text
 RadioModel
 - id
 - manufacturer
 - model
-- capabilities
 - chirp_driver_reference
+- capabilities
+- factory_frequency_sets[]
+
+FactoryFrequencySet
+- frequency_set_id
+- interface_label
+- frequency_editing: SUPPORTED | UNSUPPORTED | UNKNOWN
+- chirp_editing: SUPPORTED | UNSUPPORTED | UNKNOWN
+- source_notes[]
 ```
 
-## RadioInstance
+A radio model never stores frequency definitions directly. It references a preset set
+when manufacturer or verified-driver evidence establishes that the set comes with the
+model.
 
-```text
-RadioInstance
-- id
-- radio_model_id
-- nickname
-- serial_number
-- role
-- notes
-```
+For the US Yaesu VX-6R, the model references `us-noaa-weather` with interface label
+`WX CH`. Factory presence is verified. Frequency editing remains `UNKNOWN`; current
+CHIRP editing is `UNSUPPORTED` because the VX-6 driver does not expose the factory
+special set.
 
 ## RadioCapabilities
-
-Initial fields:
 
 ```text
 RadioCapabilities
 - memory_capacity
+- memory_start
 - receive_ranges[]
 - transmit_ranges[]
 - supported_modes[]
@@ -153,127 +162,83 @@ RadioCapabilities
 - supported_label_characters
 - supports_banks
 - bank_count
-- supports_receive_only
+- supports_transmit_disable
+- supports_split
+- source_notes[]
 ```
 
-Capability data may come from:
-
-- CHIRP RadioFeatures
-- manufacturer documentation
-- RigManifest overlays
-- verified testing
-
-## Capability overlays
-
-CHIRP will not represent every policy RigManifest cares about.
-
-Use overlays for:
-
-- receive-only workarounds
-- grouping degradation policy
-- reserved memories
-- preferred naming behavior
-- firmware-specific differences
-- target-specific safety rules
+Capability data may come from CHIRP `RadioFeatures`, manufacturer documentation,
+RigManifest overlays, or verified testing. Proven facts and unknowns must remain
+distinguishable.
 
 ## Profile
+
+A profile is a saved selection of frequency sets.
 
 ```text
 Profile
 - id
 - name
-- selectors[]
-- exclusions[]
-- groups[]
-- ordering_policy
-- capacity_policy
+- frequency_set_ids[]
 ```
 
-Profiles describe rules, not memory rows.
+Users program radios by selecting sets. If individual definitions need special
+treatment, the user can create another user-owned set instead of embedding target
+memory rows in a profile.
 
-## Selector
-
-Initial types:
-
-```text
-TAG
-EXPLICIT_CHANNEL
-GEOGRAPHIC_RADIUS
-MIN_PRIORITY
-```
-
-## LogicalGroup
-
-```text
-LogicalGroup
-- id
-- name
-- selector
-- priority
-```
-
-A logical group may map to a bank, scan group, or nothing at all depending on target capability.
-
-## CompiledMemory
+## Compilation outputs
 
 ```text
 CompiledMemory
-- source_channel_id
+- source_frequency_definition_id
+- source_frequency_set_ids[]
 - memory_number
 - target_name
 - receive_frequency
-- transmit_behavior
-- transmit_frequency
-- offset
+- transmit fields
 - mode
 - tone
 - bank_assignments[]
 - applied_transformations[]
-```
 
-## CompiledRadioPlan
+FactorySetCoverage
+- frequency_set_id
+- frequency_set_name
+- interface_label
+- frequency_definition_ids[]
+- frequency_editing
+- chirp_editing
 
-```text
 CompiledRadioPlan
-- target_radio_instance
+- target_radio_model
 - profile
 - memories[]
-- omitted_channels[]
+- factory_sets[]
+- omitted_frequency_definitions[]
 - diagnostics[]
 - capacity_summary
 - compiler_version
 ```
 
-## Diagnostic
-
-```text
-Diagnostic
-- code
-- severity
-- channel_id
-- message
-- details
-```
-
-Suggested codes:
-
-```text
-LABEL_TRUNCATED
-RX_FREQUENCY_UNSUPPORTED
-TX_FREQUENCY_UNSUPPORTED
-MODE_UNSUPPORTED
-TONE_UNSUPPORTED
-GROUPING_DEGRADED
-CHANNEL_OMITTED_CAPACITY
-TX_DISABLE_NOT_REPRESENTABLE
-CAPABILITY_DATA_INCOMPLETE
-```
+Factory coverage is resolved by set identity. The compiler never infers it by matching
+frequencies.
 
 ## Key invariants
 
-1. Compilation never mutates canonical channels.
-2. Profiles never contain radio-specific memory numbers.
-3. Capability definitions never encode user preference.
-4. Exporters never make selection decisions.
-5. Diagnostics explain every meaningful omission/degradation.
-6. Identical inputs produce identical outputs.
+1. Compilation never mutates frequency definitions or sets.
+2. Preset and user records use the same catalog tables.
+3. User sets may reference shared preset definitions without copying them.
+4. Radio models never define frequencies directly.
+5. Factory availability is a radio-model-to-preset-set relationship.
+6. Profiles select sets, not radio memory rows.
+7. Exporters consume compiled memories and make no selection decisions.
+8. Diagnostics explain every meaningful omission or degradation.
+9. Identical inputs produce identical outputs.
+
+## Desktop persistence boundary
+
+The first desktop slice stores only the user-owned partition locally. On load, the
+UI combines those records with immutable presets returned by Python. On compile, it
+sends the complete user partition back across IPC; Python reconstructs and validates
+the shared catalog before invoking the compiler. Local storage is therefore an
+authoring store, not a trusted compiler input.

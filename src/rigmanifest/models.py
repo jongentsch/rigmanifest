@@ -6,8 +6,21 @@ from dataclasses import dataclass, field
 from enum import IntEnum, StrEnum
 
 
+class CatalogOrigin(StrEnum):
+    """Who controls a catalog record."""
+
+    PRESET = "preset"
+    USER = "user"
+
+
+class CapabilityStatus(StrEnum):
+    SUPPORTED = "supported"
+    UNSUPPORTED = "unsupported"
+    UNKNOWN = "unknown"
+
+
 class TransmitBehavior(StrEnum):
-    """How a channel derives (or disables) its transmit frequency."""
+    """How a frequency definition derives (or disables) transmission."""
 
     SAME = "same"
     OFFSET = "offset"
@@ -43,6 +56,7 @@ class Severity(StrEnum):
 
 
 class DiagnosticCode(StrEnum):
+    FACTORY_SET_AVAILABLE = "FACTORY_SET_AVAILABLE"
     LABEL_TRUNCATED = "LABEL_TRUNCATED"
     LABEL_CHARACTERS_NORMALIZED = "LABEL_CHARACTERS_NORMALIZED"
     RX_FREQUENCY_UNSUPPORTED = "RX_FREQUENCY_UNSUPPORTED"
@@ -50,7 +64,7 @@ class DiagnosticCode(StrEnum):
     MODE_UNSUPPORTED = "MODE_UNSUPPORTED"
     TONE_UNSUPPORTED = "TONE_UNSUPPORTED"
     GROUPING_DEGRADED = "GROUPING_DEGRADED"
-    CHANNEL_OMITTED_CAPACITY = "CHANNEL_OMITTED_CAPACITY"
+    FREQUENCY_OMITTED_CAPACITY = "FREQUENCY_OMITTED_CAPACITY"
     TX_DISABLE_NOT_REPRESENTABLE = "TX_DISABLE_NOT_REPRESENTABLE"
     CAPABILITY_DATA_INCOMPLETE = "CAPABILITY_DATA_INCOMPLETE"
 
@@ -90,13 +104,14 @@ class ToneSpec:
 
 
 @dataclass(frozen=True, slots=True)
-class Channel:
-    """Canonical channel data with no target-specific memory fields."""
+class FrequencyDefinition:
+    """Canonical RF intent, independent of sets and radio memory locations."""
 
     id: str
     name: str
     receive_frequency_hz: int
     transmit_behavior: TransmitBehavior
+    origin: CatalogOrigin = CatalogOrigin.USER
     transmit_frequency_hz: int | None = None
     offset_hz: int | None = None
     mode: Mode = Mode.FM
@@ -107,9 +122,9 @@ class Channel:
 
     def __post_init__(self) -> None:
         if not self.id.strip():
-            raise ValueError("channel ID must not be blank")
+            raise ValueError("frequency definition ID must not be blank")
         if not self.name.strip():
-            raise ValueError("channel name must not be blank")
+            raise ValueError("frequency definition name must not be blank")
         if self.receive_frequency_hz <= 0:
             raise ValueError("receive frequency must be positive")
 
@@ -117,16 +132,20 @@ class Channel:
             if self.offset_hz in (None, 0):
                 raise ValueError("offset transmit behavior requires a non-zero offset")
             if self.transmit_frequency_hz is not None:
-                raise ValueError("offset channels must not set an explicit TX frequency")
+                raise ValueError("offset definition must not set an explicit TX frequency")
         elif self.transmit_behavior is TransmitBehavior.SPLIT:
             if self.transmit_frequency_hz is None or self.transmit_frequency_hz <= 0:
                 raise ValueError("split transmit behavior requires a TX frequency")
             if self.offset_hz is not None:
-                raise ValueError("split channels must not set an offset")
+                raise ValueError("split definition must not set an offset")
         elif self.transmit_frequency_hz is not None or self.offset_hz is not None:
-            raise ValueError("same/disabled channels must not set TX frequency or offset")
+            raise ValueError("same/disabled definitions must not set TX frequency or offset")
 
         object.__setattr__(self, "tags", frozenset(self.tags))
+
+    @property
+    def read_only(self) -> bool:
+        return self.origin is CatalogOrigin.PRESET
 
     @property
     def resolved_transmit_frequency_hz(self) -> int | None:
@@ -141,45 +160,120 @@ class Channel:
 
 
 @dataclass(frozen=True, slots=True)
-class LogicalGroup:
+class FrequencySetMember:
+    """A reference from a set to a shared frequency definition."""
+
+    frequency_definition_id: str
+    position: int
+    channel_designator: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.frequency_definition_id:
+            raise ValueError("frequency set membership requires a definition ID")
+        if self.position < 0:
+            raise ValueError("frequency set membership position must not be negative")
+
+
+@dataclass(frozen=True, slots=True)
+class FrequencySet:
     id: str
     name: str
-    include_tags: frozenset[str]
+    origin: CatalogOrigin
+    members: tuple[FrequencySetMember, ...]
+    description: str = ""
 
     def __post_init__(self) -> None:
         if not self.id or not self.name:
-            raise ValueError("logical group ID and name are required")
-        if not self.include_tags:
-            raise ValueError("logical group requires at least one tag")
-        object.__setattr__(self, "include_tags", frozenset(self.include_tags))
+            raise ValueError("frequency set ID and name are required")
+        object.__setattr__(self, "members", tuple(self.members))
+
+        definition_ids = [item.frequency_definition_id for item in self.members]
+        if len(definition_ids) != len(set(definition_ids)):
+            raise ValueError(f"frequency set {self.id} contains a duplicate definition")
+        positions = [item.position for item in self.members]
+        if len(positions) != len(set(positions)):
+            raise ValueError(f"frequency set {self.id} contains a duplicate position")
+
+    @property
+    def read_only(self) -> bool:
+        return self.origin is CatalogOrigin.PRESET
+
+    @property
+    def ordered_members(self) -> tuple[FrequencySetMember, ...]:
+        return tuple(
+            sorted(
+                self.members,
+                key=lambda item: (item.position, item.frequency_definition_id),
+            )
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class FrequencyCatalog:
+    """Shared tables for preset and user-owned definitions and sets."""
+
+    definitions: tuple[FrequencyDefinition, ...]
+    sets: tuple[FrequencySet, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "definitions", tuple(self.definitions))
+        object.__setattr__(self, "sets", tuple(self.sets))
+
+        definition_ids = [item.id for item in self.definitions]
+        if len(definition_ids) != len(set(definition_ids)):
+            raise ValueError("duplicate frequency definition ID")
+        set_ids = [item.id for item in self.sets]
+        if len(set_ids) != len(set(set_ids)):
+            raise ValueError("duplicate frequency set ID")
+
+        definitions = {item.id: item for item in self.definitions}
+        for frequency_set in self.sets:
+            for member in frequency_set.members:
+                definition = definitions.get(member.frequency_definition_id)
+                if definition is None:
+                    raise ValueError(
+                        f"frequency set {frequency_set.id} references unknown definition "
+                        f"{member.frequency_definition_id}"
+                    )
+                if frequency_set.read_only and not definition.read_only:
+                    raise ValueError(
+                        f"preset set {frequency_set.id} cannot depend on user definition "
+                        f"{definition.id}"
+                    )
+
+    def definition(self, definition_id: str) -> FrequencyDefinition:
+        try:
+            return next(item for item in self.definitions if item.id == definition_id)
+        except StopIteration as error:
+            raise KeyError(definition_id) from error
+
+    def frequency_set(self, set_id: str) -> FrequencySet:
+        try:
+            return next(item for item in self.sets if item.id == set_id)
+        except StopIteration as error:
+            raise KeyError(set_id) from error
 
 
 @dataclass(frozen=True, slots=True)
 class Profile:
+    """A saved selection of frequency sets."""
+
     id: str
     name: str
-    include_tags: frozenset[str] = field(default_factory=frozenset)
-    exclude_tags: frozenset[str] = field(default_factory=frozenset)
-    include_channel_ids: frozenset[str] = field(default_factory=frozenset)
-    exclude_channel_ids: frozenset[str] = field(default_factory=frozenset)
-    minimum_priority: Priority = Priority.LOW
-    groups: tuple[LogicalGroup, ...] = ()
+    frequency_set_ids: tuple[str, ...]
 
     def __post_init__(self) -> None:
         if not self.id or not self.name:
             raise ValueError("profile ID and name are required")
-        object.__setattr__(self, "include_tags", frozenset(self.include_tags))
-        object.__setattr__(self, "exclude_tags", frozenset(self.exclude_tags))
-        object.__setattr__(self, "include_channel_ids", frozenset(self.include_channel_ids))
-        object.__setattr__(self, "exclude_channel_ids", frozenset(self.exclude_channel_ids))
-        object.__setattr__(self, "groups", tuple(self.groups))
+        if not self.frequency_set_ids:
+            raise ValueError("profile requires at least one frequency set")
+        object.__setattr__(self, "frequency_set_ids", tuple(self.frequency_set_ids))
+        if len(self.frequency_set_ids) != len(set(self.frequency_set_ids)):
+            raise ValueError("profile contains a duplicate frequency set")
 
 
 @dataclass(frozen=True, slots=True)
 class RadioCapabilities:
-    id: str
-    manufacturer: str
-    model: str
     memory_capacity: int
     receive_ranges: tuple[FrequencyRange, ...]
     transmit_ranges: tuple[FrequencyRange, ...]
@@ -221,10 +315,45 @@ class RadioCapabilities:
 
 
 @dataclass(frozen=True, slots=True)
+class FactoryFrequencySet:
+    """A radio-model relationship to a preset set supplied by the manufacturer."""
+
+    frequency_set_id: str
+    interface_label: str
+    frequency_editing: CapabilityStatus = CapabilityStatus.UNKNOWN
+    chirp_editing: CapabilityStatus = CapabilityStatus.UNKNOWN
+    source_notes: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.frequency_set_id or not self.interface_label:
+            raise ValueError("factory set reference and interface label are required")
+        object.__setattr__(self, "source_notes", tuple(self.source_notes))
+
+
+@dataclass(frozen=True, slots=True)
+class RadioModel:
+    id: str
+    manufacturer: str
+    model: str
+    capabilities: RadioCapabilities
+    factory_frequency_sets: tuple[FactoryFrequencySet, ...] = ()
+    chirp_driver_reference: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.id or not self.manufacturer or not self.model:
+            raise ValueError("radio model identity is required")
+        object.__setattr__(self, "factory_frequency_sets", tuple(self.factory_frequency_sets))
+        set_ids = [item.frequency_set_id for item in self.factory_frequency_sets]
+        if len(set_ids) != len(set(set_ids)):
+            raise ValueError("radio model contains a duplicate factory frequency set")
+
+
+@dataclass(frozen=True, slots=True)
 class Diagnostic:
     code: DiagnosticCode
     severity: Severity
-    channel_id: str | None
+    frequency_definition_id: str | None
+    frequency_set_id: str | None
     message: str
     details: tuple[tuple[str, str], ...] = ()
 
@@ -234,19 +363,28 @@ class Diagnostic:
         *,
         code: DiagnosticCode,
         severity: Severity,
-        channel_id: str | None,
         message: str,
+        frequency_definition_id: str | None = None,
+        frequency_set_id: str | None = None,
         details: dict[str, object] | None = None,
     ) -> Diagnostic:
         normalized = tuple(
             sorted((key, str(value)) for key, value in (details or {}).items())
         )
-        return cls(code, severity, channel_id, message, normalized)
+        return cls(
+            code,
+            severity,
+            frequency_definition_id,
+            frequency_set_id,
+            message,
+            normalized,
+        )
 
 
 @dataclass(frozen=True, slots=True)
 class CompiledMemory:
-    source_channel_id: str
+    source_frequency_definition_id: str
+    source_frequency_set_ids: tuple[str, ...]
     memory_number: int
     target_name: str
     receive_frequency_hz: int
@@ -260,9 +398,34 @@ class CompiledMemory:
 
 
 @dataclass(frozen=True, slots=True)
-class OmittedChannel:
-    channel_id: str
+class OmittedFrequencyDefinition:
+    frequency_definition_id: str
     reason: DiagnosticCode
+
+
+@dataclass(frozen=True, slots=True)
+class FactorySetCoverage:
+    frequency_set_id: str
+    frequency_set_name: str
+    interface_label: str
+    frequency_definition_ids: tuple[str, ...]
+    frequency_editing: CapabilityStatus
+    chirp_editing: CapabilityStatus
+
+    @property
+    def definition_count(self) -> int:
+        return len(self.frequency_definition_ids)
+
+
+@dataclass(frozen=True, slots=True)
+class CompilationSettings:
+    memory_start: int | None = None
+    map_sets_to_banks: bool = True
+    use_factory_sets: bool = True
+
+    def __post_init__(self) -> None:
+        if self.memory_start is not None and self.memory_start < 0:
+            raise ValueError("memory start must not be negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -275,13 +438,14 @@ class CapacitySummary:
 
 @dataclass(frozen=True, slots=True)
 class CompiledRadioPlan:
-    target: RadioCapabilities
+    target: RadioModel
     profile: Profile
     memories: tuple[CompiledMemory, ...]
-    omitted_channels: tuple[OmittedChannel, ...]
+    factory_sets: tuple[FactorySetCoverage, ...]
+    omitted_frequency_definitions: tuple[OmittedFrequencyDefinition, ...]
     diagnostics: tuple[Diagnostic, ...]
     capacity_summary: CapacitySummary
-    compiler_version: str = "0.1.0"
+    compiler_version: str = "0.3.0"
 
     @property
     def warning_count(self) -> int:
@@ -290,3 +454,13 @@ class CompiledRadioPlan:
     @property
     def error_count(self) -> int:
         return sum(item.severity is Severity.ERROR for item in self.diagnostics)
+
+    @property
+    def factory_definition_count(self) -> int:
+        return len(
+            {
+                definition_id
+                for coverage in self.factory_sets
+                for definition_id in coverage.frequency_definition_ids
+            }
+        )

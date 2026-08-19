@@ -9,22 +9,22 @@ database or a long-running service.
 The design documents leave several details intentionally open. This slice
 resolves them as follows:
 
-1. Frequencies are integer Hz. Capability ranges are inclusive. This avoids
+1. Frequency definitions store integer Hz. Capability ranges are inclusive. This avoids
    floating-point comparisons and makes CSV formatting an exporter concern.
 2. `TransmitBehavior.DISABLED` is the single source of receive-only intent.
    A second `receive_only` boolean would permit contradictory states.
-3. Explicit exclusions override every inclusion rule. Explicit inclusions may
-   bypass a profile's minimum priority, but never an exclusion.
-4. Ranking is deterministic: mandatory channels, explicit inclusions, then
-   high/normal/low priority, with stable channel ID as the tie-breaker.
-   Geographic distance will be inserted within a priority tier when the
-   selector is implemented.
-5. Optional incompatible channels are omitted with warnings. An incompatible
-   mandatory channel is an error. A target that cannot safely represent
+3. Profiles select ordered frequency-set IDs. Sets reference definitions in one
+   shared catalog; user sets may reuse preset definitions without copying them.
+4. Ranking is deterministic: mandatory, high, normal, and low priority, followed
+   by stable set-selection order and definition ID.
+5. Optional incompatible definitions are omitted with warnings. An incompatible
+   mandatory definition is an error. A target that cannot safely represent
    transmit-disabled intent always emits an error rather than enabling TX.
 6. Capability definitions carry source notes. CHIRP-derived facts and
    RigManifest safety overlays remain distinguishable.
-7. The VX-6R USA capability uses a conservative capacity of 900 advertised
+7. Factory frequency availability is modeled as a radio-model-to-preset-set
+   relationship. It is never inferred by matching individual frequencies.
+8. The VX-6R USA capability uses a conservative capacity of 900 advertised
    user memories. CHIRP exposes locations 1-999; the later capability adapter
    must model address bounds, reserved locations, and usable capacity
    separately before expanding this value.
@@ -39,8 +39,9 @@ resolves them as follows:
 - CLI: Typer, kept as a thin adapter over the same compiler API used elsewhere.
 - Desktop IPC: newline-delimited JSON over a Tauri sidecar's stdin/stdout. It
   is local, inspectable, and avoids binding the compiler to HTTP or Tauri.
-- Persistence next phase: SQLite behind repository interfaces. The first
-  slice remains in-memory.
+- Persistence: the first UI workflow keeps the user-owned catalog partition in
+  local storage and submits it to Python validation for every compile. SQLite
+  repository interfaces remain the next durability step.
 - CHIRP integration: CSV only. Do not vendor or install CHIRP in the first
   slice. Keep the exporter isolated, then add an optional CHIRP capability
   adapter after the compiler contract is stable.
@@ -56,11 +57,13 @@ resolves them as follows:
 
 ## Delivery sequence
 
-1. Domain types, profile rules, diagnostics, and capabilities.
-2. A small `Home` fixture and USA VX-6R capability definition.
+1. Domain types, shared frequency catalog, diagnostics, and capabilities.
+2. A small `Home` set selection and USA VX-6R radio-model definition.
 3. Pure deterministic compiler with omissions and transformations.
 4. CHIRP CSV exporter.
 5. `rigmanifest compile home --target yaesu-vx6r`.
 6. Unit tests for compatibility, receive-only safety, label handling,
    capacity, ordering, diagnostics, grouping, and CSV output.
 7. Freeze the JSON IPC contract, then add the smallest Svelte/Tauri screen.
+8. Add local user-catalog authoring and pass the complete user partition through
+   the validated IPC boundary during compilation.

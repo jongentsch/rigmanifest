@@ -8,7 +8,7 @@ from rigmanifest.cli import app
 runner = CliRunner()
 
 
-def test_compile_home_for_vx6r_writes_csv_and_reports_safety_error(tmp_path) -> None:
+def test_compile_home_for_vx6r_uses_factory_weather_set(tmp_path) -> None:
     output = tmp_path / "home.csv"
 
     result = runner.invoke(
@@ -16,11 +16,13 @@ def test_compile_home_for_vx6r_writes_csv_and_reports_safety_error(tmp_path) -> 
         ["compile", "home", "--target", "yaesu-vx6r", "--output", str(output)],
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 0
     assert output.exists()
-    assert "Included: 3" in result.stdout
-    assert "Omitted: 1" in result.stdout
-    assert "TX_DISABLE_NOT_REPRESENTABLE" in result.stdout
+    assert "Programmed: 3" in result.stdout
+    assert "Factory-provided: 10" in result.stdout
+    assert "Factory sets: 1" in result.stdout
+    assert "Omitted: 0" in result.stdout
+    assert "FACTORY_SET_AVAILABLE" in result.stdout
     assert output.read_text(encoding="utf-8").startswith("Location,Name,Frequency")
 
 

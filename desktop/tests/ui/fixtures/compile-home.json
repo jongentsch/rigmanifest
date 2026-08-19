@@ -1,13 +1,28 @@
 {
-  "schema_version": 1,
-  "compiler_version": "0.1.0",
-  "profile": { "id": "home", "name": "Home" },
+  "schema_version": 3,
+  "compiler_version": "0.3.0",
+  "profile": {
+    "id": "home",
+    "name": "Home",
+    "frequency_set_ids": [
+      "home-essentials",
+      "us-noaa-weather"
+    ]
+  },
   "target": {
     "id": "yaesu-vx6r",
     "manufacturer": "Yaesu",
     "model": "VX-6R (USA)"
   },
-  "summary": { "included": 3, "omitted": 1, "warnings": 3, "errors": 1 },
+  "summary": {
+    "included": 13,
+    "programmed": 3,
+    "factory_provided": 10,
+    "factory_sets": 1,
+    "omitted": 0,
+    "warnings": 3,
+    "errors": 0
+  },
   "capacity": {
     "capacity": 900,
     "compatible_candidates": 3,
@@ -16,7 +31,10 @@
   },
   "memories": [
     {
-      "source_channel_id": "simplex-calling-2m",
+      "source_frequency_definition_id": "simplex-calling-2m",
+      "source_frequency_set_ids": [
+        "home-essentials"
+      ],
       "memory_number": 1,
       "target_name": "2M CAL",
       "receive_frequency_hz": 146520000,
@@ -31,14 +49,19 @@
         "dtcs_code": null,
         "dtcs_polarity": "NN"
       },
-      "bank_assignments": ["simplex"],
+      "bank_assignments": [
+        "home-essentials"
+      ],
       "applied_transformations": [
         "LABEL_CHARACTERS_NORMALIZED",
         "LABEL_TRUNCATED"
       ]
     },
     {
-      "source_channel_id": "local-2m-repeater",
+      "source_frequency_definition_id": "local-2m-repeater",
+      "source_frequency_set_ids": [
+        "home-essentials"
+      ],
       "memory_number": 2,
       "target_name": "2M LOC",
       "receive_frequency_hz": 146910000,
@@ -48,19 +71,24 @@
       "mode": "FM",
       "tone": {
         "mode": "tone",
-        "encode_hz": 100,
+        "encode_hz": 100.0,
         "decode_hz": null,
         "dtcs_code": null,
         "dtcs_polarity": "NN"
       },
-      "bank_assignments": ["local-repeaters"],
+      "bank_assignments": [
+        "home-essentials"
+      ],
       "applied_transformations": [
         "LABEL_CHARACTERS_NORMALIZED",
         "LABEL_TRUNCATED"
       ]
     },
     {
-      "source_channel_id": "local-70cm-repeater",
+      "source_frequency_definition_id": "local-70cm-repeater",
+      "source_frequency_set_ids": [
+        "home-essentials"
+      ],
       "memory_number": 3,
       "target_name": "70CM L",
       "receive_frequency_hz": 444500000,
@@ -70,116 +98,121 @@
       "mode": "FM",
       "tone": {
         "mode": "tone",
-        "encode_hz": 100,
+        "encode_hz": 100.0,
         "decode_hz": null,
         "dtcs_code": null,
         "dtcs_polarity": "NN"
       },
-      "bank_assignments": ["local-repeaters"],
+      "bank_assignments": [
+        "home-essentials"
+      ],
       "applied_transformations": [
         "LABEL_CHARACTERS_NORMALIZED",
         "LABEL_TRUNCATED"
       ]
     }
   ],
-  "omitted_channels": [
-    { "channel_id": "noaa-weather-1", "reason": "TX_DISABLE_NOT_REPRESENTABLE" }
-  ],
-  "diagnostics": [
+  "factory_sets": [
     {
-      "code": "LABEL_CHARACTERS_NORMALIZED",
-      "severity": "info",
-      "channel_id": "local-2m-repeater",
-      "message": "2m Local Repeater was normalized for VX-6R (USA)",
-      "details": { "normalized": "2M LOCAL REPEATER", "original": "2m Local Repeater" }
-    },
-    {
-      "code": "LABEL_TRUNCATED",
-      "severity": "warning",
-      "channel_id": "local-2m-repeater",
-      "message": "2m Local Repeater was shortened to 2M LOC",
-      "details": { "compiled": "2M LOC", "original": "2m Local Repeater" }
-    },
-    {
-      "code": "LABEL_CHARACTERS_NORMALIZED",
-      "severity": "info",
-      "channel_id": "local-70cm-repeater",
-      "message": "70cm Local Repeater was normalized for VX-6R (USA)",
-      "details": { "normalized": "70CM LOCAL REPEATER", "original": "70cm Local Repeater" }
-    },
-    {
-      "code": "LABEL_TRUNCATED",
-      "severity": "warning",
-      "channel_id": "local-70cm-repeater",
-      "message": "70cm Local Repeater was shortened to 70CM L",
-      "details": { "compiled": "70CM L", "original": "70cm Local Repeater" }
-    },
-    {
-      "code": "TX_DISABLE_NOT_REPRESENTABLE",
-      "severity": "error",
-      "channel_id": "noaa-weather-1",
-      "message": "VX-6R (USA) cannot safely represent transmit-disabled intent for NOAA Weather 1",
-      "details": {}
-    },
-    {
-      "code": "LABEL_CHARACTERS_NORMALIZED",
-      "severity": "info",
-      "channel_id": "simplex-calling-2m",
-      "message": "2m Calling was normalized for VX-6R (USA)",
-      "details": { "normalized": "2M CALLING", "original": "2m Calling" }
-    },
-    {
-      "code": "LABEL_TRUNCATED",
-      "severity": "warning",
-      "channel_id": "simplex-calling-2m",
-      "message": "2m Calling was shortened to 2M CAL",
-      "details": { "compiled": "2M CAL", "original": "2m Calling" }
+      "frequency_set_id": "us-noaa-weather",
+      "frequency_set_name": "US NOAA Weather Broadcasts",
+      "interface_label": "WX CH",
+      "frequency_definition_ids": [
+        "us-noaa-weather-1",
+        "us-noaa-weather-2",
+        "us-noaa-weather-3",
+        "us-noaa-weather-4",
+        "us-noaa-weather-5",
+        "us-noaa-weather-6",
+        "us-noaa-weather-7",
+        "us-noaa-weather-8",
+        "us-noaa-weather-9",
+        "us-noaa-weather-10"
+      ],
+      "definition_count": 10,
+      "frequency_editing": "unknown",
+      "chirp_editing": "unsupported"
     }
   ],
-  "channel_library": [
+  "omitted_frequency_definitions": [],
+  "diagnostics": [
     {
-      "id": "local-2m-repeater",
-      "name": "2m Local Repeater",
-      "receive_frequency_hz": 146910000,
-      "transmit_behavior": "offset",
-      "transmit_frequency_hz": 146310000,
-      "offset_hz": -600000,
-      "mode": "FM",
-      "tags": ["local-repeater"],
-      "priority": "high"
+      "code": "FACTORY_SET_AVAILABLE",
+      "severity": "info",
+      "frequency_definition_id": null,
+      "frequency_set_id": "us-noaa-weather",
+      "message": "US NOAA Weather Broadcasts is factory-provided on VX-6R (USA) as WX CH",
+      "details": {
+        "chirp_editing": "unsupported",
+        "definition_count": "10",
+        "interface_label": "WX CH"
+      }
     },
     {
-      "id": "local-70cm-repeater",
-      "name": "70cm Local Repeater",
-      "receive_frequency_hz": 444500000,
-      "transmit_behavior": "offset",
-      "transmit_frequency_hz": 449500000,
-      "offset_hz": 5000000,
-      "mode": "FM",
-      "tags": ["local-repeater"],
-      "priority": "high"
+      "code": "LABEL_CHARACTERS_NORMALIZED",
+      "severity": "info",
+      "frequency_definition_id": "simplex-calling-2m",
+      "frequency_set_id": null,
+      "message": "2m Calling was normalized for VX-6R (USA)",
+      "details": {
+        "normalized": "2M CALLING",
+        "original": "2m Calling"
+      }
     },
     {
-      "id": "noaa-weather-1",
-      "name": "NOAA Weather 1",
-      "receive_frequency_hz": 162550000,
-      "transmit_behavior": "disabled",
-      "transmit_frequency_hz": null,
-      "offset_hz": null,
-      "mode": "FM",
-      "tags": ["weather"],
-      "priority": "normal"
+      "code": "LABEL_TRUNCATED",
+      "severity": "warning",
+      "frequency_definition_id": "simplex-calling-2m",
+      "frequency_set_id": null,
+      "message": "2m Calling was shortened to 2M CAL",
+      "details": {
+        "compiled": "2M CAL",
+        "original": "2m Calling"
+      }
     },
     {
-      "id": "simplex-calling-2m",
-      "name": "2m Calling",
-      "receive_frequency_hz": 146520000,
-      "transmit_behavior": "same",
-      "transmit_frequency_hz": 146520000,
-      "offset_hz": null,
-      "mode": "FM",
-      "tags": ["calling", "simplex"],
-      "priority": "mandatory"
+      "code": "LABEL_CHARACTERS_NORMALIZED",
+      "severity": "info",
+      "frequency_definition_id": "local-2m-repeater",
+      "frequency_set_id": null,
+      "message": "2m Local Repeater was normalized for VX-6R (USA)",
+      "details": {
+        "normalized": "2M LOCAL REPEATER",
+        "original": "2m Local Repeater"
+      }
+    },
+    {
+      "code": "LABEL_TRUNCATED",
+      "severity": "warning",
+      "frequency_definition_id": "local-2m-repeater",
+      "frequency_set_id": null,
+      "message": "2m Local Repeater was shortened to 2M LOC",
+      "details": {
+        "compiled": "2M LOC",
+        "original": "2m Local Repeater"
+      }
+    },
+    {
+      "code": "LABEL_CHARACTERS_NORMALIZED",
+      "severity": "info",
+      "frequency_definition_id": "local-70cm-repeater",
+      "frequency_set_id": null,
+      "message": "70cm Local Repeater was normalized for VX-6R (USA)",
+      "details": {
+        "normalized": "70CM LOCAL REPEATER",
+        "original": "70cm Local Repeater"
+      }
+    },
+    {
+      "code": "LABEL_TRUNCATED",
+      "severity": "warning",
+      "frequency_definition_id": "local-70cm-repeater",
+      "frequency_set_id": null,
+      "message": "70cm Local Repeater was shortened to 70CM L",
+      "details": {
+        "compiled": "70CM L",
+        "original": "70cm Local Repeater"
+      }
     }
   ],
   "csv_path": null

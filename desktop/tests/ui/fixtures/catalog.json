@@ -1,0 +1,431 @@
+{
+  "schema_version": 3,
+  "profiles": [
+    {
+      "id": "home",
+      "name": "Home",
+      "frequency_set_ids": [
+        "home-essentials",
+        "us-noaa-weather"
+      ]
+    }
+  ],
+  "radio_models": [
+    {
+      "id": "yaesu-vx6r",
+      "manufacturer": "Yaesu",
+      "model": "VX-6R (USA)",
+      "memory_capacity": 900,
+      "memory_start": 1,
+      "max_label_length": 6,
+      "supports_banks": true,
+      "bank_count": 24,
+      "factory_frequency_sets": [
+        {
+          "frequency_set_id": "us-noaa-weather",
+          "frequency_set_name": "US NOAA Weather Broadcasts",
+          "interface_label": "WX CH",
+          "frequency_editing": "unknown",
+          "chirp_editing": "unsupported"
+        }
+      ]
+    }
+  ],
+  "frequency_sets": [
+    {
+      "id": "home-essentials",
+      "name": "Home essentials",
+      "origin": "user",
+      "read_only": false,
+      "description": "User-owned set for the first local operating configuration.",
+      "members": [
+        {
+          "frequency_definition_id": "simplex-calling-2m",
+          "position": 0,
+          "channel_designator": null
+        },
+        {
+          "frequency_definition_id": "local-2m-repeater",
+          "position": 1,
+          "channel_designator": null
+        },
+        {
+          "frequency_definition_id": "local-70cm-repeater",
+          "position": 2,
+          "channel_designator": null
+        }
+      ]
+    },
+    {
+      "id": "us-noaa-weather",
+      "name": "US NOAA Weather Broadcasts",
+      "origin": "preset",
+      "read_only": true,
+      "description": "Read-only US weather broadcast preset set.",
+      "members": [
+        {
+          "frequency_definition_id": "us-noaa-weather-1",
+          "position": 0,
+          "channel_designator": "WX1"
+        },
+        {
+          "frequency_definition_id": "us-noaa-weather-2",
+          "position": 1,
+          "channel_designator": "WX2"
+        },
+        {
+          "frequency_definition_id": "us-noaa-weather-3",
+          "position": 2,
+          "channel_designator": "WX3"
+        },
+        {
+          "frequency_definition_id": "us-noaa-weather-4",
+          "position": 3,
+          "channel_designator": "WX4"
+        },
+        {
+          "frequency_definition_id": "us-noaa-weather-5",
+          "position": 4,
+          "channel_designator": "WX5"
+        },
+        {
+          "frequency_definition_id": "us-noaa-weather-6",
+          "position": 5,
+          "channel_designator": "WX6"
+        },
+        {
+          "frequency_definition_id": "us-noaa-weather-7",
+          "position": 6,
+          "channel_designator": "WX7"
+        },
+        {
+          "frequency_definition_id": "us-noaa-weather-8",
+          "position": 7,
+          "channel_designator": "WX8"
+        },
+        {
+          "frequency_definition_id": "us-noaa-weather-9",
+          "position": 8,
+          "channel_designator": "WX9"
+        },
+        {
+          "frequency_definition_id": "us-noaa-weather-10",
+          "position": 9,
+          "channel_designator": "WX10"
+        }
+      ]
+    }
+  ],
+  "frequency_definitions": [
+    {
+      "id": "local-2m-repeater",
+      "name": "2m Local Repeater",
+      "origin": "user",
+      "read_only": false,
+      "receive_frequency_hz": 146910000,
+      "transmit_behavior": "offset",
+      "transmit_frequency_hz": null,
+      "offset_hz": -600000,
+      "mode": "FM",
+      "tone": {
+        "mode": "tone",
+        "encode_hz": 100.0,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "tags": [
+        "local-repeater"
+      ],
+      "priority": "high",
+      "notes": ""
+    },
+    {
+      "id": "local-70cm-repeater",
+      "name": "70cm Local Repeater",
+      "origin": "user",
+      "read_only": false,
+      "receive_frequency_hz": 444500000,
+      "transmit_behavior": "offset",
+      "transmit_frequency_hz": null,
+      "offset_hz": 5000000,
+      "mode": "FM",
+      "tone": {
+        "mode": "tone",
+        "encode_hz": 100.0,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "tags": [
+        "local-repeater"
+      ],
+      "priority": "high",
+      "notes": ""
+    },
+    {
+      "id": "simplex-calling-2m",
+      "name": "2m Calling",
+      "origin": "user",
+      "read_only": false,
+      "receive_frequency_hz": 146520000,
+      "transmit_behavior": "same",
+      "transmit_frequency_hz": null,
+      "offset_hz": null,
+      "mode": "FM",
+      "tone": {
+        "mode": "none",
+        "encode_hz": null,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "tags": [
+        "calling",
+        "simplex"
+      ],
+      "priority": "mandatory",
+      "notes": ""
+    },
+    {
+      "id": "us-noaa-weather-1",
+      "name": "NOAA Weather 1",
+      "origin": "preset",
+      "read_only": true,
+      "receive_frequency_hz": 162550000,
+      "transmit_behavior": "disabled",
+      "transmit_frequency_hz": null,
+      "offset_hz": null,
+      "mode": "FM",
+      "tone": {
+        "mode": "none",
+        "encode_hz": null,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "tags": [
+        "noaa",
+        "weather"
+      ],
+      "priority": "normal",
+      "notes": "Frequency published in the Yaesu VX-6R/E operating manual WX list."
+    },
+    {
+      "id": "us-noaa-weather-10",
+      "name": "NOAA Weather 10",
+      "origin": "preset",
+      "read_only": true,
+      "receive_frequency_hz": 163275000,
+      "transmit_behavior": "disabled",
+      "transmit_frequency_hz": null,
+      "offset_hz": null,
+      "mode": "FM",
+      "tone": {
+        "mode": "none",
+        "encode_hz": null,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "tags": [
+        "noaa",
+        "weather"
+      ],
+      "priority": "normal",
+      "notes": "Frequency published in the Yaesu VX-6R/E operating manual WX list."
+    },
+    {
+      "id": "us-noaa-weather-2",
+      "name": "NOAA Weather 2",
+      "origin": "preset",
+      "read_only": true,
+      "receive_frequency_hz": 162400000,
+      "transmit_behavior": "disabled",
+      "transmit_frequency_hz": null,
+      "offset_hz": null,
+      "mode": "FM",
+      "tone": {
+        "mode": "none",
+        "encode_hz": null,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "tags": [
+        "noaa",
+        "weather"
+      ],
+      "priority": "normal",
+      "notes": "Frequency published in the Yaesu VX-6R/E operating manual WX list."
+    },
+    {
+      "id": "us-noaa-weather-3",
+      "name": "NOAA Weather 3",
+      "origin": "preset",
+      "read_only": true,
+      "receive_frequency_hz": 162475000,
+      "transmit_behavior": "disabled",
+      "transmit_frequency_hz": null,
+      "offset_hz": null,
+      "mode": "FM",
+      "tone": {
+        "mode": "none",
+        "encode_hz": null,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "tags": [
+        "noaa",
+        "weather"
+      ],
+      "priority": "normal",
+      "notes": "Frequency published in the Yaesu VX-6R/E operating manual WX list."
+    },
+    {
+      "id": "us-noaa-weather-4",
+      "name": "NOAA Weather 4",
+      "origin": "preset",
+      "read_only": true,
+      "receive_frequency_hz": 162425000,
+      "transmit_behavior": "disabled",
+      "transmit_frequency_hz": null,
+      "offset_hz": null,
+      "mode": "FM",
+      "tone": {
+        "mode": "none",
+        "encode_hz": null,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "tags": [
+        "noaa",
+        "weather"
+      ],
+      "priority": "normal",
+      "notes": "Frequency published in the Yaesu VX-6R/E operating manual WX list."
+    },
+    {
+      "id": "us-noaa-weather-5",
+      "name": "NOAA Weather 5",
+      "origin": "preset",
+      "read_only": true,
+      "receive_frequency_hz": 162450000,
+      "transmit_behavior": "disabled",
+      "transmit_frequency_hz": null,
+      "offset_hz": null,
+      "mode": "FM",
+      "tone": {
+        "mode": "none",
+        "encode_hz": null,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "tags": [
+        "noaa",
+        "weather"
+      ],
+      "priority": "normal",
+      "notes": "Frequency published in the Yaesu VX-6R/E operating manual WX list."
+    },
+    {
+      "id": "us-noaa-weather-6",
+      "name": "NOAA Weather 6",
+      "origin": "preset",
+      "read_only": true,
+      "receive_frequency_hz": 162500000,
+      "transmit_behavior": "disabled",
+      "transmit_frequency_hz": null,
+      "offset_hz": null,
+      "mode": "FM",
+      "tone": {
+        "mode": "none",
+        "encode_hz": null,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "tags": [
+        "noaa",
+        "weather"
+      ],
+      "priority": "normal",
+      "notes": "Frequency published in the Yaesu VX-6R/E operating manual WX list."
+    },
+    {
+      "id": "us-noaa-weather-7",
+      "name": "NOAA Weather 7",
+      "origin": "preset",
+      "read_only": true,
+      "receive_frequency_hz": 162525000,
+      "transmit_behavior": "disabled",
+      "transmit_frequency_hz": null,
+      "offset_hz": null,
+      "mode": "FM",
+      "tone": {
+        "mode": "none",
+        "encode_hz": null,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "tags": [
+        "noaa",
+        "weather"
+      ],
+      "priority": "normal",
+      "notes": "Frequency published in the Yaesu VX-6R/E operating manual WX list."
+    },
+    {
+      "id": "us-noaa-weather-8",
+      "name": "NOAA Weather 8",
+      "origin": "preset",
+      "read_only": true,
+      "receive_frequency_hz": 161650000,
+      "transmit_behavior": "disabled",
+      "transmit_frequency_hz": null,
+      "offset_hz": null,
+      "mode": "FM",
+      "tone": {
+        "mode": "none",
+        "encode_hz": null,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "tags": [
+        "noaa",
+        "weather"
+      ],
+      "priority": "normal",
+      "notes": "Frequency published in the Yaesu VX-6R/E operating manual WX list."
+    },
+    {
+      "id": "us-noaa-weather-9",
+      "name": "NOAA Weather 9",
+      "origin": "preset",
+      "read_only": true,
+      "receive_frequency_hz": 161775000,
+      "transmit_behavior": "disabled",
+      "transmit_frequency_hz": null,
+      "offset_hz": null,
+      "mode": "FM",
+      "tone": {
+        "mode": "none",
+        "encode_hz": null,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "tags": [
+        "noaa",
+        "weather"
+      ],
+      "priority": "normal",
+      "notes": "Frequency published in the Yaesu VX-6R/E operating manual WX list."
+    }
+  ]
+}
