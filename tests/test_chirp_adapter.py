@@ -23,7 +23,8 @@ from rigmanifest.models import (
     Profile,
     RadioModel,
     ToneMode,
-    ToneSpec,
+    SignalingKind,
+    SignalingSpec,
     TransmitBehavior,
 )
 
@@ -162,7 +163,10 @@ def test_chirp_tone_catalog_is_enforced_at_compile_time() -> None:
         name="Unsupported tone",
         receive_frequency_hz=146_520_000,
         transmit_behavior=TransmitBehavior.SAME,
-        tone=ToneSpec(mode=ToneMode.TONE, encode_hz=60.0),
+        transmit_access=SignalingSpec(
+            kind=SignalingKind.CTCSS,
+            ctcss_hz=60.0,
+        ),
     )
 
     plan = compile_profile(

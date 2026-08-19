@@ -17,8 +17,9 @@ from rigmanifest.models import (
     Profile,
     RadioCapabilities,
     RadioModel,
+    SignalingKind,
+    SignalingSpec,
     ToneMode,
-    ToneSpec,
     TransmitBehavior,
 )
 
@@ -38,7 +39,10 @@ def test_chirp_csv_uses_canonical_header_and_duplex_semantics() -> None:
             146_910_000,
             TransmitBehavior.OFFSET,
             offset_hz=-600_000,
-            tone=ToneSpec(mode=ToneMode.TONE, encode_hz=100.0),
+            transmit_access=SignalingSpec(
+                kind=SignalingKind.CTCSS,
+                ctcss_hz=100.0,
+            ),
             tags=frozenset({"all"}),
         ),
         FrequencyDefinition(

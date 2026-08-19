@@ -12,8 +12,8 @@ from rigmanifest.models import (
     FrequencySetMember,
     Mode,
     Priority,
-    ToneMode,
-    ToneSpec,
+    SignalingKind,
+    SignalingSpec,
     TransmitBehavior,
 )
 
@@ -37,9 +37,7 @@ def catalog_with_user_records(
 
 def _parse_definition(record: Mapping[str, object]) -> FrequencyDefinition:
     _require_user_owned(record, "frequency definition")
-    tone_record = record.get("tone", {})
-    if not isinstance(tone_record, Mapping):
-        raise ValueError("frequency definition tone must be an object")
+    transmit_access, receive_squelch = _parse_signaling_pair(record)
 
     tags = record.get("tags", [])
     if not isinstance(tags, list) or not all(isinstance(item, str) for item in tags):
@@ -57,13 +55,8 @@ def _parse_definition(record: Mapping[str, object]) -> FrequencyDefinition:
             transmit_frequency_hz=_optional_integer(record, "transmit_frequency_hz"),
             offset_hz=_optional_integer(record, "offset_hz"),
             mode=Mode(_required_string(record, "mode")),
-            tone=ToneSpec(
-                mode=ToneMode(_optional_string(tone_record, "mode") or "none"),
-                encode_hz=_optional_number(tone_record, "encode_hz"),
-                decode_hz=_optional_number(tone_record, "decode_hz"),
-                dtcs_code=_optional_integer(tone_record, "dtcs_code"),
-                dtcs_polarity=_optional_string(tone_record, "dtcs_polarity") or "NN",
-            ),
+            transmit_access=transmit_access,
+            receive_squelch=receive_squelch,
             tags=frozenset(tags),
             priority=Priority[
                 (_optional_string(record, "priority") or "normal").upper()
@@ -72,6 +65,76 @@ def _parse_definition(record: Mapping[str, object]) -> FrequencyDefinition:
         )
     except (KeyError, ValueError) as error:
         raise ValueError(f"invalid user frequency definition: {error}") from error
+
+
+def _parse_signaling_pair(
+    record: Mapping[str, object],
+) -> tuple[SignalingSpec, SignalingSpec]:
+    transmit_record = record.get("transmit_access")
+    receive_record = record.get("receive_squelch")
+    if transmit_record is not None or receive_record is not None:
+        if not isinstance(transmit_record, Mapping) or not isinstance(
+            receive_record, Mapping
+        ):
+            raise ValueError(
+                "transmit_access and receive_squelch must both be objects"
+            )
+        return _parse_signaling(transmit_record), _parse_signaling(receive_record)
+
+    legacy = record.get("tone", {})
+    if not isinstance(legacy, Mapping):
+        raise ValueError("legacy frequency definition tone must be an object")
+    return _migrate_legacy_tone(legacy)
+
+
+def _parse_signaling(record: Mapping[str, object]) -> SignalingSpec:
+    return SignalingSpec(
+        kind=SignalingKind(_optional_string(record, "kind") or "none"),
+        ctcss_hz=_optional_number(record, "ctcss_hz"),
+        dcs_code=_optional_integer(record, "dcs_code"),
+        dcs_polarity=_optional_string(record, "dcs_polarity") or "N",
+    )
+
+
+def _migrate_legacy_tone(
+    record: Mapping[str, object],
+) -> tuple[SignalingSpec, SignalingSpec]:
+    mode = _optional_string(record, "mode") or "none"
+    encode_hz = _optional_number(record, "encode_hz")
+    decode_hz = _optional_number(record, "decode_hz")
+    dcs_code = _optional_integer(record, "dtcs_code")
+    polarity = _optional_string(record, "dtcs_polarity") or "NN"
+    if polarity not in {"NN", "NR", "RN", "RR"}:
+        raise ValueError("legacy DTCS polarity must be NN, NR, RN, or RR")
+    if mode == "none":
+        return SignalingSpec(), SignalingSpec()
+    if mode == "tone":
+        return (
+            SignalingSpec(kind=SignalingKind.CTCSS, ctcss_hz=encode_hz),
+            SignalingSpec(),
+        )
+    if mode == "tsql":
+        return (
+            SignalingSpec(kind=SignalingKind.CTCSS, ctcss_hz=encode_hz),
+            SignalingSpec(
+                kind=SignalingKind.CTCSS,
+                ctcss_hz=decode_hz or encode_hz,
+            ),
+        )
+    if mode == "dtcs":
+        return (
+            SignalingSpec(
+                kind=SignalingKind.DCS,
+                dcs_code=dcs_code,
+                dcs_polarity=polarity[0],
+            ),
+            SignalingSpec(
+                kind=SignalingKind.DCS,
+                dcs_code=dcs_code,
+                dcs_polarity=polarity[1],
+            ),
+        )
+    raise ValueError(f"unsupported legacy tone mode: {mode}")
 
 
 def _parse_set(record: Mapping[str, object]) -> FrequencySet:

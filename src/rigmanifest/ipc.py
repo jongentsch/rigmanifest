@@ -12,7 +12,7 @@ from rigmanifest.chirp_adapter import chirp_memory_validator
 from rigmanifest.compiler import compile_profile
 from rigmanifest.exporters.chirp_csv import write_chirp_csv
 from rigmanifest.fixtures import BUILTIN_CATALOG, BUILTIN_PROFILES
-from rigmanifest.models import CompilationSettings, CompiledRadioPlan
+from rigmanifest.models import CompilationSettings, CompiledRadioPlan, SignalingSpec
 
 
 class RequestError(ValueError):
@@ -90,13 +90,8 @@ def frequency_definitions_to_list() -> list[dict[str, Any]]:
             "transmit_frequency_hz": definition.transmit_frequency_hz,
             "offset_hz": definition.offset_hz,
             "mode": definition.mode.value,
-            "tone": {
-                "mode": definition.tone.mode.value,
-                "encode_hz": definition.tone.encode_hz,
-                "decode_hz": definition.tone.decode_hz,
-                "dtcs_code": definition.tone.dtcs_code,
-                "dtcs_polarity": definition.tone.dtcs_polarity,
-            },
+            "transmit_access": _signaling_to_dict(definition.transmit_access),
+            "receive_squelch": _signaling_to_dict(definition.receive_squelch),
             "tags": sorted(definition.tags),
             "priority": definition.priority.name.lower(),
             "notes": definition.notes,
@@ -130,7 +125,7 @@ def catalog_to_dict() -> dict[str, Any]:
     """Return shared preset/user catalog data without running compilation."""
 
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "profiles": [
             {
                 "id": profile.id,
@@ -164,6 +159,7 @@ def catalog_to_dict() -> dict[str, Any]:
                 "supported_tone_modes": sorted(
                     item.value for item in target.capabilities.supported_tone_modes
                 ),
+                "valid_cross_modes": list(target.capabilities.valid_cross_modes),
                 "valid_tuning_steps_hz": list(
                     target.capabilities.valid_tuning_steps_hz
                 ),
@@ -195,7 +191,7 @@ def plan_to_dict(plan: CompiledRadioPlan) -> dict[str, Any]:
     """Convert a compiled plan into an explicit, versionable wire shape."""
 
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "compiler_version": plan.compiler_version,
         "profile": {
             "id": plan.profile.id,
@@ -233,13 +229,8 @@ def plan_to_dict(plan: CompiledRadioPlan) -> dict[str, Any]:
                 "transmit_frequency_hz": memory.transmit_frequency_hz,
                 "offset_hz": memory.offset_hz,
                 "mode": memory.mode.value,
-                "tone": {
-                    "mode": memory.tone.mode.value,
-                    "encode_hz": memory.tone.encode_hz,
-                    "decode_hz": memory.tone.decode_hz,
-                    "dtcs_code": memory.tone.dtcs_code,
-                    "dtcs_polarity": memory.tone.dtcs_polarity,
-                },
+                "transmit_access": _signaling_to_dict(memory.transmit_access),
+                "receive_squelch": _signaling_to_dict(memory.receive_squelch),
                 "bank_assignments": list(memory.bank_assignments),
                 "applied_transformations": [
                     code.value for code in memory.applied_transformations
@@ -277,6 +268,15 @@ def plan_to_dict(plan: CompiledRadioPlan) -> dict[str, Any]:
             }
             for item in plan.diagnostics
         ],
+    }
+
+
+def _signaling_to_dict(signaling: SignalingSpec) -> dict[str, object]:
+    return {
+        "kind": signaling.kind.value,
+        "ctcss_hz": signaling.ctcss_hz,
+        "dcs_code": signaling.dcs_code,
+        "dcs_polarity": signaling.dcs_polarity,
     }
 
 

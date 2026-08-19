@@ -22,7 +22,7 @@ records support at least:
 - receive frequency
 - transmit behavior
 - offset or explicit transmit frequency
-- tone information
+- independent transmit-access and receive-squelch signaling
 - mode
 - optional coordinates
 - tags
@@ -72,7 +72,8 @@ Evaluate at least:
 - receive frequency range
 - transmit frequency range
 - supported modes
-- supported tone modes
+- supported CHIRP tone and cross modes
+- valid CTCSS values, DCS codes, and DCS polarity behavior
 - maximum label length
 - receive-only handling
 - set-to-bank mapping where modeled

@@ -40,6 +40,16 @@ class ToneMode(StrEnum):
     TONE = "tone"
     TSQL = "tsql"
     DTCS = "dtcs"
+    CROSS = "cross"
+    TSQL_REVERSE = "tsql-reverse"
+
+
+class SignalingKind(StrEnum):
+    """One direction of analog access or squelch signaling."""
+
+    NONE = "none"
+    CTCSS = "ctcss"
+    DCS = "dcs"
 
 
 class Priority(IntEnum):
@@ -89,20 +99,34 @@ class FrequencyRange:
 
 
 @dataclass(frozen=True, slots=True)
-class ToneSpec:
-    mode: ToneMode = ToneMode.NONE
-    encode_hz: float | None = None
-    decode_hz: float | None = None
-    dtcs_code: int | None = None
-    dtcs_polarity: str = "NN"
+class SignalingSpec:
+    """CTCSS/DCS intent for one signal direction, independent of a radio."""
+
+    kind: SignalingKind = SignalingKind.NONE
+    ctcss_hz: float | None = None
+    dcs_code: int | None = None
+    dcs_polarity: str = "N"
 
     def __post_init__(self) -> None:
-        if self.mode in (ToneMode.TONE, ToneMode.TSQL) and self.encode_hz is None:
-            raise ValueError(f"{self.mode.value} requires an encode tone")
-        if self.mode is ToneMode.DTCS and self.dtcs_code is None:
-            raise ValueError("DTCS requires a code")
-        if self.dtcs_polarity not in {"NN", "NR", "RN", "RR"}:
-            raise ValueError("DTCS polarity must be NN, NR, RN, or RR")
+        if self.dcs_polarity not in {"N", "R"}:
+            raise ValueError("DCS polarity must be N or R")
+        if self.kind is SignalingKind.NONE:
+            if self.ctcss_hz is not None or self.dcs_code is not None:
+                raise ValueError("no signaling must not carry a tone or DCS code")
+            if self.dcs_polarity != "N":
+                raise ValueError("no signaling must use normal polarity")
+        elif self.kind is SignalingKind.CTCSS:
+            if self.ctcss_hz is None or self.ctcss_hz <= 0:
+                raise ValueError("CTCSS signaling requires a positive tone")
+            if self.dcs_code is not None:
+                raise ValueError("CTCSS signaling must not carry a DCS code")
+            if self.dcs_polarity != "N":
+                raise ValueError("CTCSS signaling must use normal polarity")
+        else:
+            if self.dcs_code is None or self.dcs_code < 0:
+                raise ValueError("DCS signaling requires a non-negative code")
+            if self.ctcss_hz is not None:
+                raise ValueError("DCS signaling must not carry a CTCSS tone")
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,7 +141,8 @@ class FrequencyDefinition:
     transmit_frequency_hz: int | None = None
     offset_hz: int | None = None
     mode: Mode = Mode.FM
-    tone: ToneSpec = field(default_factory=ToneSpec)
+    transmit_access: SignalingSpec = field(default_factory=SignalingSpec)
+    receive_squelch: SignalingSpec = field(default_factory=SignalingSpec)
     tags: frozenset[str] = field(default_factory=frozenset)
     priority: Priority = Priority.NORMAL
     notes: str = ""
@@ -288,6 +313,7 @@ class RadioCapabilities:
     supports_transmit_disable: bool = False
     supports_split: bool = False
     memory_start: int = 1
+    valid_cross_modes: tuple[str, ...] = ()
     valid_tuning_steps_hz: tuple[int, ...] = ()
     valid_ctcss_tones_hz: tuple[float, ...] = ()
     valid_dtcs_codes: tuple[int, ...] = ()
@@ -312,6 +338,7 @@ class RadioCapabilities:
         object.__setattr__(self, "transmit_ranges", tuple(self.transmit_ranges))
         object.__setattr__(self, "supported_modes", frozenset(self.supported_modes))
         object.__setattr__(self, "supported_tone_modes", frozenset(self.supported_tone_modes))
+        object.__setattr__(self, "valid_cross_modes", tuple(self.valid_cross_modes))
         object.__setattr__(self, "valid_tuning_steps_hz", tuple(self.valid_tuning_steps_hz))
         object.__setattr__(self, "valid_ctcss_tones_hz", tuple(self.valid_ctcss_tones_hz))
         object.__setattr__(self, "valid_dtcs_codes", tuple(self.valid_dtcs_codes))
@@ -411,7 +438,8 @@ class CompiledMemory:
     transmit_frequency_hz: int | None
     offset_hz: int | None
     mode: Mode
-    tone: ToneSpec
+    transmit_access: SignalingSpec
+    receive_squelch: SignalingSpec
     bank_assignments: tuple[str, ...] = ()
     applied_transformations: tuple[DiagnosticCode, ...] = ()
 

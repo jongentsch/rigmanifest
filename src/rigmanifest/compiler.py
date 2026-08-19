@@ -24,6 +24,8 @@ from rigmanifest.models import (
     Profile,
     RadioModel,
     Severity,
+    SignalingKind,
+    SignalingSpec,
     ToneMode,
     TransmitBehavior,
 )
@@ -315,64 +317,110 @@ def _find_incompatibility(
             details={"mode": definition.mode.value},
         )
 
-    if definition.tone.mode not in capabilities.supported_tone_modes:
+    required_tone_mode, required_cross_mode = _required_tone_encoding(
+        definition.transmit_access,
+        definition.receive_squelch,
+    )
+    if required_tone_mode not in capabilities.supported_tone_modes:
         return Diagnostic.with_details(
             code=DiagnosticCode.TONE_UNSUPPORTED,
             severity=severity,
             frequency_definition_id=definition.id,
             message=(
-                f"{target.model} does not support {definition.tone.mode.value} "
-                f"tone semantics for {definition.name}"
+                f"{target.model} does not support the required "
+                f"{required_tone_mode.value} signaling for {definition.name}"
             ),
-            details={"tone_mode": definition.tone.mode.value},
+            details={"tone_mode": required_tone_mode.value},
         )
     if (
-        definition.tone.encode_hz is not None
-        and capabilities.valid_ctcss_tones_hz
-        and definition.tone.encode_hz not in capabilities.valid_ctcss_tones_hz
+        required_cross_mode is not None
+        and capabilities.valid_cross_modes
+        and required_cross_mode not in capabilities.valid_cross_modes
     ):
         return Diagnostic.with_details(
             code=DiagnosticCode.TONE_UNSUPPORTED,
             severity=severity,
             frequency_definition_id=definition.id,
             message=(
-                f"{target.model} does not support {definition.tone.encode_hz:.1f} Hz "
+                f"{target.model} does not support {required_cross_mode} signaling "
                 f"for {definition.name}"
             ),
-            details={"tone_hz": definition.tone.encode_hz},
+            details={"cross_mode": required_cross_mode},
         )
+    for direction, signaling in (
+        ("transmit", definition.transmit_access),
+        ("receive", definition.receive_squelch),
+    ):
+        incompatibility = _find_signaling_incompatibility(
+            signaling,
+            direction=direction,
+            definition=definition,
+            target=target,
+        )
+        if incompatibility is not None:
+            return incompatibility
     if (
-        definition.tone.decode_hz is not None
-        and capabilities.valid_ctcss_tones_hz
-        and definition.tone.decode_hz not in capabilities.valid_ctcss_tones_hz
+        definition.transmit_access.kind is SignalingKind.DCS
+        and definition.receive_squelch.kind is SignalingKind.DCS
+        and definition.transmit_access.dcs_code != definition.receive_squelch.dcs_code
+        and not capabilities.supports_separate_rx_dtcs
     ):
         return Diagnostic.with_details(
             code=DiagnosticCode.TONE_UNSUPPORTED,
             severity=severity,
             frequency_definition_id=definition.id,
             message=(
-                f"{target.model} does not support {definition.tone.decode_hz:.1f} Hz "
-                f"receive tone for {definition.name}"
+                f"{target.model} cannot use different transmit and receive DCS "
+                f"codes for {definition.name}"
             ),
-            details={"tone_hz": definition.tone.decode_hz},
+        )
+    return None
+
+
+def _find_signaling_incompatibility(
+    signaling: SignalingSpec,
+    *,
+    direction: str,
+    definition: FrequencyDefinition,
+    target: RadioModel,
+) -> Diagnostic | None:
+    capabilities = target.capabilities
+    severity = _omission_severity(definition)
+    if (
+        signaling.kind is SignalingKind.CTCSS
+        and capabilities.valid_ctcss_tones_hz
+        and signaling.ctcss_hz not in capabilities.valid_ctcss_tones_hz
+    ):
+        assert signaling.ctcss_hz is not None
+        return Diagnostic.with_details(
+            code=DiagnosticCode.TONE_UNSUPPORTED,
+            severity=severity,
+            frequency_definition_id=definition.id,
+            message=(
+                f"{target.model} does not support {direction} CTCSS "
+                f"{signaling.ctcss_hz:.1f} Hz for {definition.name}"
+            ),
+            details={"direction": direction, "ctcss_hz": signaling.ctcss_hz},
         )
     if (
-        definition.tone.dtcs_code is not None
+        signaling.kind is SignalingKind.DCS
         and capabilities.valid_dtcs_codes
-        and definition.tone.dtcs_code not in capabilities.valid_dtcs_codes
+        and signaling.dcs_code not in capabilities.valid_dtcs_codes
     ):
+        assert signaling.dcs_code is not None
         return Diagnostic.with_details(
             code=DiagnosticCode.TONE_UNSUPPORTED,
             severity=severity,
             frequency_definition_id=definition.id,
             message=(
-                f"{target.model} does not support DCS {definition.tone.dtcs_code:03d} "
-                f"for {definition.name}"
+                f"{target.model} does not support {direction} DCS "
+                f"{signaling.dcs_code:03d} for {definition.name}"
             ),
-            details={"dtcs_code": f"{definition.tone.dtcs_code:03d}"},
+            details={"direction": direction, "dcs_code": f"{signaling.dcs_code:03d}"},
         )
     if (
-        definition.tone.dtcs_polarity != "NN"
+        signaling.kind is SignalingKind.DCS
+        and signaling.dcs_polarity == "R"
         and not capabilities.supports_dtcs_polarity
     ):
         return Diagnostic.with_details(
@@ -380,12 +428,43 @@ def _find_incompatibility(
             severity=severity,
             frequency_definition_id=definition.id,
             message=(
-                f"{target.model} does not support selectable DCS polarity "
+                f"{target.model} does not support reverse {direction} DCS polarity "
                 f"for {definition.name}"
             ),
-            details={"dtcs_polarity": definition.tone.dtcs_polarity},
+            details={"direction": direction, "dcs_polarity": "R"},
         )
     return None
+
+
+def _required_tone_encoding(
+    transmit_access: SignalingSpec,
+    receive_squelch: SignalingSpec,
+) -> tuple[ToneMode, str | None]:
+    tx_kind = transmit_access.kind
+    rx_kind = receive_squelch.kind
+    if tx_kind is SignalingKind.NONE and rx_kind is SignalingKind.NONE:
+        return ToneMode.NONE, None
+    if tx_kind is SignalingKind.CTCSS and rx_kind is SignalingKind.NONE:
+        return ToneMode.TONE, None
+    if (
+        tx_kind is SignalingKind.CTCSS
+        and rx_kind is SignalingKind.CTCSS
+        and transmit_access.ctcss_hz == receive_squelch.ctcss_hz
+    ):
+        return ToneMode.TSQL, None
+    if (
+        tx_kind is SignalingKind.DCS
+        and rx_kind is SignalingKind.DCS
+        and transmit_access.dcs_code == receive_squelch.dcs_code
+    ):
+        return ToneMode.DTCS, None
+
+    names = {
+        SignalingKind.NONE: "",
+        SignalingKind.CTCSS: "Tone",
+        SignalingKind.DCS: "DTCS",
+    }
+    return ToneMode.CROSS, f"{names[tx_kind]}->{names[rx_kind]}"
 
 
 def _transform_definition(
@@ -457,7 +536,8 @@ def _transform_definition(
             transmit_frequency_hz=definition.resolved_transmit_frequency_hz,
             offset_hz=definition.offset_hz,
             mode=definition.mode,
-            tone=definition.tone,
+            transmit_access=definition.transmit_access,
+            receive_squelch=definition.receive_squelch,
             bank_assignments=groups,
             applied_transformations=tuple(transformations),
         ),

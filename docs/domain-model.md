@@ -39,7 +39,8 @@ frequency_definition
 - transmit_frequency_hz
 - offset_hz
 - mode
-- tone fields
+- transmit-access signaling
+- receive-squelch signaling
 - priority
 - notes
 
@@ -78,7 +79,8 @@ FrequencyDefinition
 - transmit_frequency
 - offset
 - mode
-- tone
+- transmit_access: SignalingSpec
+- receive_squelch: SignalingSpec
 - tags[]
 - priority
 - notes
@@ -91,6 +93,13 @@ It never contains:
 - a radio bank assignment
 - a factory interface label
 - a CHIRP workaround
+
+Transmit access and receive squelch are independent target-neutral values. Each can
+be none, CTCSS (with a frequency), or DCS (with a code and direction-specific
+polarity). CHIRP's combined `Tone`, `TSQL`, `DTCS`, and `Cross` modes are derived only
+when compiling or exporting a radio memory. For example, transmit CTCSS with no
+receive squelch becomes CHIRP `Tone`; equal CTCSS in both directions becomes `TSQL`;
+and transmit CTCSS plus receive DCS becomes `Cross` / `Tone->DTCS`.
 
 ## FrequencySet
 
@@ -158,6 +167,7 @@ RadioCapabilities
 - transmit_ranges[]
 - supported_modes[]
 - supported_tone_modes[]
+- valid_cross_modes[]
 - valid_tuning_steps_hz[]
 - valid_ctcss_tones_hz[]
 - valid_dtcs_codes[]
@@ -209,7 +219,8 @@ CompiledMemory
 - receive_frequency
 - transmit fields
 - mode
-- tone
+- transmit_access
+- receive_squelch
 - bank_assignments[]
 - applied_transformations[]
 
@@ -245,11 +256,14 @@ frequencies.
 6. Profiles select sets, not radio memory rows.
 7. Exporters consume compiled memories and make no selection decisions.
 8. Diagnostics explain every meaningful omission or degradation.
-9. Identical inputs produce identical outputs.
+9. Signaling intent is stored independently by direction; target encodings are derived.
+10. Identical inputs produce identical outputs.
 
 ## Desktop persistence boundary
 
-The first desktop slice stores only the user-owned partition locally. On load, the
+The desktop stores only the user-owned partition locally. Schema v2 separates
+transmit access from receive squelch; stored v1 combined-tone records are migrated
+in place without changing the source frequency definitions. On load, the
 UI combines those records with immutable presets returned by Python. On compile, it
 sends the complete user partition back across IPC; Python reconstructs and validates
 the shared catalog before invoking the compiler. Local storage is therefore an

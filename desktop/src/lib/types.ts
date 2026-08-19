@@ -19,12 +19,13 @@ export interface CapacitySummary {
   omitted_for_capacity: number;
 }
 
-export interface ToneSpec {
-  mode: string;
-  encode_hz: number | null;
-  decode_hz: number | null;
-  dtcs_code: number | null;
-  dtcs_polarity: string;
+export type SignalingKind = "none" | "ctcss" | "dcs";
+
+export interface SignalingSpec {
+  kind: SignalingKind;
+  ctcss_hz: number | null;
+  dcs_code: number | null;
+  dcs_polarity: "N" | "R";
 }
 
 export interface CompiledMemory {
@@ -37,7 +38,8 @@ export interface CompiledMemory {
   transmit_frequency_hz: number | null;
   offset_hz: number | null;
   mode: string;
-  tone: ToneSpec;
+  transmit_access: SignalingSpec;
+  receive_squelch: SignalingSpec;
   bank_assignments: string[];
   applied_transformations: string[];
 }
@@ -76,7 +78,8 @@ export interface FrequencyDefinitionRecord {
   transmit_frequency_hz: number | null;
   offset_hz: number | null;
   mode: string;
-  tone: ToneSpec;
+  transmit_access: SignalingSpec;
+  receive_squelch: SignalingSpec;
   tags: string[];
   priority: string;
   notes: string;
@@ -125,6 +128,7 @@ export interface RadioModelRecord {
   transmit_ranges: [number, number][];
   supported_modes: string[];
   supported_tone_modes: string[];
+  valid_cross_modes: string[];
   valid_tuning_steps_hz: number[];
   valid_ctcss_tones_hz: number[];
   valid_dtcs_codes: number[];

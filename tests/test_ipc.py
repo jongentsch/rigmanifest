@@ -19,7 +19,7 @@ def test_compile_request_returns_set_based_plan() -> None:
     assert response["id"] == "request-1"
     result = response["result"]
     assert isinstance(result, dict)
-    assert result["schema_version"] == 3
+    assert result["schema_version"] == 4
     assert result["summary"] == {
         "included": 13,
         "programmed": 3,
@@ -46,7 +46,7 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
 
     result = response["result"]
     assert isinstance(result, dict)
-    assert result["schema_version"] == 3
+    assert result["schema_version"] == 4
     assert result["profiles"] == [
         {
             "id": "home",
@@ -76,13 +76,13 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
     )
     assert calling["transmit_behavior"] == "same"
     assert calling["transmit_frequency_hz"] is None
-    assert calling["tone"] == {
-        "mode": "none",
-        "encode_hz": None,
-        "decode_hz": None,
-        "dtcs_code": None,
-        "dtcs_polarity": "NN",
+    assert calling["transmit_access"] == {
+        "kind": "none",
+        "ctcss_hz": None,
+        "dcs_code": None,
+        "dcs_polarity": "N",
     }
+    assert calling["receive_squelch"] == calling["transmit_access"]
     assert "notes" in calling
 
 
@@ -167,6 +167,70 @@ def test_compile_request_accepts_persisted_user_catalog_records() -> None:
         "user-travel-simplex"
     )
     assert result["memories"][0]["source_frequency_set_ids"] == ["user-travel"]
+    assert result["memories"][0]["transmit_access"]["kind"] == "none"
+    assert result["memories"][0]["receive_squelch"]["kind"] == "none"
+
+
+def test_compile_request_accepts_independent_signaling_records() -> None:
+    definition = {
+        "id": "user-cross",
+        "name": "Cross mode",
+        "origin": "user",
+        "read_only": False,
+        "receive_frequency_hz": 146_580_000,
+        "transmit_behavior": "same",
+        "transmit_frequency_hz": None,
+        "offset_hz": None,
+        "mode": "FM",
+        "transmit_access": {
+            "kind": "ctcss",
+            "ctcss_hz": 100.0,
+            "dcs_code": None,
+            "dcs_polarity": "N",
+        },
+        "receive_squelch": {
+            "kind": "dcs",
+            "ctcss_hz": None,
+            "dcs_code": 23,
+            "dcs_polarity": "N",
+        },
+        "tags": [],
+        "priority": "normal",
+        "notes": "",
+    }
+    response = handle_request(
+        {
+            "id": "independent-signaling",
+            "method": "compile",
+            "params": {
+                "profile": "home",
+                "target": "yaesu-vx6r",
+                "frequency_set_ids": ["user-cross-set"],
+                "user_frequency_definitions": [definition],
+                "user_frequency_sets": [
+                    {
+                        "id": "user-cross-set",
+                        "name": "Cross",
+                        "origin": "user",
+                        "read_only": False,
+                        "description": "",
+                        "members": [
+                            {
+                                "frequency_definition_id": "user-cross",
+                                "position": 0,
+                                "channel_designator": None,
+                            }
+                        ],
+                    }
+                ],
+            },
+        }
+    )
+
+    assert "error" not in response
+    memory = response["result"]["memories"][0]
+    assert memory["transmit_access"] == definition["transmit_access"]
+    assert memory["receive_squelch"] == definition["receive_squelch"]
 
 
 def test_user_catalog_cannot_override_preset_ownership() -> None:

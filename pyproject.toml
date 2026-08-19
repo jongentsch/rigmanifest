@@ -18,6 +18,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.4,<9",
+    "pytest-cov>=6,<8",
 ]
 
 [project.scripts]
@@ -26,6 +27,14 @@ rigmanifest = "rigmanifest.cli:app"
 [tool.pytest.ini_options]
 addopts = "-ra"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["rigmanifest"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
 
 [tool.setuptools.package-data]
 rigmanifest = ["py.typed"]

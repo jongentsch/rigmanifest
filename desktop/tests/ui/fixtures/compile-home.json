@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "compiler_version": "0.3.0",
   "profile": {
     "id": "home",
@@ -42,13 +42,8 @@
       "transmit_frequency_hz": 146520000,
       "offset_hz": null,
       "mode": "FM",
-      "tone": {
-        "mode": "none",
-        "encode_hz": null,
-        "decode_hz": null,
-        "dtcs_code": null,
-        "dtcs_polarity": "NN"
-      },
+      "transmit_access": { "kind": "none", "ctcss_hz": null, "dcs_code": null, "dcs_polarity": "N" },
+      "receive_squelch": { "kind": "none", "ctcss_hz": null, "dcs_code": null, "dcs_polarity": "N" },
       "bank_assignments": [
         "home-essentials"
       ],
@@ -69,13 +64,8 @@
       "transmit_frequency_hz": 146310000,
       "offset_hz": -600000,
       "mode": "FM",
-      "tone": {
-        "mode": "tone",
-        "encode_hz": 100.0,
-        "decode_hz": null,
-        "dtcs_code": null,
-        "dtcs_polarity": "NN"
-      },
+      "transmit_access": { "kind": "ctcss", "ctcss_hz": 100.0, "dcs_code": null, "dcs_polarity": "N" },
+      "receive_squelch": { "kind": "none", "ctcss_hz": null, "dcs_code": null, "dcs_polarity": "N" },
       "bank_assignments": [
         "home-essentials"
       ],
@@ -96,13 +86,8 @@
       "transmit_frequency_hz": 449500000,
       "offset_hz": 5000000,
       "mode": "FM",
-      "tone": {
-        "mode": "tone",
-        "encode_hz": 100.0,
-        "decode_hz": null,
-        "dtcs_code": null,
-        "dtcs_polarity": "NN"
-      },
+      "transmit_access": { "kind": "ctcss", "ctcss_hz": 100.0, "dcs_code": null, "dcs_polarity": "N" },
+      "receive_squelch": { "kind": "none", "ctcss_hz": null, "dcs_code": null, "dcs_polarity": "N" },
       "bank_assignments": [
         "home-essentials"
       ],

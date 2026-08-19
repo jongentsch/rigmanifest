@@ -8,7 +8,8 @@
     FrequencyDefinitionRecord,
     FrequencySetMemberRecord,
     FrequencySetRecord,
-    ToneSpec,
+    SignalingKind,
+    SignalingSpec,
     WorkspaceCatalog,
   } from "$lib/types";
 
@@ -142,7 +143,8 @@
       transmit_frequency_hz: null,
       offset_hz: null,
       mode: "FM",
-      tone: emptyTone(),
+      transmit_access: emptySignaling(),
+      receive_squelch: emptySignaling(),
       tags: [],
       priority: "normal",
       notes: "",
@@ -242,18 +244,25 @@
     }
   }
 
-  function changeToneMode(mode: string): void {
-    const tone = emptyTone();
-    tone.mode = mode;
-    if (mode === "tone" || mode === "tsql") tone.encode_hz = 100;
-    if (mode === "tsql") tone.decode_hz = 100;
-    if (mode === "dtcs") tone.dtcs_code = 23;
-    updateDefinition({ tone });
+  function changeSignaling(
+    direction: "transmit_access" | "receive_squelch",
+    kind: SignalingKind,
+  ): void {
+    const signaling = emptySignaling();
+    signaling.kind = kind;
+    if (kind === "ctcss") signaling.ctcss_hz = 100;
+    if (kind === "dcs") signaling.dcs_code = 23;
+    updateDefinition({ [direction]: signaling });
   }
 
-  function updateTone(changes: Partial<ToneSpec>): void {
+  function updateSignaling(
+    direction: "transmit_access" | "receive_squelch",
+    changes: Partial<SignalingSpec>,
+  ): void {
     if (!selectedDefinition) return;
-    updateDefinition({ tone: { ...selectedDefinition.tone, ...changes } });
+    updateDefinition({
+      [direction]: { ...selectedDefinition[direction], ...changes },
+    });
   }
 
   function updateFrequency(
@@ -301,13 +310,12 @@
     return `user-${kind}-${crypto.randomUUID()}`;
   }
 
-  function emptyTone(): ToneSpec {
+  function emptySignaling(): SignalingSpec {
     return {
-      mode: "none",
-      encode_hz: null,
-      decode_hz: null,
-      dtcs_code: null,
-      dtcs_polarity: "NN",
+      kind: "none",
+      ctcss_hz: null,
+      dcs_code: null,
+      dcs_polarity: "N",
     };
   }
 
@@ -478,15 +486,19 @@
                   <label><span>Transmit MHz</span><input type="number" min="0.000001" step="0.000001" value={(selectedDefinition.transmit_frequency_hz ?? selectedDefinition.receive_frequency_hz) / 1_000_000} onchange={(event) => updateFrequency("transmit_frequency_hz", event.currentTarget.valueAsNumber)} /></label>
                 {/if}
                 <label><span>Mode</span><select value={selectedDefinition.mode} onchange={(event) => updateDefinition({ mode: event.currentTarget.value })}><option>FM</option><option>NFM</option><option>AM</option><option>WFM</option></select></label>
-                <label><span>Tone mode</span><select value={selectedDefinition.tone.mode} onchange={(event) => changeToneMode(event.currentTarget.value)}><option value="none">None</option><option value="tone">Tone encode</option><option value="tsql">Tone squelch</option><option value="dtcs">DTCS</option></select></label>
-                {#if selectedDefinition.tone.mode === "tone" || selectedDefinition.tone.mode === "tsql"}
-                  <label><span>Encode tone Hz</span><input type="number" min="0" step="0.1" value={selectedDefinition.tone.encode_hz ?? 100} onchange={(event) => updateTone({ encode_hz: event.currentTarget.valueAsNumber })} /></label>
+                <label><span>Transmit access</span><select value={selectedDefinition.transmit_access.kind} onchange={(event) => changeSignaling("transmit_access", event.currentTarget.value as SignalingKind)}><option value="none">None</option><option value="ctcss">CTCSS</option><option value="dcs">DCS</option></select></label>
+                {#if selectedDefinition.transmit_access.kind === "ctcss"}
+                  <label><span>Transmit CTCSS Hz</span><input type="number" min="0.1" step="0.1" value={selectedDefinition.transmit_access.ctcss_hz ?? 100} onchange={(event) => updateSignaling("transmit_access", { ctcss_hz: event.currentTarget.valueAsNumber })} /></label>
+                {:else if selectedDefinition.transmit_access.kind === "dcs"}
+                  <label><span>Transmit DCS code</span><input type="number" min="0" value={selectedDefinition.transmit_access.dcs_code ?? 23} onchange={(event) => updateSignaling("transmit_access", { dcs_code: event.currentTarget.valueAsNumber })} /></label>
+                  <label><span>Transmit DCS polarity</span><select value={selectedDefinition.transmit_access.dcs_polarity} onchange={(event) => updateSignaling("transmit_access", { dcs_polarity: event.currentTarget.value as "N" | "R" })}><option>N</option><option>R</option></select></label>
                 {/if}
-                {#if selectedDefinition.tone.mode === "tsql"}
-                  <label><span>Decode tone Hz</span><input type="number" min="0" step="0.1" value={selectedDefinition.tone.decode_hz ?? 100} onchange={(event) => updateTone({ decode_hz: event.currentTarget.valueAsNumber })} /></label>
-                {:else if selectedDefinition.tone.mode === "dtcs"}
-                  <label><span>DTCS code</span><input type="number" min="0" value={selectedDefinition.tone.dtcs_code ?? 23} onchange={(event) => updateTone({ dtcs_code: event.currentTarget.valueAsNumber })} /></label>
-                  <label><span>DTCS polarity</span><select value={selectedDefinition.tone.dtcs_polarity} onchange={(event) => updateTone({ dtcs_polarity: event.currentTarget.value })}><option>NN</option><option>NR</option><option>RN</option><option>RR</option></select></label>
+                <label><span>Receive squelch</span><select value={selectedDefinition.receive_squelch.kind} onchange={(event) => changeSignaling("receive_squelch", event.currentTarget.value as SignalingKind)}><option value="none">None</option><option value="ctcss">CTCSS</option><option value="dcs">DCS</option></select></label>
+                {#if selectedDefinition.receive_squelch.kind === "ctcss"}
+                  <label><span>Receive CTCSS Hz</span><input type="number" min="0.1" step="0.1" value={selectedDefinition.receive_squelch.ctcss_hz ?? 100} onchange={(event) => updateSignaling("receive_squelch", { ctcss_hz: event.currentTarget.valueAsNumber })} /></label>
+                {:else if selectedDefinition.receive_squelch.kind === "dcs"}
+                  <label><span>Receive DCS code</span><input type="number" min="0" value={selectedDefinition.receive_squelch.dcs_code ?? 23} onchange={(event) => updateSignaling("receive_squelch", { dcs_code: event.currentTarget.valueAsNumber })} /></label>
+                  <label><span>Receive DCS polarity</span><select value={selectedDefinition.receive_squelch.dcs_polarity} onchange={(event) => updateSignaling("receive_squelch", { dcs_polarity: event.currentTarget.value as "N" | "R" })}><option>N</option><option>R</option></select></label>
                 {/if}
                 <label><span>Priority</span><select value={selectedDefinition.priority} onchange={(event) => updateDefinition({ priority: event.currentTarget.value })}><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="mandatory">Mandatory</option></select></label>
                 <label><span>Tags</span><input value={selectedDefinition.tags.join(", ")} onchange={(event) => updateDefinition({ tags: event.currentTarget.value.split(",").map((item) => item.trim()).filter(Boolean) })} /></label>

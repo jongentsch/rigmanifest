@@ -85,10 +85,12 @@ severity: error
 A verified factory set can satisfy receive-only intent without requiring CHIRP to
 represent a programmable `duplex=off` memory.
 
-### Mode and tone
+### Mode and signaling
 
-Unsupported modes and tone semantics are omitted with structured diagnostics. They are
-never silently converted.
+Unsupported modes or signaling semantics are omitted with structured diagnostics.
+Transmit access and receive squelch remain independent in the catalog. The compiler
+derives CHIRP's combined tone mode and, when necessary, cross mode; it never silently
+converts one direction into the other.
 
 Exact CTCSS tones and DCS codes are checked against the target driver's CHIRP
 catalog. After target-independent policy checks, CHIRP `validate_memory()` is the

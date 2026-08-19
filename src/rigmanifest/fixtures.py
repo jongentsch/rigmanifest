@@ -9,8 +9,8 @@ from rigmanifest.models import (
     Mode,
     Priority,
     Profile,
-    ToneMode,
-    ToneSpec,
+    SignalingKind,
+    SignalingSpec,
     TransmitBehavior,
 )
 
@@ -22,7 +22,10 @@ HOME_FREQUENCY_DEFINITIONS: tuple[FrequencyDefinition, ...] = (
         receive_frequency_hz=146_910_000,
         transmit_behavior=TransmitBehavior.OFFSET,
         offset_hz=-600_000,
-        tone=ToneSpec(mode=ToneMode.TONE, encode_hz=100.0),
+        transmit_access=SignalingSpec(
+            kind=SignalingKind.CTCSS,
+            ctcss_hz=100.0,
+        ),
         tags=frozenset({"local-repeater"}),
         priority=Priority.HIGH,
     ),
@@ -32,7 +35,10 @@ HOME_FREQUENCY_DEFINITIONS: tuple[FrequencyDefinition, ...] = (
         receive_frequency_hz=444_500_000,
         transmit_behavior=TransmitBehavior.OFFSET,
         offset_hz=5_000_000,
-        tone=ToneSpec(mode=ToneMode.TONE, encode_hz=100.0),
+        transmit_access=SignalingSpec(
+            kind=SignalingKind.CTCSS,
+            ctcss_hz=100.0,
+        ),
         tags=frozenset({"local-repeater"}),
         priority=Priority.HIGH,
     ),

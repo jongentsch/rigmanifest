@@ -7,10 +7,12 @@ from io import StringIO
 from pathlib import Path
 from typing import TextIO
 
+from chirp import chirp_common
+
+from rigmanifest.chirp_adapter import apply_signaling_to_chirp_memory
 from rigmanifest.models import (
     CompiledMemory,
     CompiledRadioPlan,
-    ToneMode,
     TransmitBehavior,
 )
 
@@ -64,7 +66,9 @@ def _write(plan: CompiledRadioPlan, output: TextIO) -> None:
 
 def _row(memory: CompiledMemory) -> tuple[str, ...]:
     duplex, offset = _duplex_and_offset(memory)
-    tone_mode, rtone, ctone, dtcs, rx_dtcs = _tone_fields(memory)
+    tone_mode, rtone, ctone, dtcs, polarity, rx_dtcs, cross_mode = _tone_fields(
+        memory
+    )
     return (
         str(memory.memory_number),
         memory.target_name,
@@ -75,9 +79,9 @@ def _row(memory: CompiledMemory) -> tuple[str, ...]:
         rtone,
         ctone,
         dtcs,
-        memory.tone.dtcs_polarity,
+        polarity,
         rx_dtcs,
-        "Tone->Tone",
+        cross_mode,
         memory.mode.value,
         "5.00",
         "",
@@ -105,19 +109,22 @@ def _duplex_and_offset(memory: CompiledMemory) -> tuple[str, str]:
 
 def _tone_fields(
     memory: CompiledMemory,
-) -> tuple[str, str, str, str, str]:
-    tone = memory.tone
-    rtone = tone.encode_hz if tone.encode_hz is not None else 88.5
-    ctone = tone.decode_hz if tone.decode_hz is not None else rtone
-    dtcs = tone.dtcs_code if tone.dtcs_code is not None else 23
-
-    chirp_mode = {
-        ToneMode.NONE: "",
-        ToneMode.TONE: "Tone",
-        ToneMode.TSQL: "TSQL",
-        ToneMode.DTCS: "DTCS",
-    }[tone.mode]
-    return chirp_mode, f"{rtone:.1f}", f"{ctone:.1f}", f"{dtcs:03d}", f"{dtcs:03d}"
+) -> tuple[str, str, str, str, str, str, str]:
+    chirp_memory = chirp_common.Memory()
+    apply_signaling_to_chirp_memory(
+        chirp_memory,
+        memory.transmit_access,
+        memory.receive_squelch,
+    )
+    return (
+        chirp_memory.tmode,
+        f"{chirp_memory.rtone:.1f}",
+        f"{chirp_memory.ctone:.1f}",
+        f"{chirp_memory.dtcs:03d}",
+        chirp_memory.dtcs_polarity,
+        f"{chirp_memory.rx_dtcs:03d}",
+        chirp_memory.cross_mode,
+    )
 
 
 def _format_mhz(frequency_hz: int) -> str:

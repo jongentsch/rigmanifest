@@ -18,6 +18,8 @@ from rigmanifest.models import (
     RadioCapabilities,
     RadioModel,
     Severity,
+    SignalingKind,
+    SignalingSpec,
     ToneMode,
     TransmitBehavior,
 )
@@ -120,6 +122,8 @@ def _capabilities_from_features(
         "Tone": ToneMode.TONE,
         "TSQL": ToneMode.TSQL,
         "DTCS": ToneMode.DTCS,
+        "Cross": ToneMode.CROSS,
+        "TSQL-R": ToneMode.TSQL_REVERSE,
     }
     supported_tone_modes = frozenset(
         tone_mode_mapping[value]
@@ -148,6 +152,7 @@ def _capabilities_from_features(
         supports_split=(
             "split" in features.valid_duplexes or bool(features.can_odd_split)
         ),
+        valid_cross_modes=tuple(features.valid_cross_modes),
         valid_tuning_steps_hz=_unique(
             int(round(float(step) * 1_000))
             for step in features.valid_tuning_steps
@@ -187,30 +192,87 @@ def _to_chirp_memory(memory: CompiledMemory, features: Any) -> Any:
         result.duplex = "+" if memory.offset_hz > 0 else "-"
         result.offset = abs(memory.offset_hz)
 
-    tone = memory.tone
-    if tone.mode is ToneMode.NONE:
-        result.tmode = ""
-    elif tone.mode is ToneMode.TONE:
-        result.tmode = "Tone"
-        assert tone.encode_hz is not None
-        result.rtone = tone.encode_hz
-    elif tone.mode is ToneMode.TSQL:
-        result.tmode = "TSQL"
-        assert tone.encode_hz is not None
-        result.rtone = tone.encode_hz
-        result.ctone = tone.decode_hz or tone.encode_hz
-    else:
-        result.tmode = "DTCS"
-        assert tone.dtcs_code is not None
-        result.dtcs = tone.dtcs_code
-        result.rx_dtcs = tone.dtcs_code
-        result.dtcs_polarity = tone.dtcs_polarity
+    apply_signaling_to_chirp_memory(
+        result,
+        memory.transmit_access,
+        memory.receive_squelch,
+    )
 
     result.tuning_step = chirp_common.required_step(
         result.freq,
         allowed=list(features.valid_tuning_steps),
     )
     return result
+
+
+def apply_signaling_to_chirp_memory(
+    memory: Any,
+    transmit_access: SignalingSpec,
+    receive_squelch: SignalingSpec,
+) -> None:
+    """Encode independent signaling intent into CHIRP's tone fields."""
+
+    chirp_common.split_tone_decode(
+        memory,
+        _chirp_signal_tuple(transmit_access),
+        _chirp_signal_tuple(receive_squelch),
+    )
+
+    # Keep both conventional fields explicit. Some drivers use rtone for TSQL
+    # even though CHIRP's normalized split helper treats ctone as canonical.
+    if transmit_access.kind is SignalingKind.CTCSS:
+        assert transmit_access.ctcss_hz is not None
+        memory.rtone = transmit_access.ctcss_hz
+    if receive_squelch.kind is SignalingKind.CTCSS:
+        assert receive_squelch.ctcss_hz is not None
+        memory.ctone = receive_squelch.ctcss_hz
+    if transmit_access.kind is SignalingKind.DCS:
+        assert transmit_access.dcs_code is not None
+        memory.dtcs = transmit_access.dcs_code
+        if receive_squelch.kind is not SignalingKind.DCS:
+            memory.rx_dtcs = transmit_access.dcs_code
+    if receive_squelch.kind is SignalingKind.DCS:
+        assert receive_squelch.dcs_code is not None
+        memory.rx_dtcs = receive_squelch.dcs_code
+        if transmit_access.kind is not SignalingKind.DCS:
+            memory.dtcs = receive_squelch.dcs_code
+
+
+def signaling_from_chirp_memory(
+    memory: Any,
+) -> tuple[SignalingSpec, SignalingSpec]:
+    """Decode CHIRP tone fields into independent RigManifest intent."""
+
+    transmit, receive = chirp_common.split_tone_encode(memory)
+    return _signaling_from_chirp_tuple(transmit), _signaling_from_chirp_tuple(receive)
+
+
+def _chirp_signal_tuple(spec: SignalingSpec) -> tuple[str, float | int | None, str | None]:
+    if spec.kind is SignalingKind.NONE:
+        return "", None, None
+    if spec.kind is SignalingKind.CTCSS:
+        return "Tone", spec.ctcss_hz, None
+    return "DTCS", spec.dcs_code, spec.dcs_polarity
+
+
+def _signaling_from_chirp_tuple(
+    value: tuple[str, float | int | None, str | None],
+) -> SignalingSpec:
+    mode, signal_value, polarity = value
+    if mode == "Tone":
+        assert signal_value is not None
+        return SignalingSpec(
+            kind=SignalingKind.CTCSS,
+            ctcss_hz=float(signal_value),
+        )
+    if mode == "DTCS":
+        assert signal_value is not None
+        return SignalingSpec(
+            kind=SignalingKind.DCS,
+            dcs_code=int(signal_value),
+            dcs_polarity=polarity or "N",
+        )
+    return SignalingSpec()
 
 
 def _issue(severity: Severity, message: str) -> MemoryValidationIssue:

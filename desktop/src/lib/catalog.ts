@@ -1,11 +1,13 @@
 import type {
   FrequencyDefinitionRecord,
   FrequencySetRecord,
+  SignalingSpec,
   UserCatalogRecords,
   WorkspaceCatalog,
 } from "$lib/types";
 
-const storageKey = "rigmanifest.user-catalog.v1";
+const storageKey = "rigmanifest.user-catalog.v2";
+const legacyStorageKey = "rigmanifest.user-catalog.v1";
 
 export function userCatalogFromWorkspace(
   catalog: WorkspaceCatalog,
@@ -46,10 +48,21 @@ export function saveWorkspaceUserCatalog(catalog: WorkspaceCatalog): void {
 
 function readStoredUserCatalog(): UserCatalogRecords | null {
   const raw = localStorage.getItem(storageKey);
-  if (!raw) return null;
+  if (raw) {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (isUserCatalogRecords(parsed)) return parsed;
+    } catch {
+      // Fall through to the legacy migration.
+    }
+  }
+
+  const legacyRaw = localStorage.getItem(legacyStorageKey);
+  if (!legacyRaw) return null;
   try {
-    const parsed: unknown = JSON.parse(raw);
-    return isUserCatalogRecords(parsed) ? parsed : null;
+    const migrated = migrateLegacyCatalog(JSON.parse(legacyRaw));
+    if (migrated) saveUserCatalog(migrated);
+    return migrated;
   } catch {
     return null;
   }
@@ -79,12 +92,61 @@ function isUserDefinition(value: unknown): value is FrequencyDefinitionRecord {
     typeof value.receive_frequency_hz === "number" &&
     typeof value.transmit_behavior === "string" &&
     typeof value.mode === "string" &&
-    isRecord(value.tone) &&
+    isSignaling(value.transmit_access) &&
+    isSignaling(value.receive_squelch) &&
     Array.isArray(value.tags) &&
     value.tags.every((item) => typeof item === "string") &&
     typeof value.priority === "string" &&
     typeof value.notes === "string"
   );
+}
+
+function isSignaling(value: unknown): value is SignalingSpec {
+  if (!isRecord(value)) return false;
+  return (
+    (value.kind === "none" || value.kind === "ctcss" || value.kind === "dcs") &&
+    (value.ctcss_hz === null || typeof value.ctcss_hz === "number") &&
+    (value.dcs_code === null || typeof value.dcs_code === "number") &&
+    (value.dcs_polarity === "N" || value.dcs_polarity === "R")
+  );
+}
+
+function migrateLegacyCatalog(value: unknown): UserCatalogRecords | null {
+  if (!isRecord(value) || !Array.isArray(value.frequencyDefinitions)) return null;
+  const frequencyDefinitions = value.frequencyDefinitions.map((definition) => {
+    if (!isRecord(definition) || !isRecord(definition.tone)) return definition;
+    const [transmit_access, receive_squelch] = migrateLegacyTone(definition.tone);
+    const { tone: _tone, ...rest } = definition;
+    return { ...rest, transmit_access, receive_squelch };
+  });
+  const candidate = { ...value, frequencyDefinitions };
+  return isUserCatalogRecords(candidate) ? candidate : null;
+}
+
+function migrateLegacyTone(tone: Record<string, unknown>): [SignalingSpec, SignalingSpec] {
+  const none = (): SignalingSpec => ({
+    kind: "none",
+    ctcss_hz: null,
+    dcs_code: null,
+    dcs_polarity: "N",
+  });
+  if (tone.mode === "tone") {
+    return [{ kind: "ctcss", ctcss_hz: Number(tone.encode_hz), dcs_code: null, dcs_polarity: "N" }, none()];
+  }
+  if (tone.mode === "tsql") {
+    return [
+      { kind: "ctcss", ctcss_hz: Number(tone.encode_hz), dcs_code: null, dcs_polarity: "N" },
+      { kind: "ctcss", ctcss_hz: Number(tone.decode_hz ?? tone.encode_hz), dcs_code: null, dcs_polarity: "N" },
+    ];
+  }
+  if (tone.mode === "dtcs") {
+    const polarity = typeof tone.dtcs_polarity === "string" ? tone.dtcs_polarity : "NN";
+    return [
+      { kind: "dcs", ctcss_hz: null, dcs_code: Number(tone.dtcs_code), dcs_polarity: polarity[0] === "R" ? "R" : "N" },
+      { kind: "dcs", ctcss_hz: null, dcs_code: Number(tone.dtcs_code), dcs_polarity: polarity[1] === "R" ? "R" : "N" },
+    ];
+  }
+  return [none(), none()];
 }
 
 function isUserSet(value: unknown): value is FrequencySetRecord {

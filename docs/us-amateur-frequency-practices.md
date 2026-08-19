@@ -1,7 +1,7 @@
 # US Amateur Frequency Practices
 
-Status: research draft for review  
-Research date: 2026-08-19  
+Status: research draft for review
+Research date: 2026-08-19
 Scope: United States amateur service, with emphasis on analog FM memories that a
 CHIRP-oriented application is likely to compile. This document is not an operating
 or licensing guide, and its conventions must not be generalized to other countries.
@@ -222,8 +222,9 @@ Leading zeroes are significant for display and serialization:
 ```
 
 CHIRP also exposes cross modes such as tone-to-DCS and separate receive DCS values.
-A single enum plus one shared tone/code cannot faithfully round-trip all of those
-memories.
+RigManifest therefore stores transmit access and receive squelch independently,
+including direction-specific DCS polarity, and derives CHIRP's combined memory fields
+only at the target boundary.
 
 ## RigManifest data-model recommendation
 

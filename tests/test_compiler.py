@@ -22,8 +22,9 @@ from rigmanifest.models import (
     RadioCapabilities,
     RadioModel,
     Severity,
+    SignalingKind,
+    SignalingSpec,
     ToneMode,
-    ToneSpec,
     TransmitBehavior,
 )
 
@@ -72,7 +73,8 @@ def make_definition(
     transmit_frequency_hz: int | None = None,
     offset_hz: int | None = None,
     mode: Mode = Mode.FM,
-    tone: ToneSpec | None = None,
+    transmit_access: SignalingSpec | None = None,
+    receive_squelch: SignalingSpec | None = None,
 ) -> FrequencyDefinition:
     return FrequencyDefinition(
         id=definition_id,
@@ -83,7 +85,8 @@ def make_definition(
         transmit_frequency_hz=transmit_frequency_hz,
         offset_hz=offset_hz,
         mode=mode,
-        tone=tone or ToneSpec(),
+        transmit_access=transmit_access or SignalingSpec(),
+        receive_squelch=receive_squelch or SignalingSpec(),
         priority=priority,
     )
 
@@ -320,7 +323,14 @@ def test_capacity_ranking_and_numbering_are_deterministic() -> None:
         (
             make_definition(
                 "dtcs",
-                tone=ToneSpec(mode=ToneMode.DTCS, dtcs_code=23),
+                transmit_access=SignalingSpec(
+                    kind=SignalingKind.DCS,
+                    dcs_code=23,
+                ),
+                receive_squelch=SignalingSpec(
+                    kind=SignalingKind.DCS,
+                    dcs_code=23,
+                ),
             ),
             make_radio(supported_tone_modes=frozenset({ToneMode.NONE})),
             DiagnosticCode.TONE_UNSUPPORTED,
@@ -340,6 +350,113 @@ def test_unsupported_mode_or_tone_is_omitted(
 
     assert plan.memories == ()
     assert plan.diagnostics[0].code is expected_code
+
+
+def test_independent_transmit_and_receive_signaling_compiles_as_cross_mode() -> None:
+    definition = make_definition(
+        "mixed-signaling",
+        transmit_access=SignalingSpec(
+            kind=SignalingKind.CTCSS,
+            ctcss_hz=100.0,
+        ),
+        receive_squelch=SignalingSpec(
+            kind=SignalingKind.DCS,
+            dcs_code=23,
+            dcs_polarity="R",
+        ),
+    )
+    radio = make_radio(
+        supported_tone_modes=frozenset({ToneMode.NONE, ToneMode.CROSS}),
+        valid_cross_modes=("Tone->DTCS",),
+        valid_ctcss_tones_hz=(100.0,),
+        valid_dtcs_codes=(23,),
+        supports_dtcs_polarity=True,
+    )
+
+    plan = compile_profile(make_catalog((definition,)), selected_profile(), radio)
+
+    assert plan.error_count == 0
+    assert plan.memories[0].transmit_access == definition.transmit_access
+    assert plan.memories[0].receive_squelch == definition.receive_squelch
+
+
+@pytest.mark.parametrize(
+    ("capability_changes", "receive_squelch", "detail"),
+    [
+        (
+            {
+                "supported_tone_modes": frozenset({ToneMode.NONE, ToneMode.CROSS}),
+                "valid_cross_modes": ("DTCS->Tone",),
+            },
+            SignalingSpec(kind=SignalingKind.DCS, dcs_code=23),
+            ("cross_mode", "Tone->DTCS"),
+        ),
+        (
+            {
+                "supported_tone_modes": frozenset({ToneMode.NONE, ToneMode.CROSS}),
+                "valid_cross_modes": ("Tone->DTCS",),
+                "valid_dtcs_codes": (25,),
+            },
+            SignalingSpec(kind=SignalingKind.DCS, dcs_code=23),
+            ("dcs_code", "023"),
+        ),
+        (
+            {
+                "supported_tone_modes": frozenset({ToneMode.NONE, ToneMode.CROSS}),
+                "valid_cross_modes": ("Tone->DTCS",),
+                "supports_dtcs_polarity": False,
+            },
+            SignalingSpec(
+                kind=SignalingKind.DCS,
+                dcs_code=23,
+                dcs_polarity="R",
+            ),
+            ("dcs_polarity", "R"),
+        ),
+    ],
+)
+def test_cross_mode_capability_mismatch_is_explained(
+    capability_changes: dict[str, object],
+    receive_squelch: SignalingSpec,
+    detail: tuple[str, str],
+) -> None:
+    definition = make_definition(
+        "mixed-signaling",
+        transmit_access=SignalingSpec(
+            kind=SignalingKind.CTCSS,
+            ctcss_hz=100.0,
+        ),
+        receive_squelch=receive_squelch,
+    )
+
+    plan = compile_profile(
+        make_catalog((definition,)),
+        selected_profile(),
+        make_radio(**capability_changes),
+    )
+
+    assert plan.memories == ()
+    assert plan.diagnostics[0].code is DiagnosticCode.TONE_UNSUPPORTED
+    assert dict(plan.diagnostics[0].details)[detail[0]] == detail[1]
+
+
+def test_target_without_separate_receive_dcs_rejects_different_codes() -> None:
+    definition = make_definition(
+        "different-dcs",
+        transmit_access=SignalingSpec(kind=SignalingKind.DCS, dcs_code=23),
+        receive_squelch=SignalingSpec(kind=SignalingKind.DCS, dcs_code=25),
+    )
+    radio = make_radio(
+        supported_tone_modes=frozenset({ToneMode.NONE, ToneMode.CROSS}),
+        valid_cross_modes=("DTCS->DTCS",),
+        valid_dtcs_codes=(23, 25),
+        supports_separate_rx_dtcs=False,
+    )
+
+    plan = compile_profile(make_catalog((definition,)), selected_profile(), radio)
+
+    assert plan.memories == ()
+    assert "different transmit and receive DCS" in plan.diagnostics[0].message
 
 
 def test_selected_sets_map_to_banks_or_degrade_visibly() -> None:

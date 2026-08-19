@@ -77,7 +77,8 @@ frequency when no owned target supports it.
 Compilation checks the selected target in this order:
 
 1. RigManifest's separate receive and transmit capability ranges;
-2. supported mode, tone semantics, exact tone/code, and duplex form;
+2. supported mode, derived tone/cross semantics, each direction's exact tone/code,
+   DCS polarity, and duplex form;
 3. CHIRP driver validation of the normalized target memory.
 
 Consequently, an HF transmit definition remains valid catalog data but is omitted

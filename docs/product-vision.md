@@ -9,7 +9,7 @@ The user edits rows containing fields such as:
 - memory number
 - frequency
 - offset
-- tone
+- transmit access and receive squelch signaling
 - mode
 - name
 
