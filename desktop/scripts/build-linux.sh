@@ -10,6 +10,15 @@ sidecar_work="$repository_root/build/sidecar"
 sidecar_source="$repository_root/src/rigmanifest/sidecar.py"
 binary_directory="$desktop_root/src-tauri/binaries"
 linux_dist="$repository_root/dist/linux"
+local_key_root="$(dirname "$repository_root")"
+
+if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" \
+    && -f "$local_key_root/rigmanifest-updater.key" \
+    && -f "$local_key_root/rigmanifest-updater-password.txt" ]]; then
+    TAURI_SIGNING_PRIVATE_KEY="$(<"$local_key_root/rigmanifest-updater.key")"
+    TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(<"$local_key_root/rigmanifest-updater-password.txt")"
+    export TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+fi
 
 if [[ ! -x "$python" ]]; then
     echo "Python environment not found at $python. Run the repository setup steps first." >&2
@@ -62,13 +71,15 @@ if payload.get("id") != "portable-smoke" or not payload.get("result", {}).get("s
 version="$("$python" -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["version"])' "$desktop_root/src-tauri/tauri.conf.json")"
 deb_package="$(find "$desktop_root/src-tauri/target/release/bundle/deb" -maxdepth 1 -type f -name '*.deb' -print -quit)"
 appimage_package="$(find "$desktop_root/src-tauri/target/release/bundle/appimage" -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
+appimage_signature="${appimage_package}.sig"
 
-if [[ -z "$deb_package" || -z "$appimage_package" ]]; then
-    echo "Tauri did not produce both Debian and AppImage packages." >&2
+if [[ -z "$deb_package" || -z "$appimage_package" || ! -f "$appimage_signature" ]]; then
+    echo "Tauri did not produce the Debian package, AppImage, and updater signature." >&2
     exit 1
 fi
 
 cp "$deb_package" "$linux_dist/RigManifest_${version}_amd64.deb"
 cp "$appimage_package" "$linux_dist/RigManifest_${version}_x86_64.AppImage"
+cp "$appimage_signature" "$linux_dist/RigManifest_${version}_x86_64.AppImage.sig"
 
 echo "Linux packages ready in $linux_dist"

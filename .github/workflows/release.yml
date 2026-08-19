@@ -90,6 +90,9 @@ jobs:
 
       - name: Build Windows packages
         working-directory: desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: pnpm bundle:windows
 
       - name: Stage Windows assets
@@ -98,8 +101,9 @@ jobs:
           $version = "${{ needs.metadata.outputs.version }}"
           $installer = "desktop/src-tauri/target/release/bundle/nsis/RigManifest_${version}_x64-setup.exe"
           $portable = "dist/portable/RigManifest_${version}_x64-portable.zip"
+          $signature = "${installer}.sig"
           New-Item -ItemType Directory -Force -Path release-assets | Out-Null
-          foreach ($asset in @($installer, $portable)) {
+          foreach ($asset in @($installer, $portable, $signature)) {
             if (-not (Test-Path -LiteralPath $asset -PathType Leaf)) {
               throw "Release asset was not produced: $asset"
             }
@@ -161,6 +165,9 @@ jobs:
 
       - name: Build Linux packages
         working-directory: desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: pnpm bundle:linux
 
       - name: Stage Linux assets
@@ -169,6 +176,7 @@ jobs:
           mkdir -p release-assets
           cp "dist/linux/RigManifest_${version}_amd64.deb" release-assets/
           cp "dist/linux/RigManifest_${version}_x86_64.AppImage" release-assets/
+          cp "dist/linux/RigManifest_${version}_x86_64.AppImage.sig" release-assets/
 
       - name: Upload Linux assets
         uses: actions/upload-artifact@v7
@@ -191,8 +199,42 @@ jobs:
           path: release-assets
           merge-multiple: true
 
-      - name: Create checksums
+      - name: Create updater metadata and checksums
+        env:
+          RELEASE_VERSION: ${{ needs.metadata.outputs.version }}
+          TAG_NAME: ${{ github.ref_name }}
         run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          version = os.environ["RELEASE_VERSION"]
+          tag = os.environ["TAG_NAME"]
+          repository = os.environ["GITHUB_REPOSITORY"]
+          base_url = f"https://github.com/{repository}/releases/download/{tag}"
+          assets = Path("release-assets")
+          windows = f"RigManifest_{version}_x64-setup.exe"
+          linux = f"RigManifest_{version}_x86_64.AppImage"
+          metadata = {
+              "version": version,
+              "notes": f"RigManifest {tag}",
+              "platforms": {
+                  "windows-x86_64": {
+                      "url": f"{base_url}/{windows}",
+                      "signature": (assets / f"{windows}.sig").read_text().strip(),
+                  },
+                  "linux-x86_64": {
+                      "url": f"{base_url}/{linux}",
+                      "signature": (assets / f"{linux}.sig").read_text().strip(),
+                  },
+              },
+          }
+          (assets / "latest.json").write_text(
+              json.dumps(metadata, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
           cd release-assets
           sha256sum -- * > SHA256SUMS.txt
 

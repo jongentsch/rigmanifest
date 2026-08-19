@@ -66,7 +66,29 @@ that location to keep its workspace in a sibling `data` directory. After
 downloading an AppImage, make it executable with `chmod +x RigManifest_*.AppImage`.
 
 Tagged releases build Windows and Linux packages on their native runners and
-publish all four distributions plus `SHA256SUMS.txt` in one GitHub Release.
+publish all four distributions, updater signatures, `latest.json`, and
+`SHA256SUMS.txt` in one GitHub Release.
+
+## Application updates
+
+RigManifest checks the latest public GitHub Release at startup at most once every
+24 hours unless the user disables automatic checks in Settings. Installed Windows
+and AppImage builds can download and install a signature-verified update after user
+approval. Portable Windows and Debian builds are notification-only because replacing
+those distributions safely is outside Tauri's native updater path. Every in-app
+installation creates a consistent workspace backup first.
+
+Tauri updater signatures are distinct from Windows Authenticode signing. Release
+builds require these GitHub Actions secrets:
+
+- `TAURI_SIGNING_PRIVATE_KEY`
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+
+For the repository owner's local release builds, the platform scripts automatically
+load `rigmanifest-updater.key` and `rigmanifest-updater-password.txt` from the
+directory immediately above the Git repository when the signing environment variables
+are not already set. Never commit those files. Losing the key or password prevents
+future releases from updating existing installations.
 
 ## Verification
 
@@ -85,7 +107,7 @@ The Playwright suite runs the Svelte renderer in the pinned Chromium build from
 `mcr.microsoft.com/playwright:v1.62.0-noble`. A deterministic UI-test adapter
 stands in for the Tauri command and save-dialog boundary. The suite covers the
 compiled multi-profile selection, profile/catalog persistence and backup contract, export flow,
-Dark/Light/System behavior, Axe accessibility, and Dark and Light visual snapshots.
+update preferences, Dark/Light/System behavior, Axe accessibility, and Dark and Light visual snapshots.
 
 Refresh the checked-in Linux snapshots only after intentionally reviewing a UI
 change:

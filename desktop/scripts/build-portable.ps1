@@ -102,6 +102,18 @@ if ($smokePayload.id -ne "portable-smoke" -or -not $smokePayload.result.schema_v
 Write-Host "Portable sidecar ready: $tauriSidecar"
 
 if (-not $SidecarOnly) {
+    if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
+        $localKeyRoot = Split-Path -Parent $repositoryRoot
+        $localKeyFile = Join-Path $localKeyRoot "rigmanifest-updater.key"
+        $localPasswordFile = Join-Path $localKeyRoot "rigmanifest-updater-password.txt"
+        if ((Test-Path -LiteralPath $localKeyFile -PathType Leaf) -and
+            (Test-Path -LiteralPath $localPasswordFile -PathType Leaf)) {
+            $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content -LiteralPath $localKeyFile -Raw
+            $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = `
+                (Get-Content -LiteralPath $localPasswordFile -Raw).TrimEnd()
+        }
+    }
+
     Push-Location $desktopRoot
     try {
         pnpm tauri build --config src-tauri/tauri.portable.conf.json

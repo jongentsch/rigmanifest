@@ -65,6 +65,7 @@ Responsibilities:
 - application lifecycle
 - launching/communicating with Python backend
 - filesystem integration where needed
+- signed update checks, installation, and restart behavior
 
 ## Process boundary
 
@@ -139,6 +140,20 @@ The canonical domain objects should remain independently serializable/testable.
 Frequency definitions are target-independent and accept any positive integer-Hz
 frequency. Target receive/transmit range and CHIRP driver validation happen during
 compilation, never while authoring the shared catalog.
+
+## Updates
+
+The Tauri updater reads a static `latest.json` manifest from the latest public GitHub
+Release and verifies every installable artifact against the public updater key embedded
+in the application. The corresponding encrypted private key exists only in the release
+environment and the repository owner's external backup.
+
+Installed Windows and AppImage distributions use Tauri's native updater. Windows
+portable and Debian distributions use the same version check but never invoke the
+installer; they direct the user to the release instead. Before an in-app installation,
+the Rust shell asks the Python persistence boundary for a consistent SQLite backup in
+the active workspace's `backups` directory. Update checks never change compiler or
+catalog semantics.
 
 ## Hosted possibility
 

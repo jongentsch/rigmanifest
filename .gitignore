@@ -8,3 +8,6 @@ dist/
 build/
 *.egg-info/
 /*.csv
+rigmanifest-updater.key
+rigmanifest-updater.key.pub
+rigmanifest-updater-password.txt

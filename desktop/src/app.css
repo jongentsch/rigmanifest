@@ -703,6 +703,168 @@ code {
   }
 }
 
+.update-toast {
+  position: fixed;
+  z-index: 20;
+  right: 22px;
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  max-width: 480px;
+  padding: 14px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  color: var(--text);
+  background: var(--surface-raised);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28);
+}
+
+.update-toast strong,
+.update-toast small {
+  display: block;
+}
+
+.update-toast strong {
+  margin-top: 3px;
+  font-size: 13px;
+}
+
+.update-toast small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.update-toast-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.update-toast-actions a {
+  color: var(--muted-strong);
+  font-size: 10px;
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  gap: 14px;
+  max-width: 1100px;
+  margin: 0 auto;
+  align-items: start;
+}
+
+.settings-content {
+  padding: 16px;
+}
+
+.settings-facts {
+  margin: 0 0 16px;
+}
+
+.settings-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.settings-facts dt,
+.settings-facts dd {
+  font-size: 11px;
+}
+
+.settings-facts dt {
+  color: var(--muted);
+}
+
+.settings-facts dd {
+  margin: 0;
+  font-weight: 650;
+  text-align: right;
+}
+
+.settings-toggle {
+  display: flex;
+  gap: 10px;
+  align-items: start;
+  padding: 13px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-subtle);
+}
+
+.settings-toggle input {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.settings-toggle strong,
+.settings-toggle small {
+  display: block;
+}
+
+.settings-toggle strong {
+  font-size: 11px;
+}
+
+.settings-toggle small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.settings-status {
+  margin-top: 14px;
+}
+
+.release-notes {
+  margin-top: 14px;
+  padding: 12px;
+  border-left: 2px solid var(--accent);
+  background: var(--surface-subtle);
+}
+
+.release-notes p,
+.backup-note {
+  margin: 6px 0 0;
+  color: var(--muted-strong);
+  font-size: 10px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.backup-note code {
+  overflow-wrap: anywhere;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.settings-help > div:last-child {
+  padding: 6px 16px 16px;
+}
+
+.settings-help p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+@media (max-width: 1120px) {
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .sidebar-brand small {
   display: block;
   margin-top: 2px;

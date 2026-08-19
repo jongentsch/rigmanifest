@@ -2,6 +2,18 @@
   import { page } from "$app/state";
   import { onMount } from "svelte";
 
+  import {
+    automaticCheckIsDue,
+    automaticUpdateChecksEnabled,
+    checkForUpdates,
+    currentUpdateSnapshot,
+    initializeUpdates,
+    installAvailableUpdate,
+    openLatestRelease,
+    subscribeToUpdates,
+    type UpdateSnapshot,
+  } from "$lib/updates";
+
   import "../app.css";
 
   type ThemePreference = "dark" | "light" | "system";
@@ -11,6 +23,7 @@
   let { children } = $props();
   let themePreference = $state<ThemePreference>("dark");
   let systemTheme: MediaQueryList | null = null;
+  let updateState = $state<UpdateSnapshot>(currentUpdateSnapshot());
 
   onMount(() => {
     const storedTheme = localStorage.getItem(themeStorageKey);
@@ -20,7 +33,19 @@
     systemTheme.addEventListener("change", handleSystemThemeChange);
     applyTheme(themePreference);
 
-    return () => systemTheme?.removeEventListener("change", handleSystemThemeChange);
+    const unsubscribeUpdates = subscribeToUpdates((next) => updateState = next);
+    void initializeUpdates()
+      .then(() => {
+        if (automaticUpdateChecksEnabled() && automaticCheckIsDue()) {
+          void checkForUpdates(true);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      systemTheme?.removeEventListener("change", handleSystemThemeChange);
+      unsubscribeUpdates();
+    };
   });
 
   function isThemePreference(value: string | null): value is ThemePreference {
@@ -83,6 +108,9 @@
       <a class:active={routeIs("/compile")} href="/compile">
         <span>Compile & export</span>
       </a>
+      <a class:active={routeIs("/settings")} href="/settings">
+        <span>Settings</span>
+      </a>
     </nav>
 
     <div class="sidebar-spacer"></div>
@@ -104,6 +132,24 @@
       </select>
     </label>
   </aside>
+
+  {#if updateState.status === "available"}
+    <aside class="update-toast" aria-live="polite" aria-label="RigManifest update available">
+      <div>
+        <span class="section-label">Update available</span>
+        <strong>RigManifest {updateState.availableVersion}</strong>
+        <small>{updateState.canInstall ? "A signed update is ready to install." : "A new package is available on GitHub."}</small>
+      </div>
+      <div class="update-toast-actions">
+        {#if updateState.canInstall}
+          <button class="button button--primary" onclick={() => void installAvailableUpdate().catch(() => undefined)}>Install & restart</button>
+        {:else}
+          <button class="button button--primary" onclick={() => void openLatestRelease().catch(() => undefined)}>View download</button>
+        {/if}
+        <a href="/settings">Details</a>
+      </div>
+    </aside>
+  {/if}
 
   {@render children()}
 </div>

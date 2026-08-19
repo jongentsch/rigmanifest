@@ -6,6 +6,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 #[cfg(debug_assertions)]
 use std::process::{Command, Stdio};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 #[cfg(not(debug_assertions))]
 use tauri_plugin_shell::{process::CommandEvent, ShellExt};
@@ -184,6 +185,45 @@ fn portable_data_directory() -> Option<PathBuf> {
     portable_data_directory_for(executable.as_deref(), appimage.as_deref(), marker_exists)
 }
 
+fn distribution_channel_for(
+    debug_build: bool,
+    windows: bool,
+    linux: bool,
+    appimage: bool,
+    portable_marker: bool,
+) -> &'static str {
+    if debug_build {
+        "development"
+    } else if appimage {
+        "linux-appimage"
+    } else if windows && portable_marker {
+        "windows-portable"
+    } else if windows {
+        "windows-installed"
+    } else if linux {
+        "linux-deb"
+    } else {
+        "unsupported"
+    }
+}
+
+#[tauri::command]
+fn distribution_channel() -> &'static str {
+    let portable_marker = env::current_exe()
+        .ok()
+        .as_deref()
+        .and_then(Path::parent)
+        .is_some_and(|directory| directory.join(PORTABLE_MARKER_FILE).is_file());
+
+    distribution_channel_for(
+        cfg!(debug_assertions),
+        cfg!(windows),
+        cfg!(target_os = "linux"),
+        env::var_os("APPIMAGE").is_some(),
+        portable_marker,
+    )
+}
+
 fn workspace_database_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     if let Some(path) = env::var_os("RIGMANIFEST_DATABASE") {
         return Ok(PathBuf::from(path));
@@ -245,6 +285,50 @@ async fn backup_workspace(app: tauri::AppHandle, destination: String) -> Result<
             "method": "backup_workspace",
             "params": {
                 "database_path": workspace_database_path(&app)?,
+                "destination": destination,
+            }
+        }),
+    )
+    .await
+}
+
+fn safe_update_version(version: &str) -> Option<&str> {
+    (!version.is_empty()
+        && version.len() <= 64
+        && version
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || ".-_".contains(character)))
+    .then_some(version)
+}
+
+#[tauri::command]
+async fn backup_before_update(
+    app: tauri::AppHandle,
+    target_version: String,
+) -> Result<Value, String> {
+    let target_version = safe_update_version(&target_version)
+        .ok_or_else(|| "update version contains invalid filename characters".to_owned())?;
+    let database_path = workspace_database_path(&app)?;
+    let data_directory = database_path
+        .parent()
+        .ok_or_else(|| "workspace database has no parent directory".to_owned())?;
+    let backup_directory = data_directory.join("backups");
+    std::fs::create_dir_all(&backup_directory)
+        .map_err(|error| format!("failed to create update backup directory: {error}"))?;
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| format!("system clock is before the Unix epoch: {error}"))?
+        .as_secs();
+    let destination =
+        backup_directory.join(format!("pre-update-{target_version}-{timestamp}.sqlite3"));
+
+    invoke_python(
+        &app,
+        json!({
+            "id": "desktop",
+            "method": "backup_workspace",
+            "params": {
+                "database_path": database_path,
                 "destination": destination,
             }
         }),
@@ -322,10 +406,14 @@ async fn import_chirp_csv(app: tauri::AppHandle, source_path: String) -> Result<
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            backup_before_update,
             backup_workspace,
             compile_selection,
+            distribution_channel,
             import_chirp_csv,
             load_catalog,
             load_workspace,
@@ -337,7 +425,10 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_sidecar_response, portable_data_directory_for};
+    use super::{
+        distribution_channel_for, parse_sidecar_response, portable_data_directory_for,
+        safe_update_version,
+    };
     use serde_json::Value;
     use std::ffi::OsStr;
     use std::path::{Path, PathBuf};
@@ -385,6 +476,38 @@ mod tests {
         let directory = portable_data_directory_for(None, Some(appimage), false);
 
         assert_eq!(directory, Some(PathBuf::from("release").join("data")));
+    }
+
+    #[test]
+    fn distribution_channels_separate_installable_and_notify_only_builds() {
+        assert_eq!(
+            distribution_channel_for(false, true, false, false, false),
+            "windows-installed"
+        );
+        assert_eq!(
+            distribution_channel_for(false, true, false, false, true),
+            "windows-portable"
+        );
+        assert_eq!(
+            distribution_channel_for(false, false, true, true, false),
+            "linux-appimage"
+        );
+        assert_eq!(
+            distribution_channel_for(false, false, true, false, false),
+            "linux-deb"
+        );
+        assert_eq!(
+            distribution_channel_for(true, true, false, false, false),
+            "development"
+        );
+    }
+
+    #[test]
+    fn update_backup_versions_are_safe_filename_components() {
+        assert_eq!(safe_update_version("1.2.3-beta.1"), Some("1.2.3-beta.1"));
+        assert_eq!(safe_update_version("../../escape"), None);
+        assert_eq!(safe_update_version("bad version"), None);
+        assert_eq!(safe_update_version(""), None);
     }
 
     #[test]

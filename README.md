@@ -122,6 +122,8 @@ The first executable slice currently includes:
   modes, accessibility, and visual regressions
 - a Windows installer containing the Python runtime, pinned CHIRP build, and
   RigManifest compiler as a Tauri sidecar
+- cryptographically signed GitHub Release updates with automatic daily checks,
+  user-approved installation, and pre-update workspace backups
 
 Set up the Python project and run its tests:
 
@@ -164,7 +166,15 @@ packages. Pushing a version tag such as `v0.1.0` runs the release workflow,
 verifies that the Python, desktop, and Tauri versions match the tag, builds on
 native Windows and Linux runners, and attaches the Windows installer, Windows
 portable ZIP, Linux Debian package, Linux AppImage, and checksums to the
-corresponding GitHub Release.
+corresponding GitHub Release. It also publishes signed updater artifacts and a
+`latest.json` manifest consumed directly from GitHub Releases.
+
+Installed Windows and Linux AppImage builds can download, verify, install, and
+restart into an update from the Settings page. Update checks are automatic at
+most once every 24 hours by default, but installation always requires approval.
+Windows portable and Debian builds notify the user and open the matching GitHub
+Release for manual replacement. In-app installation writes a consistent SQLite
+backup under the workspace's `backups` directory before downloading the update.
 
 Run the deterministic renderer-level UI suite in Docker:
 
@@ -217,6 +227,6 @@ CHIRP is an intentional upstream dependency.
 
 ## Status
 
-Early first-slice implementation.
+Functional first-slice implementation preparing for its first public release.
 
 Read `AGENTS.md` and the `docs/` directory before implementation.
