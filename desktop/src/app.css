@@ -1563,7 +1563,7 @@ code {
 
 .model-facts {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   background: var(--surface-subtle);
@@ -1590,6 +1590,67 @@ code {
 
 .factory-section {
   padding-bottom: 14px;
+}
+
+.image-history {
+  padding-bottom: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.image-version-list {
+  display: grid;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.image-version {
+  min-width: 0;
+  padding: 12px 13px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-subtle);
+}
+
+.image-version-heading,
+.image-version-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.image-version-heading strong {
+  font-size: 11px;
+}
+
+.image-kind {
+  padding: 3px 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  color: var(--accent-hover);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.image-kind.source {
+  border-color: color-mix(in srgb, var(--success) 55%, var(--border));
+  color: var(--success);
+}
+
+.image-version-meta {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.image-version code {
+  display: block;
+  overflow: hidden;
+  margin-top: 8px;
+  color: var(--code);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .factory-card {

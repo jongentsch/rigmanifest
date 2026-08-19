@@ -127,9 +127,18 @@ def test_workspace_requests_persist_and_backup_state(tmp_path) -> None:
         "method": "load_workspace",
         "params": {"database_path": str(database), "legacy_state": None},
     })["result"]
-    assert loaded["schema_version"] == 2
+    assert loaded["schema_version"] == 3
 
-    loaded["radios"][0]["name"] = "Portable"
+    loaded["radios"] = [
+        {
+            "id": "portable",
+            "name": "Portable",
+            "radioModelId": "chirp:Yaesu_VX-6",
+            "memoryStart": 1,
+            "mapSetsToBanks": True,
+            "notes": "",
+        }
+    ]
     saved = handle_request({
         "id": "save",
         "method": "save_workspace",

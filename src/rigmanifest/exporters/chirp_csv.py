@@ -83,9 +83,13 @@ def _row(memory: CompiledMemory) -> tuple[str, ...]:
         rx_dtcs,
         cross_mode,
         memory.mode.value,
-        "5.00",
-        "",
-        "",
+        (
+            f"{memory.tuning_step_hz / 1_000:.2f}"
+            if memory.tuning_step_hz is not None
+            else "5.00"
+        ),
+        memory.scan_skip,
+        memory.power_label or "",
         f"RigManifest source: {memory.source_frequency_definition_id}",
         "",
         "",

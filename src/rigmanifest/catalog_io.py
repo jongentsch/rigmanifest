@@ -62,6 +62,10 @@ def _parse_definition(record: Mapping[str, object]) -> FrequencyDefinition:
                 (_optional_string(record, "priority") or "normal").upper()
             ],
             notes=_optional_string(record, "notes") or "",
+            power_dbm=_optional_number(record, "power_dbm"),
+            power_label=_optional_string(record, "power_label"),
+            scan_skip=_optional_string(record, "scan_skip") or "",
+            tuning_step_hz=_optional_integer(record, "tuning_step_hz"),
         )
     except (KeyError, ValueError) as error:
         raise ValueError(f"invalid user frequency definition: {error}") from error

@@ -48,9 +48,7 @@ New-Item -ItemType Directory -Force -Path $sidecarDist, $sidecarWork, $binaryDir
     --onefile `
     --name rigmanifest-sidecar `
     --paths (Join-Path $repositoryRoot "src") `
-    --hidden-import chirp.drivers.vx6 `
-    --hidden-import chirp.drivers.uvk5 `
-    --hidden-import chirp.drivers.anytone778uv `
+    --collect-submodules chirp.drivers `
     --collect-data chirp `
     --copy-metadata chirp `
     --distpath $sidecarDist `

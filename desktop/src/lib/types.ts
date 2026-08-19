@@ -42,6 +42,10 @@ export interface CompiledMemory {
   mode: string;
   transmit_access: SignalingSpec;
   receive_squelch: SignalingSpec;
+  power_dbm: number | null;
+  power_label: string | null;
+  scan_skip: string;
+  tuning_step_hz: number | null;
   bank_assignments: string[];
   applied_transformations: string[];
 }
@@ -85,6 +89,10 @@ export interface FrequencyDefinitionRecord {
   tags: string[];
   priority: string;
   notes: string;
+  power_dbm?: number | null;
+  power_label?: string | null;
+  scan_skip?: string;
+  tuning_step_hz?: number | null;
 }
 
 export interface FrequencySetMemberRecord {
@@ -199,6 +207,36 @@ export interface ChirpCatalogImportResult {
   frequency_set: FrequencySetRecord;
 }
 
+export interface ChirpImageImportResult {
+  source_path: string;
+  source_filename: string;
+  driver_reference: string;
+  manufacturer: string;
+  model: string;
+  definition_count: number;
+  bank_count: number;
+  setting_count: number;
+  memory_start: number;
+  memory_capacity: number;
+  max_label_length: number;
+  frequency_definitions: FrequencyDefinitionRecord[];
+  frequency_sets: FrequencySetRecord[];
+  profile: ProfileRecord;
+  image_version: RadioImageVersion;
+}
+
+export interface RadioImageVersion {
+  id: string;
+  radio_id: string;
+  kind: "source" | "compiled";
+  path: string;
+  filename: string;
+  driver_reference: string;
+  byte_size: number;
+  sha256: string;
+  created_at: string;
+}
+
 export interface CompileConfiguration {
   memoryStart: number;
   mapSetsToBanks: boolean;
@@ -212,6 +250,14 @@ export interface RadioInstance {
   id: string;
   name: string;
   radioModelId: string;
+  driverReference?: string;
+  manufacturer?: string;
+  model?: string;
+  imageFilename?: string;
+  memoryCapacity?: number;
+  maxLabelLength?: number;
+  bankCount?: number;
+  settingCount?: number;
   memoryStart: number;
   mapSetsToBanks: boolean;
   notes: string;
@@ -235,4 +281,7 @@ export interface CompileResult {
   omitted_frequency_definitions: OmittedFrequencyDefinition[];
   diagnostics: Diagnostic[];
   csv_path: string | null;
+  image_path?: string | null;
+  managed_image_path?: string | null;
+  image_version?: RadioImageVersion | null;
 }

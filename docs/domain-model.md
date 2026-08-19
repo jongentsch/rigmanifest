@@ -183,11 +183,10 @@ RadioCapabilities
 - source_notes[]
 ```
 
-Capability data comes from the pinned CHIRP driver's `RadioFeatures` wherever that
-API expresses the fact. Small RigManifest overlays provide separately sourced facts
-that CHIRP cannot represent, especially transmit ranges distinct from wideband
-receive coverage, usable capacity, and bank count. Proven facts and unknowns remain
-distinguishable.
+Desktop capability data comes from the exact CHIRP driver detected from the radio's
+image. `RadioFeatures` supplies normalized fields while the loaded bank model supplies
+the mapping count, names, and memberships that are unavailable from feature flags
+alone. Small sourced overlays remain only for legacy image-independent CLI targets.
 
 The catalog does not validate a definition against any radio. Any positive
 integer-Hz frequency is valid canonical intent. The compiler determines whether the
@@ -242,6 +241,9 @@ CompiledMemory
 - mode
 - transmit_access
 - receive_squelch
+- power_dbm and source power label
+- scan_skip
+- tuning_step_hz
 - bank_assignments[]
 - applied_transformations[]
 
@@ -287,7 +289,9 @@ frequencies.
 ## Desktop persistence boundary
 
 The desktop stores the user-owned catalog partition, radio instances, reusable
-profiles, and default advisory plan in a versioned SQLite workspace. The
+profiles, default advisory plan, and radio-image version metadata in a versioned
+SQLite workspace. Exact source and compiled IMG files live in a sibling
+`radios/<radio-id>/` directory and are copied beside workspace backups. The
 workspace schema is independent of catalog schema v2, which separates transmit
 access from receive squelch; a one-time import upgrades stored v1 combined-tone
 records without changing their source frequency definitions. On load, the UI
@@ -302,7 +306,12 @@ validation, atomic partition replacement, and consistent SQLite backups. Seriali
 frontend saves preserve edit order, and legacy webview keys are cleared only after the
 first database import succeeds.
 
-CHIRP CSV import crosses the same validation boundary. A CHIRP memory is translated
+CHIRP image import is the primary radio boundary. CHIRP detects and loads the model;
+non-empty memories become definitions, populated banks become sets, and an imported
+profile groups those sets. Compilation modifies a temporary loaded copy through
+CHIRP's memory and bank APIs and asks CHIRP to save a new image. RigManifest never
+parses or serializes the binary format. CHIRP CSV import remains a generic interchange
+path. A CHIRP memory is translated
 into a new user-owned frequency definition and provenance is retained in notes; its
 radio memory number is not promoted into canonical identity. The resulting set and
 definitions are persisted through the ordinary user-catalog path.

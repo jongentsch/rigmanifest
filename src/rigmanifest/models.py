@@ -152,6 +152,10 @@ class FrequencyDefinition:
     tags: frozenset[str] = field(default_factory=frozenset)
     priority: Priority = Priority.NORMAL
     notes: str = ""
+    power_dbm: float | None = None
+    power_label: str | None = None
+    scan_skip: str = ""
+    tuning_step_hz: int | None = None
 
     def __post_init__(self) -> None:
         if not self.id.strip():
@@ -160,6 +164,12 @@ class FrequencyDefinition:
             raise ValueError("frequency definition name must not be blank")
         if self.receive_frequency_hz <= 0:
             raise ValueError("receive frequency must be positive")
+        if self.power_dbm is not None and self.power_dbm < 0:
+            raise ValueError("power must not be negative")
+        if self.scan_skip not in {"", "S", "P"}:
+            raise ValueError("scan skip must be blank, S, or P")
+        if self.tuning_step_hz is not None and self.tuning_step_hz <= 0:
+            raise ValueError("tuning step must be positive")
 
         if self.transmit_behavior is TransmitBehavior.OFFSET:
             if self.offset_hz in (None, 0):
@@ -460,6 +470,10 @@ class CompiledMemory:
     mode: Mode
     transmit_access: SignalingSpec
     receive_squelch: SignalingSpec
+    power_dbm: float | None = None
+    power_label: str | None = None
+    scan_skip: str = ""
+    tuning_step_hz: int | None = None
     bank_assignments: tuple[str, ...] = ()
     applied_transformations: tuple[DiagnosticCode, ...] = ()
     source_profile_ids: tuple[str, ...] = ()

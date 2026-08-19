@@ -54,7 +54,7 @@ def import_chirp_csv(path: Path) -> ChirpCatalogImport:
     for memory in radio.memories:
         if memory.empty or not memory.freq:
             continue
-        definition = _definition_from_memory(
+        definition = definition_from_chirp_memory(
             memory,
             definition_id=f"user-import-{set_slug}-{import_id}-{memory.number}",
             source_name=path.name,
@@ -79,7 +79,7 @@ def import_chirp_csv(path: Path) -> ChirpCatalogImport:
     )
 
 
-def _definition_from_memory(
+def definition_from_chirp_memory(
     memory: object,
     *,
     definition_id: str,
@@ -118,6 +118,7 @@ def _definition_from_memory(
     location = int(getattr(memory, "number"))
     name = str(getattr(memory, "name")).strip() or f"Memory {location}"
     comment = str(getattr(memory, "comment", "")).strip()
+    power = getattr(memory, "power", None)
     provenance = f"Imported from {source_name}, CHIRP memory {location}."
     notes = f"{comment}\n\n{provenance}" if comment else provenance
     return FrequencyDefinition(
@@ -132,6 +133,11 @@ def _definition_from_memory(
         receive_squelch=receive_squelch,
         tags=frozenset({"chirp-import"}),
         notes=notes,
+        power_dbm=float(power) if power is not None else None,
+        power_label=str(power) if power is not None else None,
+        scan_skip=str(getattr(memory, "skip", "")),
+        tuning_step_hz=int(round(float(getattr(memory, "tuning_step", 0)) * 1_000))
+        or None,
     )
 
 

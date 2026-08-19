@@ -9,16 +9,31 @@ from rigmanifest.ipc import catalog_to_dict
 from rigmanifest.workspace import SQLiteWorkspace, default_workspace_state
 
 
+def _radio(name: str = "Test radio") -> dict[str, object]:
+    return {
+        "id": "radio-1",
+        "name": name,
+        "radioModelId": "chirp:Yaesu_VX-6",
+        "driverReference": "Yaesu_VX-6",
+        "manufacturer": "Yaesu",
+        "model": "VX-6",
+        "imageFilename": "source.img",
+        "memoryStart": 1,
+        "mapSetsToBanks": True,
+        "notes": "",
+    }
+
+
 def test_workspace_initializes_and_round_trips_state(tmp_path) -> None:
     database = tmp_path / "workspace.sqlite3"
     workspace = SQLiteWorkspace(database)
 
     initial = workspace.load()
-    assert initial["radios"][0]["radioModelId"] == "yaesu-vx6r"
+    assert initial["radios"] == []
     assert initial["migrated_legacy"] is False
 
     state = default_workspace_state()
-    state["radios"][0]["name"] = "Desk radio"
+    state["radios"] = [_radio("Desk radio")]
     state["profiles"] = [
         {
             "id": "weather",
@@ -38,17 +53,17 @@ def test_workspace_initializes_and_round_trips_state(tmp_path) -> None:
     with sqlite3.connect(database) as connection:
         assert connection.execute(
             "SELECT MAX(version) FROM schema_migrations"
-        ).fetchone() == (2,)
+        ).fetchone() == (3,)
 
 
 def test_first_open_imports_legacy_state_only_once(tmp_path) -> None:
     workspace = SQLiteWorkspace(tmp_path / "workspace.sqlite3")
     legacy = default_workspace_state()
-    legacy["radios"][0]["name"] = "Migrated radio"
+    legacy["radios"] = [_radio("Migrated radio")]
 
     first = workspace.load(legacy)
     replacement = default_workspace_state()
-    replacement["radios"][0]["name"] = "Ignored later legacy"
+    replacement["radios"] = [_radio("Ignored later legacy")]
     second = workspace.load(replacement)
 
     assert first["migrated_legacy"] is True
@@ -107,15 +122,50 @@ def test_schema_one_workspace_migrates_plan_preferences_into_profiles(tmp_path) 
 def test_backup_is_a_readable_independent_database(tmp_path) -> None:
     source = SQLiteWorkspace(tmp_path / "workspace.sqlite3")
     state = default_workspace_state()
-    state["radios"][0]["name"] = "Backed up"
+    state["radios"] = [_radio("Backed up")]
     source.save(state)
+    source.store_radio_image(
+        "radio-1",
+        b"radio-image",
+        original_filename="source.img",
+        driver_reference="Yaesu_VX-6",
+    )
 
     backup_path = tmp_path / "backups" / "rigmanifest.sqlite3"
     assert source.backup(backup_path) == backup_path
     assert SQLiteWorkspace(backup_path).load()["radios"][0]["name"] == "Backed up"
+    assert SQLiteWorkspace(backup_path).radio_image("radio-1") == b"radio-image"
+    versions = SQLiteWorkspace(backup_path).radio_image_versions("radio-1")
+    assert len(versions) == 1
+    assert versions[0].path.parent == backup_path.parent / "radios" / "radio-1"
+    assert versions[0].path.read_bytes() == b"radio-image"
+    with sqlite3.connect(backup_path) as connection:
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(radio_image_versions)")
+        }
+    assert "image_blob" not in columns
 
     with pytest.raises(ValueError, match="must differ"):
         source.backup(source.path)
+
+
+def test_removing_a_radio_removes_its_tracked_image_directory(tmp_path) -> None:
+    workspace = SQLiteWorkspace(tmp_path / "workspace.sqlite3")
+    state = default_workspace_state()
+    state["radios"] = [_radio()]
+    workspace.save(state)
+    version = workspace.store_radio_image(
+        "radio-1",
+        b"radio-image",
+        original_filename="source.img",
+        driver_reference="Yaesu_VX-6",
+    )
+
+    workspace.save(default_workspace_state())
+
+    assert not version.path.parent.exists()
+    assert workspace.radio_image_versions("radio-1") == ()
 
 
 def test_corrupt_or_future_workspace_database_is_rejected(tmp_path) -> None:
@@ -146,7 +196,6 @@ def test_corrupt_or_future_workspace_database_is_rejected(tmp_path) -> None:
         {"user_catalog": None},
         {"user_catalog": {"frequencyDefinitions": None, "frequencySets": []}},
         {"user_catalog": {"frequencyDefinitions": ["not-an-object"], "frequencySets": []}},
-        {"radios": []},
         {"radios": ["not-an-object"]},
         {"profiles": ["not-an-object"]},
         {"default_frequency_plan_id": "missing"},

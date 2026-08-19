@@ -126,7 +126,7 @@
       <div>
         <p>Every update is cryptographically signed and verified before installation.</p>
         <p>Installed Windows and AppImage builds can update in place. Portable ZIP and Debian builds link to the matching GitHub Release.</p>
-        <p>Before an in-app update, RigManifest writes a SQLite backup in the workspace’s <code>backups</code> directory.</p>
+        <p>Before an in-app update, RigManifest writes a SQLite backup and copies the managed <code>radios</code> directory into the workspace’s <code>backups</code> directory.</p>
       </div>
     </aside>
   </div>

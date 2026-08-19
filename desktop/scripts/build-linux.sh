@@ -45,9 +45,7 @@ mkdir -p "$sidecar_dist" "$sidecar_work" "$binary_directory" "$linux_dist"
     --onefile \
     --name rigmanifest-sidecar \
     --paths "$repository_root/src" \
-    --hidden-import chirp.drivers.vx6 \
-    --hidden-import chirp.drivers.uvk5 \
-    --hidden-import chirp.drivers.anytone778uv \
+    --collect-submodules chirp.drivers \
     --collect-data chirp \
     --copy-metadata chirp \
     --distpath "$sidecar_dist" \

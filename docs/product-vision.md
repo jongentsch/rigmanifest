@@ -103,8 +103,9 @@ replacement for it.
 
 CHIRP remains the preferred final-mile programmer and is a pinned Python dependency.
 RigManifest consumes CHIRP's normalized driver capability data and validates compiled
-memories through the selected driver. CHIRP-compatible CSV remains the first external
-programming artifact.
+memories through the image-bound driver. A CHIRP image is the preferred desktop
+programming artifact because it preserves banks and radio settings; CSV remains a
+generic interchange format.
 
 The ownership boundary is deliberate:
 

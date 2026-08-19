@@ -1,32 +1,40 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import { loadCatalog, loadRadioInventory, saveRadioInventory } from "$lib/api";
-  import { createRadioInstance } from "$lib/radios";
-  import type { RadioInstance, RadioModelRecord, WorkspaceCatalog } from "$lib/types";
+  import {
+    chooseChirpImagePath,
+    importChirpImage,
+    loadCatalog,
+    loadProfiles,
+    loadRadioInventory,
+    listRadioImages,
+    saveProfiles,
+    saveRadioInventory,
+    saveWorkspaceUserCatalog,
+  } from "$lib/api";
+  import type {
+    RadioInstance,
+    RadioImageVersion,
+    WorkspaceCatalog,
+  } from "$lib/types";
 
   let catalog = $state<WorkspaceCatalog | null>(null);
   let radios = $state<RadioInstance[]>([]);
   let selectedRadioId = $state("");
   let failure = $state("");
   let saved = $state(false);
-  let modelQuery = $state("");
+  let importing = $state(false);
+  let imageVersions = $state<RadioImageVersion[]>([]);
+  let versionsLoading = $state(false);
 
   let selectedRadio = $derived(radios.find((item) => item.id === selectedRadioId) ?? null);
-  let selectedModel = $derived(
-    catalog?.radio_models.find((item) => item.id === selectedRadio?.radioModelId) ?? null,
-  );
-  let modelGroups = $derived(groupModels(catalog?.radio_models ?? [], modelQuery));
 
   onMount(async () => {
     try {
       catalog = await loadCatalog();
       radios = loadRadioInventory();
       selectedRadioId = radios[0]?.id ?? "";
-      const initialModel =
-        catalog.radio_models.find((item) => item.id === radios[0]?.radioModelId) ??
-        catalog.radio_models[0];
-      modelQuery = initialModel ? modelLabel(initialModel) : "";
+      if (selectedRadioId) await refreshImageVersions(selectedRadioId);
     } catch (error) {
       failure = errorMessage(error);
     }
@@ -39,21 +47,82 @@
     saved = false;
   }
 
-  function addRadio(): void {
-    const model = catalog?.radio_models[0];
-    if (!model) return;
-    const radio = createRadioInstance(model.id, model.memory_start);
-    radios = [...radios, radio];
-    selectedRadioId = radio.id;
-    modelQuery = modelLabel(model);
+  async function selectRadio(radioId: string): Promise<void> {
+    selectedRadioId = radioId;
+    await refreshImageVersions(radioId);
+  }
+
+  async function refreshImageVersions(radioId: string): Promise<void> {
+    versionsLoading = true;
+    try {
+      const versions = await listRadioImages(radioId);
+      if (selectedRadioId === radioId) imageVersions = versions;
+    } catch (error) {
+      failure = errorMessage(error);
+    } finally {
+      versionsLoading = false;
+    }
+  }
+
+  async function addRadioFromImage(): Promise<void> {
+    if (!catalog) return;
+    const sourcePath = await chooseChirpImagePath();
+    if (!sourcePath) return;
+    importing = true;
+    failure = "";
     saved = false;
+    const radioId = crypto.randomUUID();
+    try {
+      const imported = await importChirpImage(radioId, sourcePath);
+      const radio: RadioInstance = {
+        id: radioId,
+        name: `My ${imported.model}`,
+        radioModelId: `chirp:${imported.driver_reference}`,
+        driverReference: imported.driver_reference,
+        manufacturer: imported.manufacturer,
+        model: imported.model,
+        imageFilename: imported.source_filename,
+        memoryCapacity: imported.memory_capacity,
+        maxLabelLength: imported.max_label_length,
+        bankCount: imported.bank_count,
+        settingCount: imported.setting_count,
+        memoryStart: imported.memory_start,
+        mapSetsToBanks: imported.bank_count > 0,
+        notes: "",
+      };
+      radios = [...radios, radio];
+      selectedRadioId = radio.id;
+      imageVersions = [imported.image_version];
+
+      const definitions = mergeById(
+        catalog.frequency_definitions,
+        imported.frequency_definitions,
+      );
+      const sets = mergeById(catalog.frequency_sets, imported.frequency_sets);
+      catalog = { ...catalog, frequency_definitions: definitions, frequency_sets: sets };
+      await saveRadioInventory(radios);
+      await saveWorkspaceUserCatalog({
+        frequencyDefinitions: definitions.filter((item) => !item.read_only),
+        frequencySets: sets.filter((item) => !item.read_only),
+      });
+      const profiles = mergeById(loadProfiles(), [imported.profile]);
+      await saveProfiles(profiles);
+      catalog = { ...catalog, profiles };
+      saved = true;
+    } catch (error) {
+      failure = errorMessage(error);
+    } finally {
+      importing = false;
+    }
   }
 
   function removeRadio(): void {
-    if (radios.length <= 1) return;
-    const remaining = radios.filter((item) => item.id !== selectedRadioId);
+    if (!selectedRadio) return;
+    const remaining = radios.filter((item) => item.id !== selectedRadio.id);
     radios = remaining;
     selectedRadioId = remaining[0]?.id ?? "";
+    imageVersions = [];
+    if (selectedRadioId) void refreshImageVersions(selectedRadioId);
     void saveRadioInventory(radios).catch((error) => failure = errorMessage(error));
   }
 
@@ -66,51 +135,25 @@
     }
   }
 
-  function chooseModel(model: RadioModelRecord): void {
-    updateRadio({
-      radioModelId: model.id,
-      memoryStart: model.memory_start,
-    });
-    modelQuery = modelLabel(model);
-  }
-
-  function selectRadio(radio: RadioInstance): void {
-    selectedRadioId = radio.id;
-    const model = catalog?.radio_models.find(
-      (item) => item.id === radio.radioModelId,
-    );
-    modelQuery = model ? modelLabel(model) : "";
-    saved = false;
-  }
-
   function errorMessage(error: unknown): string {
     if (typeof error === "string") return error;
     if (error instanceof Error) return error.message;
     return "The radio inventory could not be loaded.";
   }
 
-  function modelLabel(model: RadioModelRecord): string {
-    return `${model.manufacturer} ${model.model}`;
+  function mergeById<T extends { id: string }>(existing: T[], additions: T[]): T[] {
+    const additionIds = new Set(additions.map((item) => item.id));
+    return [...existing.filter((item) => !additionIds.has(item.id)), ...additions];
   }
 
-  function groupModels(
-    models: RadioModelRecord[],
-    query: string,
-  ): Array<{ manufacturer: string; models: RadioModelRecord[] }> {
-    const needle = query.trim().toLocaleLowerCase();
-    const filtered = models.filter((model) =>
-      `${model.manufacturer} ${model.model}`.toLocaleLowerCase().includes(needle),
-    );
-    const manufacturers = new Map<string, RadioModelRecord[]>();
-    for (const model of filtered) {
-      const group = manufacturers.get(model.manufacturer) ?? [];
-      group.push(model);
-      manufacturers.set(model.manufacturer, group);
-    }
-    return [...manufacturers.entries()].map(([manufacturer, groupedModels]) => ({
-      manufacturer,
-      models: groupedModels,
-    }));
+  function versionDate(value: string): string {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+  }
+
+  function fileSize(value: number): string {
+    if (value < 1024) return `${value} B`;
+    return `${(value / 1024).toFixed(1)} KB`;
   }
 </script>
 
@@ -121,33 +164,39 @@
     <div>
       <p class="workspace-kicker">Radio inventory</p>
       <h1>My radios</h1>
-      <p>Name each radio, choose its model, and configure compilation behavior.</p>
+      <p>Add a current CHIRP image. RigManifest detects the model and imports its memories and banks.</p>
     </div>
-    <button class="button button--primary" onclick={addRadio} disabled={!catalog}>Add radio</button>
+    <button class="button button--primary" onclick={addRadioFromImage} disabled={!catalog || importing}>
+      {importing ? "Reading image…" : "Add radio from IMG"}
+    </button>
   </header>
 
   {#if failure}
-    <div class="banner banner--error" role="alert"><strong>Inventory unavailable.</strong><span>{failure}</span></div>
-  {:else if !catalog || !selectedRadio}
-    <section class="workspace-panel loading-panel" aria-live="polite">
-      <span class="loading-indicator"></span><div><strong>Loading radios</strong><p>Reading local inventory.</p></div>
-    </section>
-  {:else}
-    {#if saved}
-      <div class="banner banner--success" role="status"><strong>Radio saved.</strong><span>Local inventory updated.</span></div>
-    {/if}
+    <div class="banner banner--error" role="alert"><strong>Radio unavailable.</strong><span>{failure}</span></div>
+  {/if}
+  {#if saved}
+    <div class="banner banner--success" role="status"><strong>Radio saved.</strong><span>The image, memories, and bank sets are stored in this workspace.</span></div>
+  {/if}
 
+  {#if !catalog}
+    <section class="workspace-panel loading-panel" aria-live="polite">
+      <span class="loading-indicator"></span><div><strong>Loading radios</strong><p>Reading the local workspace.</p></div>
+    </section>
+  {:else if radios.length === 0}
+    <section class="workspace-panel compile-empty">
+      <p class="section-label">No radios yet</p>
+      <h2>Start with a fresh CHIRP clone</h2>
+      <p>Download the radio in CHIRP, save its image, then add that IMG here. The original image is preserved in the workspace.</p>
+      <button class="button button--primary" onclick={addRadioFromImage} disabled={importing}>Add radio from IMG</button>
+    </section>
+  {:else if selectedRadio}
     <div class="radio-layout">
       <aside class="workspace-panel radio-list" aria-label="Saved radios">
         <div class="panel-heading"><div><p class="section-label">Inventory</p><h2>{radios.length} radios</h2></div></div>
         <div class="radio-list-body">
           {#each radios as radio (radio.id)}
-            <button
-              class:active={radio.id === selectedRadioId}
-              class="radio-row"
-              onclick={() => selectRadio(radio)}
-            >
-              <span><strong>{radio.name}</strong><small>{catalog.radio_models.find((item) => item.id === radio.radioModelId)?.model ?? radio.radioModelId}</small></span>
+            <button class:active={radio.id === selectedRadioId} class="radio-row" onclick={() => void selectRadio(radio.id)}>
+              <span><strong>{radio.name}</strong><small>{radio.manufacturer ?? "Image required"} {radio.model ?? radio.radioModelId}</small></span>
             </button>
           {/each}
         </div>
@@ -155,66 +204,60 @@
 
       <section class="workspace-panel radio-editor" aria-labelledby="radio-editor-heading">
         <div class="panel-heading">
-          <div><p class="section-label">Radio configuration</p><h2 id="radio-editor-heading">{selectedRadio.name}</h2></div>
+          <div><p class="section-label">Image-backed radio</p><h2 id="radio-editor-heading">{selectedRadio.name}</h2></div>
           <div class="panel-actions">
-            <button class="button button--secondary" onclick={removeRadio} disabled={radios.length <= 1}>Remove</button>
+            <button class="button button--secondary" onclick={removeRadio}>Remove</button>
             <button class="button button--primary" onclick={persist}>Save radio</button>
           </div>
         </div>
 
         <div class="form-grid">
           <label><span>Radio name</span><input value={selectedRadio.name} oninput={(event) => updateRadio({ name: event.currentTarget.value })} /></label>
-          <div class="model-picker full">
-            <label for="model-search"><span>Find manufacturer or model</span></label>
-            <input id="model-search" type="search" bind:value={modelQuery} autocomplete="off" placeholder="Search Yaesu, Quansheng, Retevisâ€¦" />
-            <div class="model-picker-results" aria-label="Radio model results" aria-live="polite">
-              {#each modelGroups as group (group.manufacturer)}
-                <section>
-                  <h3>{group.manufacturer}</h3>
-                  {#each group.models as model (model.id)}
-                    <button
-                      type="button"
-                      class:selected={model.id === selectedRadio.radioModelId}
-                      aria-pressed={model.id === selectedRadio.radioModelId}
-                      onclick={() => chooseModel(model)}
-                    >
-                      <span><strong>{model.model}</strong><small>{model.chirp_driver_reference ?? "No CHIRP driver"}</small></span>
-                      {#if model.id === selectedRadio.radioModelId}<b>Selected</b>{/if}
-                    </button>
-                  {/each}
-                </section>
-              {:else}
-                <p>No radio models match â€œ{modelQuery}â€.</p>
-              {/each}
-            </div>
-          </div>
+          <label><span>Detected model</span><input value={`${selectedRadio.manufacturer ?? "Unknown"} ${selectedRadio.model ?? ""}`} disabled /></label>
+          <label class="full"><span>Source image</span><input value={selectedRadio.imageFilename ?? "No image imported"} disabled /></label>
           <label><span>First programmable memory</span><input type="number" min="0" value={selectedRadio.memoryStart} oninput={(event) => updateRadio({ memoryStart: event.currentTarget.valueAsNumber })} /></label>
-          <label class="check-field"><input type="checkbox" checked={selectedRadio.mapSetsToBanks} onchange={(event) => updateRadio({ mapSetsToBanks: event.currentTarget.checked })} /><span>Map selected sets to radio banks when supported</span></label>
+          <label class="check-field"><input type="checkbox" checked={selectedRadio.mapSetsToBanks} disabled={(selectedRadio.bankCount ?? 0) === 0} onchange={(event) => updateRadio({ mapSetsToBanks: event.currentTarget.checked })} /><span>Map selected sets to radio banks</span></label>
           <label class="full"><span>Notes</span><textarea rows="4" value={selectedRadio.notes} oninput={(event) => updateRadio({ notes: event.currentTarget.value })}></textarea></label>
         </div>
 
-        {#if selectedModel}
-          <div class="model-facts">
-            <div><span>Memory capacity</span><strong>{selectedModel.memory_capacity}</strong></div>
-            <div><span>Label length</span><strong>{selectedModel.max_label_length}</strong></div>
-            <div><span>Banks</span><strong>{selectedModel.supports_banks ? selectedModel.bank_count : "None"}</strong></div>
-          </div>
+        <div class="model-facts">
+          <div><span>Memory locations</span><strong>{selectedRadio.memoryCapacity ?? "—"}</strong></div>
+          <div><span>Label length</span><strong>{selectedRadio.maxLabelLength ?? "—"}</strong></div>
+          <div><span>Banks</span><strong>{selectedRadio.bankCount ?? "—"}</strong></div>
+          <div><span>Preserved settings</span><strong>{selectedRadio.settingCount ?? "—"}</strong></div>
+        </div>
 
-          <div class="factory-section">
-            <div class="inspector-section-heading"><h3>Factory-provided frequency sets</h3><span>{selectedModel.factory_frequency_sets.length}</span></div>
-            {#if selectedModel.factory_frequency_sets.length === 0}
-              <p class="empty-copy">No verified factory frequency sets are recorded for this model.</p>
-            {:else}
-              {#each selectedModel.factory_frequency_sets as relation (relation.frequency_set_id)}
-                <article class="factory-card">
-                  <div><strong>{relation.frequency_set_name}</strong><small>{relation.frequency_set_id}</small></div>
-                  <span class="record-badge badge--preset">{relation.interface_label}</span>
-                  <dl><div><dt>Frequency editing</dt><dd>{relation.frequency_editing}</dd></div><div><dt>CHIRP editing</dt><dd>{relation.chirp_editing}</dd></div></dl>
+        <div class="factory-section">
+          <div class="inspector-section-heading"><h3>Imported bank sets</h3><span>{catalog.frequency_sets.filter((item) => item.id.startsWith(`user-radio-${selectedRadio.id}-`)).length}</span></div>
+          <p class="empty-copy">Banks are ordinary frequency sets. Profiles can group any combination of them; radios without bank support receive the same memories as a flat list.</p>
+        </div>
+
+
+        <div class="image-history">
+          <div class="inspector-section-heading"><h3>Radio image versions</h3><span>{imageVersions.length}</span></div>
+          {#if versionsLoading}
+            <p class="empty-copy" aria-live="polite">Reading stored images…</p>
+          {:else if imageVersions.length === 0}
+            <p class="empty-copy">No managed image files were found for this radio.</p>
+          {:else}
+            <div class="image-version-list">
+              {#each imageVersions as version (version.id)}
+                <article class="image-version">
+                  <div class="image-version-heading">
+                    <span class:source={version.kind === "source"} class="image-kind">{version.kind === "source" ? "Imported source" : "Compiled"}</span>
+                    <strong>{version.filename}</strong>
+                  </div>
+                  <div class="image-version-meta">
+                    <span>{versionDate(version.created_at)}</span>
+                    <span>{fileSize(version.byte_size)}</span>
+                    <span title={version.sha256}>SHA-256 {version.sha256.slice(0, 10)}…</span>
+                  </div>
+                  <code>{version.path}</code>
                 </article>
               {/each}
-            {/if}
-          </div>
-        {/if}
+            </div>
+          {/if}
+        </div>
       </section>
     </div>
   {/if}

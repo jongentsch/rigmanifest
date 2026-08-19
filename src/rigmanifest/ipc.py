@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+import shutil
 import sqlite3
+from tempfile import TemporaryDirectory
 from typing import Any, Mapping, Sequence
 
 from chirp import chirp_common
@@ -12,6 +14,13 @@ from chirp import chirp_common
 from rigmanifest.capabilities import BUILTIN_TARGETS
 from rigmanifest.catalog_io import catalog_with_user_records
 from rigmanifest.chirp_import import ChirpCatalogImport, import_chirp_csv
+from rigmanifest.chirp_image import (
+    ChirpImageImport,
+    image_memory_validator,
+    import_chirp_image,
+    load_chirp_image,
+    write_compiled_image,
+)
 from rigmanifest.chirp_adapter import chirp_memory_validator
 from rigmanifest.compiler import compile_profiles
 from rigmanifest.exporters.chirp_csv import write_chirp_csv
@@ -25,7 +34,7 @@ from rigmanifest.models import (
     SignalingSpec,
 )
 from rigmanifest.profile_io import profile_to_dict, profiles_from_records
-from rigmanifest.workspace import SQLiteWorkspace
+from rigmanifest.workspace import RadioImageVersion, SQLiteWorkspace
 
 
 class RequestError(ValueError):
@@ -106,6 +115,83 @@ def compile_builtin(
 
     result = plan_to_dict(plan)
     result["csv_path"] = str(output_path) if output_path is not None else None
+    return result
+
+
+def compile_radio_image(
+    database_path: Path,
+    radio_id: str,
+    *,
+    profiles: Sequence[Mapping[str, object]],
+    additional_frequency_set_ids: Sequence[str] = (),
+    additional_frequency_definition_ids: Sequence[str] = (),
+    advisory_plan_id: str | None = None,
+    user_frequency_definitions: Sequence[Mapping[str, object]],
+    user_frequency_sets: Sequence[Mapping[str, object]],
+    output_path: Path | None = None,
+    settings: CompilationSettings | None = None,
+) -> dict[str, Any]:
+    """Compile reusable intent against the exact CHIRP driver in a stored image."""
+
+    workspace = SQLiteWorkspace(database_path)
+    source_path = workspace.radio_image_path(radio_id)
+    catalog = catalog_with_user_records(
+        BUILTIN_CATALOG,
+        user_frequency_definitions,
+        user_frequency_sets,
+    )
+    selected_profiles = profiles_from_records(profiles, catalog)
+
+    imported = import_chirp_image(source_path, radio_id=radio_id)
+    radio = load_chirp_image(source_path)
+    try:
+        plan = compile_profiles(
+            catalog,
+            selected_profiles,
+            imported.target,
+            settings,
+            additional_frequency_set_ids=tuple(additional_frequency_set_ids),
+            additional_frequency_definition_ids=tuple(
+                additional_frequency_definition_ids
+            ),
+            advisory_plan_id=advisory_plan_id,
+            memory_validator=image_memory_validator(radio),
+        )
+    except ValueError as error:
+        raise RequestError(str(error)) from error
+
+    image_version: RadioImageVersion | None = None
+    if output_path is not None:
+        with TemporaryDirectory(prefix="rigmanifest-image-") as directory_name:
+            compiled_path = Path(directory_name) / "compiled.img"
+            bank_names = {item.id: item.name for item in catalog.sets}
+            write_compiled_image(
+                plan,
+                source_path,
+                compiled_path,
+                bank_names=bank_names,
+            )
+            image_version = workspace.store_radio_image(
+                radio_id,
+                compiled_path.read_bytes(),
+                original_filename=output_path.name,
+                driver_reference=imported.driver_reference,
+                kind="compiled",
+            )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(image_version.path, output_path)
+
+    result = plan_to_dict(plan)
+    result["image_path"] = str(output_path) if output_path is not None else None
+    result["managed_image_path"] = (
+        str(image_version.path) if image_version is not None else None
+    )
+    result["image_version"] = (
+        _radio_image_version_to_dict(image_version)
+        if image_version is not None
+        else None
+    )
+    result["csv_path"] = None
     return result
 
 
@@ -269,6 +355,10 @@ def plan_to_dict(plan: CompiledRadioPlan) -> dict[str, Any]:
                 "mode": memory.mode.value,
                 "transmit_access": _signaling_to_dict(memory.transmit_access),
                 "receive_squelch": _signaling_to_dict(memory.receive_squelch),
+                "power_dbm": memory.power_dbm,
+                "power_label": memory.power_label,
+                "scan_skip": memory.scan_skip,
+                "tuning_step_hz": memory.tuning_step_hz,
                 "bank_assignments": list(memory.bank_assignments),
                 "applied_transformations": [
                     code.value for code in memory.applied_transformations
@@ -334,6 +424,10 @@ def _definition_to_dict(definition: FrequencyDefinition) -> dict[str, Any]:
         "tags": sorted(definition.tags),
         "priority": definition.priority.name.lower(),
         "notes": definition.notes,
+        "power_dbm": definition.power_dbm,
+        "power_label": definition.power_label,
+        "scan_skip": definition.scan_skip,
+        "tuning_step_hz": definition.tuning_step_hz,
     }
 
 
@@ -369,6 +463,35 @@ def _import_to_dict(imported: ChirpCatalogImport) -> dict[str, Any]:
         ],
         "frequency_set": _set_to_dict(imported.frequency_set),
     }
+
+
+def _image_import_to_dict(imported: ChirpImageImport) -> dict[str, Any]:
+    target = imported.target
+    return {
+        "source_path": str(imported.source_path),
+        "source_filename": imported.source_path.name,
+        "driver_reference": imported.driver_reference,
+        "manufacturer": target.manufacturer,
+        "model": target.model,
+        "definition_count": imported.definition_count,
+        "bank_count": imported.bank_count,
+        "setting_count": imported.setting_count,
+        "memory_start": target.capabilities.memory_start,
+        "memory_capacity": target.capabilities.memory_capacity,
+        "max_label_length": target.capabilities.max_label_length,
+        "frequency_definitions": [
+            _definition_to_dict(definition)
+            for definition in imported.frequency_definitions
+        ],
+        "frequency_sets": [
+            _set_to_dict(frequency_set) for frequency_set in imported.frequency_sets
+        ],
+        "profile": profile_to_dict(imported.profile),
+    }
+
+
+def _radio_image_version_to_dict(version: RadioImageVersion) -> dict[str, object]:
+    return version.to_dict()
 
 
 def handle_request(request: Mapping[str, object]) -> dict[str, object]:
@@ -417,6 +540,58 @@ def handle_request(request: Mapping[str, object]) -> dict[str, object]:
             except ValueError as error:
                 raise RequestError(str(error)) from error
             return {"id": request_id, "result": _import_to_dict(imported)}
+        if method == "import_chirp_image":
+            params = request.get("params")
+            if not isinstance(params, Mapping):
+                raise RequestError("params must be an object")
+            source_path = params.get("source_path")
+            database_path = params.get("database_path")
+            radio_id = params.get("radio_id")
+            if not isinstance(source_path, str) or not source_path:
+                raise RequestError("source_path must be a non-empty string")
+            if not isinstance(database_path, str) or not database_path:
+                raise RequestError("database_path must be a non-empty string")
+            if not isinstance(radio_id, str) or not radio_id:
+                raise RequestError("radio_id must be a non-empty string")
+            path = Path(source_path)
+            try:
+                imported = import_chirp_image(path, radio_id=radio_id)
+                version = SQLiteWorkspace(Path(database_path)).store_radio_image(
+                    radio_id,
+                    path.read_bytes(),
+                    original_filename=path.name,
+                    driver_reference=imported.driver_reference,
+                )
+            except (OSError, sqlite3.Error, ValueError) as error:
+                raise RequestError(str(error)) from error
+            result = _image_import_to_dict(imported)
+            result["image_version"] = _radio_image_version_to_dict(version)
+            return {"id": request_id, "result": result}
+        if method == "list_radio_images":
+            params = request.get("params")
+            if not isinstance(params, Mapping):
+                raise RequestError("params must be an object")
+            database_path = params.get("database_path")
+            radio_id = params.get("radio_id")
+            if not isinstance(database_path, str) or not database_path:
+                raise RequestError("database_path must be a non-empty string")
+            if not isinstance(radio_id, str) or not radio_id:
+                raise RequestError("radio_id must be a non-empty string")
+            try:
+                versions = SQLiteWorkspace(Path(database_path)).radio_image_versions(
+                    radio_id
+                )
+            except (OSError, sqlite3.Error, ValueError) as error:
+                raise RequestError(str(error)) from error
+            return {
+                "id": request_id,
+                "result": {
+                    "versions": [
+                        _radio_image_version_to_dict(version)
+                        for version in versions
+                    ]
+                },
+            }
         if method != "compile":
             raise RequestError("unsupported method")
         params = request.get("params")
@@ -426,6 +601,8 @@ def handle_request(request: Mapping[str, object]) -> dict[str, object]:
         profile = params.get("profile")
         profile_records = params.get("profiles")
         target = params.get("target")
+        radio_id = params.get("radio_id")
+        database_path = params.get("database_path")
         output = params.get("output_path")
         frequency_sets = params.get("frequency_set_ids")
         additional_sets = params.get("additional_frequency_set_ids", [])
@@ -439,7 +616,13 @@ def handle_request(request: Mapping[str, object]) -> dict[str, object]:
         memory_start = params.get("memory_start")
         map_sets = params.get("map_sets_to_banks", True)
         use_factory = params.get("use_factory_sets", True)
-        if not isinstance(target, str):
+        image_backed = radio_id is not None or database_path is not None
+        if image_backed:
+            if not isinstance(radio_id, str) or not radio_id:
+                raise RequestError("radio_id must be a non-empty string")
+            if not isinstance(database_path, str) or not database_path:
+                raise RequestError("database_path must be a non-empty string")
+        elif not isinstance(target, str):
             raise RequestError("target must be a string")
         if profile_records is None and not isinstance(profile, str):
             raise RequestError("profile must be a string when profiles are omitted")
@@ -498,19 +681,42 @@ def handle_request(request: Mapping[str, object]) -> dict[str, object]:
         except ValueError as error:
             raise RequestError(str(error)) from error
 
-        result = compile_builtin(
-            profile if isinstance(profile, str) else None,
-            target,
-            frequency_set_ids=frequency_sets,
-            profiles=profile_records,
-            additional_frequency_set_ids=additional_sets,
-            additional_frequency_definition_ids=additional_definitions,
-            advisory_plan_id=advisory_plan,
-            user_frequency_definitions=user_definitions,
-            user_frequency_sets=user_sets,
-            output_path=Path(output) if output is not None else None,
-            settings=settings,
-        )
+        if image_backed:
+            if profile_records is None:
+                raise RequestError("image-backed compilation requires profiles")
+            if user_definitions is None or user_sets is None:
+                raise RequestError(
+                    "image-backed compilation requires the user catalog"
+                )
+            try:
+                result = compile_radio_image(
+                    Path(database_path),
+                    radio_id,
+                    profiles=profile_records,
+                    additional_frequency_set_ids=additional_sets,
+                    additional_frequency_definition_ids=additional_definitions,
+                    advisory_plan_id=advisory_plan,
+                    user_frequency_definitions=user_definitions,
+                    user_frequency_sets=user_sets,
+                    output_path=Path(output) if output is not None else None,
+                    settings=settings,
+                )
+            except (OSError, sqlite3.Error, ValueError) as error:
+                raise RequestError(str(error)) from error
+        else:
+            result = compile_builtin(
+                profile if isinstance(profile, str) else None,
+                target,
+                frequency_set_ids=frequency_sets,
+                profiles=profile_records,
+                additional_frequency_set_ids=additional_sets,
+                additional_frequency_definition_ids=additional_definitions,
+                advisory_plan_id=advisory_plan,
+                user_frequency_definitions=user_definitions,
+                user_frequency_sets=user_sets,
+                output_path=Path(output) if output is not None else None,
+                settings=settings,
+            )
         return {"id": request_id, "result": result}
     except RequestError as error:
         return {

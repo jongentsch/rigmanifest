@@ -10,16 +10,17 @@ import {
 import { clearLegacyPlanPreferences, readLegacyPlanPreferences } from "$lib/plan-preferences";
 import {
   clearLegacyRadioInventory,
-  defaultRadio,
   readLegacyRadioInventory,
 } from "$lib/radios";
 import type {
   CompileConfiguration,
   CompileResult,
   ChirpCatalogImportResult,
+  ChirpImageImportResult,
   WorkspaceCatalog,
   WorkspaceState,
   RadioInstance,
+  RadioImageVersion,
   ProfileRecord,
   UserCatalogRecords,
 } from "$lib/types";
@@ -35,7 +36,7 @@ async function loadUiTestApi() {
 }
 
 export async function compileSelection(
-  target: string,
+  radioId: string,
   outputPath: string | null,
   profiles: ProfileRecord[],
   configuration: CompileConfiguration,
@@ -49,7 +50,7 @@ export async function compileSelection(
   const uiTestApi = await loadUiTestApi();
   if (uiTestApi) {
     return uiTestApi.compileSelection(
-      target,
+      radioId,
       outputPath,
       serializableProfiles,
       serializableConfiguration,
@@ -58,7 +59,7 @@ export async function compileSelection(
   }
 
   return invoke<CompileResult>("compile_selection", {
-    target,
+    radioId,
     outputPath,
     profiles: serializableProfiles,
     additionalFrequencySetIds: serializableConfiguration.additionalFrequencySetIds,
@@ -97,9 +98,9 @@ async function initializeWorkspace(
     frequency_plan_id: legacyPlans?.[profile.id] ?? profile.frequency_plan_id,
   }));
   const initial: WorkspaceState = {
-    schema_version: 2,
+    schema_version: 3,
     user_catalog: legacyCatalog ?? userCatalogFromWorkspace(catalog),
-    radios: legacyRadios ?? [{ ...defaultRadio }],
+    radios: legacyRadios ?? [],
     profiles,
     default_frequency_plan_id: "arrl-us-national",
   };
@@ -215,6 +216,53 @@ export async function chooseCsvOutputPath(
     defaultPath: `${selection}-${target}.csv`,
     filters: [{ name: "CHIRP CSV", extensions: ["csv"] }],
   });
+}
+
+export async function chooseImageOutputPath(
+  selection: string,
+  radio: RadioInstance,
+): Promise<string | null> {
+  const uiTestApi = await loadUiTestApi();
+  if (uiTestApi) return uiTestApi.chooseImageOutputPath(selection, radio.id);
+  const model = radio.model ?? radio.radioModelId;
+  return save({
+    title: "Export CHIRP radio image",
+    defaultPath: `${selection}-${model}.img`,
+    filters: [{ name: "CHIRP radio image", extensions: ["img"] }],
+  });
+}
+
+export async function chooseChirpImagePath(): Promise<string | null> {
+  const uiTestApi = await loadUiTestApi();
+  if (uiTestApi) return uiTestApi.chooseChirpImagePath();
+  const selected = await open({
+    title: "Add radio from CHIRP image",
+    multiple: false,
+    directory: false,
+    filters: [{ name: "CHIRP radio image", extensions: ["img"] }],
+  });
+  return typeof selected === "string" ? selected : null;
+}
+
+export async function importChirpImage(
+  radioId: string,
+  sourcePath: string,
+): Promise<ChirpImageImportResult> {
+  const uiTestApi = await loadUiTestApi();
+  if (uiTestApi) return uiTestApi.importChirpImage(radioId, sourcePath);
+  return invoke<ChirpImageImportResult>("import_chirp_image", {
+    radioId,
+    sourcePath,
+  });
+}
+
+export async function listRadioImages(radioId: string): Promise<RadioImageVersion[]> {
+  const uiTestApi = await loadUiTestApi();
+  if (uiTestApi) return uiTestApi.listRadioImages(radioId);
+  const result = await invoke<{ versions: RadioImageVersion[] }>("list_radio_images", {
+    radioId,
+  });
+  return result.versions;
 }
 
 export async function chooseChirpImportPath(): Promise<string | null> {

@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
 
   import {
-    chooseCsvOutputPath,
+    chooseImageOutputPath,
     compileSelection,
     loadCatalog,
     loadDefaultFrequencyPlan,
@@ -16,7 +16,6 @@
     Diagnostic,
     ProfileRecord,
     RadioInstance,
-    RadioModelRecord,
     WorkspaceCatalog,
   } from "$lib/types";
 
@@ -27,7 +26,6 @@
   let additionalSetIds = $state<string[]>([]);
   let additionalDefinitionIds = $state<string[]>([]);
   let selectedPlanId = $state<string | null>(null);
-  let useFactorySets = $state(true);
   let plan = $state<CompileResult | null>(null);
   let busy = $state(false);
   let exporting = $state(false);
@@ -36,9 +34,6 @@
   let definitionSearch = $state("");
 
   let selectedRadio = $derived(radios.find((item) => item.id === radioId) ?? null);
-  let selectedModel = $derived(
-    catalog?.radio_models.find((item) => item.id === selectedRadio?.radioModelId) ?? null,
-  );
   let selectedProfiles = $derived(
     (catalog?.profiles ?? []).filter((profile) => selectedProfileIds.includes(profile.id)),
   );
@@ -69,7 +64,7 @@
     return {
       memoryStart: selectedRadio?.memoryStart ?? 1,
       mapSetsToBanks: selectedRadio?.mapSetsToBanks ?? true,
-      useFactorySets,
+      useFactorySets: false,
       additionalFrequencySetIds: additionalSetIds,
       additionalFrequencyDefinitionIds: additionalDefinitionIds,
       advisoryPlanId: selectedPlanId,
@@ -83,7 +78,7 @@
     exportedPath = "";
     try {
       plan = await compileSelection(
-        selectedRadio.radioModelId,
+        selectedRadio.id,
         null,
         selectedProfiles,
         configuration(),
@@ -97,22 +92,22 @@
     }
   }
 
-  async function exportCsv(): Promise<void> {
+  async function exportImage(): Promise<void> {
     if (!catalog || !selectedRadio || !plan) return;
     const label = selectedProfiles.map((profile) => profile.id).join("-") || "custom";
-    const outputPath = await chooseCsvOutputPath(label, selectedRadio.radioModelId);
+    const outputPath = await chooseImageOutputPath(label, selectedRadio);
     if (!outputPath) return;
     exporting = true;
     failure = "";
     try {
       plan = await compileSelection(
-        selectedRadio.radioModelId,
+        selectedRadio.id,
         outputPath,
         selectedProfiles,
         configuration(),
         catalog,
       );
-      exportedPath = plan.csv_path ?? outputPath;
+      exportedPath = plan.image_path ?? outputPath;
     } catch (error) {
       failure = errorMessage(error);
     } finally {
@@ -152,10 +147,6 @@
     exportedPath = "";
   }
 
-  function isFactorySet(setId: string, model: RadioModelRecord | null): string | null {
-    return model?.factory_frequency_sets.find((item) => item.frequency_set_id === setId)?.interface_label ?? null;
-  }
-
   function diagnosticClass(diagnostic: Diagnostic): string {
     return `diagnostic diagnostic--${diagnostic.severity}`;
   }
@@ -190,13 +181,14 @@
     <label><span>Target radio</span><select bind:value={radioId} onchange={markStale} disabled={busy || exporting}>{#each radios as radio}<option value={radio.id}>{radio.name}</option>{/each}</select></label>
     <label><span>Additional whole-build plan check</span><select value={selectedPlanId ?? ""} onchange={(event) => selectPlan(event.currentTarget.value)} disabled={busy || exporting}><option value="">Use profile plans only</option>{#each catalog?.frequency_plans ?? [] as frequencyPlan}<option value={frequencyPlan.id}>{frequencyPlan.name} · {frequencyPlan.jurisdiction}</option>{/each}</select></label>
     <div class="toolbar-spacer"></div>
-    <button class="button button--primary" onclick={runCompile} disabled={busy || exporting || !hasSelection}>{busy ? "Compiling..." : "Compile plan"}</button>
+    <button class="button button--primary" onclick={runCompile} disabled={busy || exporting || !hasSelection || !selectedRadio}>{busy ? "Compiling..." : "Compile plan"}</button>
   </section>
 
   {#if failure}<div class="banner banner--error" role="alert"><strong>Compilation failed.</strong><span>{failure}</span></div>{/if}
-  {#if exportedPath}<div class="banner banner--success" role="status"><strong>CSV exported.</strong><span>{exportedPath}</span></div>{/if}
+  {#if exportedPath}<div class="banner banner--success" role="status"><strong>Radio image exported.</strong><span>{exportedPath}</span></div>{/if}
+  {#if catalog && radios.length === 0}<div class="banner" role="status"><strong>Add a radio first.</strong><span>Import a fresh CHIRP IMG on the My Radios page before compiling.</span></div>{/if}
 
-  {#if catalog && selectedRadio && selectedModel}
+  {#if catalog && selectedRadio}
     <section class="workspace-panel set-picker" aria-labelledby="profile-picker-heading">
       <div class="panel-heading"><div><p class="section-label">Reusable loadouts</p><h2 id="profile-picker-heading">Profiles</h2></div><span class="schema-label">{selectedProfileIds.length} selected</span></div>
       <div class="set-picker-grid profile-picker-grid">
@@ -211,10 +203,10 @@
     <section class="workspace-panel compile-additions" aria-labelledby="additional-selection-heading">
       <div class="panel-heading"><div><p class="section-label">One-off additions</p><h2 id="additional-selection-heading">Additional selections</h2></div><span class="schema-label">{additionalSetIds.length + additionalDefinitionIds.length} selected</span></div>
       <div class="profile-source-grid compile-source-grid">
-        <section><div class="subsection-heading"><div><p class="section-label">Collections</p><h3>Frequency sets</h3></div></div><div class="selection-list compact-selection-list">{#each catalog.frequency_sets as frequencySet (frequencySet.id)}{@const factoryLabel = isFactorySet(frequencySet.id, selectedModel)}<label class="selection-row"><input type="checkbox" checked={additionalSetIds.includes(frequencySet.id)} onchange={(event) => toggleAdditionalSet(frequencySet.id, event.currentTarget.checked)} /><span><strong>{frequencySet.name}</strong><small>{frequencySet.members.length} definitions · {frequencySet.read_only ? "Preset" : "My set"}</small></span>{#if factoryLabel}<b>Factory · {factoryLabel}</b>{/if}</label>{/each}</div></section>
+        <section><div class="subsection-heading"><div><p class="section-label">Collections</p><h3>Frequency sets and imported banks</h3></div></div><div class="selection-list compact-selection-list">{#each catalog.frequency_sets as frequencySet (frequencySet.id)}<label class="selection-row"><input type="checkbox" checked={additionalSetIds.includes(frequencySet.id)} onchange={(event) => toggleAdditionalSet(frequencySet.id, event.currentTarget.checked)} /><span><strong>{frequencySet.name}</strong><small>{frequencySet.members.length} definitions · {frequencySet.read_only ? "Preset" : "My set"}</small></span></label>{/each}</div></section>
         <section><div class="subsection-heading"><div><p class="section-label">Individual additions</p><h3>Frequency definitions</h3></div></div><label class="selection-search"><span>Find a definition</span><input bind:value={definitionSearch} placeholder="Name or frequency" /></label><div class="selection-list compact-selection-list">{#each filteredDefinitions as definition (definition.id)}<label class="selection-row"><input type="checkbox" checked={additionalDefinitionIds.includes(definition.id)} onchange={(event) => toggleAdditionalDefinition(definition.id, event.currentTarget.checked)} /><span><strong>{definition.name}</strong><small>{mhz(definition.receive_frequency_hz)} · {definition.read_only ? "Preset" : "User"}</small></span></label>{/each}</div></section>
       </div>
-      <div class="compile-options"><label><input type="checkbox" bind:checked={useFactorySets} onchange={markStale} /><span>Use verified factory-provided sets instead of programming duplicates</span></label><span>Plan advice can warn, but it never removes or blocks a memory.</span></div>
+      <div class="compile-options"><span>The source image's radio settings and factory areas remain untouched.</span><span>Plan advice can warn, but it never removes or blocks a memory.</span></div>
     </section>
   {/if}
 
@@ -225,7 +217,7 @@
 
     <div class="plan-layout">
       <section class="workspace-panel memory-panel" aria-labelledby="memory-plan-heading">
-        <div class="panel-heading"><div><p class="section-label">Compiled output</p><h2 id="memory-plan-heading">{plan.target.model} memory plan</h2></div><div class="panel-actions"><span class="schema-label">Schema v{plan.schema_version}</span><button class="button button--primary" onclick={exportCsv} disabled={exporting}>{exporting ? "Exporting..." : "Export CHIRP CSV"}</button></div></div>
+        <div class="panel-heading"><div><p class="section-label">Compiled output</p><h2 id="memory-plan-heading">{plan.target.model} memory plan</h2></div><div class="panel-actions"><span class="schema-label">Schema v{plan.schema_version}</span><button class="button button--primary" onclick={exportImage} disabled={exporting}>{exporting ? "Exporting..." : "Export CHIRP IMG"}</button></div></div>
         <div class="table-wrap"><table class="data-table"><thead><tr><th scope="col">Memory</th><th scope="col">Label</th><th scope="col">Receive</th><th scope="col">Transmit</th><th scope="col">Mode</th><th scope="col">Sources</th></tr></thead><tbody>{#each plan.memories as memory (memory.source_frequency_definition_id)}<tr><td class="memory-number">{memory.memory_number.toString().padStart(2, "0")}</td><td><strong class="radio-label">{memory.target_name}</strong><small>{memory.source_frequency_definition_id}</small></td><td class="frequency">{mhz(memory.receive_frequency_hz)}</td><td>{memoryTxSummary(memory)}</td><td>{memory.mode}</td><td><strong>{memory.source_profile_ids.join(", ") || (memory.selected_directly ? "Direct" : "—")}</strong><small>{memory.source_frequency_set_ids.join(", ")}</small></td></tr>{/each}</tbody></table></div>
       </section>
 

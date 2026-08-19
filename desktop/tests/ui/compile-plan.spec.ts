@@ -8,10 +8,10 @@ test.beforeEach(async ({ page }) => {
   ).toBeVisible();
 });
 
-test("compiles selected sets and separates factory coverage", async ({ page }) => {
+test("compiles selected sets for the image-backed radio", async ({ page }) => {
   const summary = page.getByLabel("Compilation summary");
   await expect(summary).toContainText("3Programmed");
-  await expect(summary).toContainText("10Factory-provided");
+  await expect(summary).toContainText("0Factory-provided");
   await expect(summary).toContainText("0Omitted");
   await expect(summary).toContainText("3Warnings");
   await expect(summary).toContainText("0Errors");
@@ -27,15 +27,15 @@ test("compiles selected sets and separates factory coverage", async ({ page }) =
   );
 
   await expect(page.getByText("US NOAA Weather Broadcasts").first()).toBeVisible();
-  await expect(page.getByText("FACTORY_SET_AVAILABLE")).toBeVisible();
+  await expect(page.getByText("FACTORY_SET_AVAILABLE")).toHaveCount(0);
   await expect(page.getByText("TX_DISABLE_NOT_REPRESENTABLE")).toHaveCount(0);
 });
 
 test("recompiles and exports through the UI-test adapter", async ({ page }) => {
-  await page.getByRole("button", { name: "Export CHIRP CSV" }).click();
+  await page.getByRole("button", { name: "Export CHIRP IMG" }).click();
 
   await expect(page.getByRole("status")).toContainText(
-    "/exports/home-yaesu-vx6r.csv",
+    "/exports/home-default-vx6r.img",
   );
 
   const calls = await page.evaluate(() =>
@@ -47,24 +47,31 @@ test("recompiles and exports through the UI-test adapter", async ({ page }) => {
   );
 
   expect(calls).toContainEqual({
-    method: "chooseCsvOutputPath",
+    method: "chooseImageOutputPath",
     profile: "home",
-    target: "yaesu-vx6r",
+    target: "default-vx6r",
   });
   expect(calls).toContainEqual(expect.objectContaining({
     method: "compileSelection",
     profile: "home",
-    target: "yaesu-vx6r",
-    outputPath: "/exports/home-yaesu-vx6r.csv",
+    target: "default-vx6r",
+    outputPath: "/exports/home-default-vx6r.img",
     configuration: {
       memoryStart: 1,
       mapSetsToBanks: true,
-      useFactorySets: true,
+      useFactorySets: false,
       additionalFrequencySetIds: [],
       additionalFrequencyDefinitionIds: [],
       advisoryPlanId: "arrl-us-national",
     },
   }));
+
+  await page.getByRole("link", { name: "My radios" }).click();
+  await expect(page.locator(".image-version")).toHaveCount(2);
+  await expect(page.locator(".image-version").first()).toContainText("Compiled");
+  await expect(page.locator(".image-version").first()).toContainText(
+    "home-default-vx6r.img",
+  );
 });
 
 test("keeps profiles, the frequency library, and radio inventory on separate pages", async ({ page }) => {
@@ -79,6 +86,6 @@ test("keeps profiles, the frequency library, and radio inventory on separate pag
 
   await page.getByRole("link", { name: "My radios" }).click();
   await expect(page.getByRole("heading", { name: "My radios" })).toBeVisible();
-  await expect(page.getByText("US NOAA Weather Broadcasts")).toBeVisible();
-  await expect(page.getByText("CHIRP editing")).toBeVisible();
+  await expect(page.getByLabel("Source image")).toHaveValue("Yaesu_VX-6.img");
+  await expect(page.locator(".model-facts")).toContainText("24");
 });

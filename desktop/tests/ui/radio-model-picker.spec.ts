@@ -1,42 +1,34 @@
 import { expect, test } from "@playwright/test";
 
-test("searches radio models by manufacturer or model and persists the choice", async ({
-  page,
-}) => {
+test("adds a radio by detecting its CHIRP image", async ({ page }) => {
   await page.goto("/radios");
   await expect(page.getByRole("heading", { name: "My radios" })).toBeVisible();
 
-  const search = page.getByLabel("Find manufacturer or model");
-  await expect(search).toHaveValue("Yaesu VX-6R (USA)");
+  await page.getByRole("button", { name: "Add radio from IMG" }).first().click();
 
-  await search.fill("retevis");
-  await expect(page.getByRole("heading", { name: "Retevis", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Quansheng" })).toHaveCount(0);
-  await page.getByRole("button", { name: /RT95/ }).click();
+  await expect(page.getByLabel("Detected model")).toHaveValue("Yaesu VX-6");
+  await expect(page.getByLabel("Source image")).toHaveValue("Yaesu_VX-6.img");
+  await expect(page.locator(".model-facts")).toContainText("999");
+  await expect(page.locator(".model-facts")).toContainText("24");
+  await expect(page.locator(".model-facts")).toContainText("124");
+  await expect(page.getByRole("heading", { name: "Radio image versions" })).toBeVisible();
+  await expect(page.getByText("Imported source")).toBeVisible();
+  await expect(page.locator(".image-version")).toContainText("Yaesu_VX-6.img");
 
-  await expect(search).toHaveValue("Retevis RT95");
-  await expect(page.locator(".model-facts")).toContainText("200");
-  await expect(page.locator(".model-facts")).toContainText("None");
-  await page.getByRole("button", { name: "Save radio" }).click();
-  await expect(page.getByRole("status")).toContainText("Radio saved");
-
-  await page.reload();
-  await expect(search).toHaveValue("Retevis RT95");
-
-  await search.fill("uv-k5");
-  await expect(page.getByRole("heading", { name: "Quansheng" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /UV-K5/ })).toBeVisible();
+  const calls = await page.evaluate(() => window.__RIGMANIFEST_UI_TEST_CALLS__);
+  expect(calls).toContainEqual(expect.objectContaining({
+    method: "importChirpImage",
+    profile: "/imports/Yaesu_VX-6.img",
+  }));
 });
 
-
-test("reports an empty model search without changing the selected target", async ({
-  page,
-}) => {
+test("persists the user-facing name without changing detected model facts", async ({ page }) => {
   await page.goto("/radios");
-  const search = page.getByLabel("Find manufacturer or model");
+  await page.getByLabel("Radio name").fill("Trail handheld");
+  await page.getByRole("button", { name: "Save radio" }).click();
 
-  await search.fill("not-a-real-radio");
+  await page.reload();
 
-  await expect(page.getByText(/No radio models match/)).toBeVisible();
-  await expect(page.locator(".model-facts")).toContainText("900");
+  await expect(page.getByLabel("Radio name")).toHaveValue("Trail handheld");
+  await expect(page.getByLabel("Detected model")).toHaveValue("Yaesu VX-6");
 });

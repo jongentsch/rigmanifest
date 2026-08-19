@@ -34,11 +34,11 @@ Responsibilities:
 
 - canonical frequency catalog and set model
 - set/profile evaluation
-- CHIRP-backed radio capability model with explicit sourced overlays
+- image-backed CHIRP radio capability model
 - compiler
 - diagnostics
 - CHIRP adapters
-- CHIRP CSV import/export
+- CHIRP image import/export, with CSV retained as generic interchange
 - persistence services
 - CLI
 
@@ -121,7 +121,11 @@ rigmanifest/
 ## Persistence
 
 The desktop persists user-owned catalog records, radio instances, reusable profiles,
-and default advisory-plan context in a versioned SQLite database. Installed builds
+default advisory-plan context, and radio-image metadata in a versioned SQLite
+database. Exact imported and compiled IMG files live under
+`radios/<radio-id>/`; the database tracks their relative paths, types, timestamps,
+sizes, and hashes. Workspace backups copy that directory beside the backup database.
+Installed builds
 use the platform application-data directory. A marker makes the Windows portable
 bundle use its adjacent `data` directory; the Linux AppImage derives the same layout
 from the AppImage runtime's absolute source path. The Rust shell owns this path
@@ -134,6 +138,12 @@ The Library page exposes a native save dialog for a consistent SQLite backup.
 Frontend saves are serialized so quick successive edits cannot arrive out of order.
 
 Persistence does not leak database rows into compiler APIs.
+
+An image-backed radio is detected and loaded by CHIRP. RigManifest never parses or
+writes its binary layout. It translates image memories into reusable definitions,
+translates populated banks into user sets, and creates a profile that groups those
+sets. Compilation applies normalized memories and bank mappings through the loaded
+driver, then asks CHIRP to save a new image without overwriting the source.
 
 The canonical domain objects should remain independently serializable/testable.
 

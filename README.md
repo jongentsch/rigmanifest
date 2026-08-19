@@ -36,11 +36,9 @@ RigManifest Compiler
       ↓
 Radio-specific plan
       ↓
-CHIRP CSV
+CHIRP applies memories and banks
       ↓
-CHIRP
-      ↓
-Radio
+New CHIRP IMG / Radio
 ```
 
 ## Why
@@ -67,7 +65,7 @@ Python Core
 ├── compiler
 ├── domain model
 ├── CHIRP integration
-├── CSV import/export
+├── CHIRP image import/export
 └── CLI
 
         ↕
@@ -81,12 +79,14 @@ Tauri desktop shell
 
 The UI is deliberately separate from the compiler.
 
-## Initial target radios
+## Adding a radio
 
-- Yaesu VX-6R
-- Quansheng UV-K5
-- Retevis RT95
-- Alervites AT2 later
+Download the radio in CHIRP and save its `.img`, then add that image on RigManifest's
+My Radios page. CHIRP detects the exact model and variant. RigManifest imports its
+memories as reusable frequency definitions, its populated banks as sets, and a
+profile grouping those bank sets. The original image is stored unchanged in the
+workspace's `radios/<radio-id>/` directory. SQLite tracks the imported source and
+every compiled image version without storing their binary contents.
 
 ## Initial CLI direction
 
@@ -104,15 +104,15 @@ The first executable slice currently includes:
 - deterministic profile compilation
 - structured diagnostics and omissions
 - a pinned, headless CHIRP dependency and capability adapter
-- a USA Yaesu VX-6R target composed from CHIRP facts and sourced overlays
-- CHIRP-compatible CSV export
+- image-backed radio detection and capability discovery through CHIRP
+- CHIRP-managed IMG export that preserves settings and bank mappings
 - sourced read-only US FRS, GMRS, MURS, Citizens Band, aviation-guard, and
   regulated 60-meter discrete-frequency sets
 - the `home` in-memory fixture
 - a Typer CLI
 - a versioned newline-delimited JSON sidecar boundary
 - a minimal Svelte 5 + Tauri 2 desktop UI for compiling, reviewing diagnostics,
-  and exporting CHIRP CSV files
+  and exporting CHIRP radio images
 - a dark-first Modern Workshop interface with persistent Dark, Light, and
   System appearance modes
 - versioned SQLite persistence for user-owned frequency definitions, sets,
@@ -201,8 +201,10 @@ User-owned catalog records, radio instances, reusable profiles, and the default
 compile-time plan context are stored in a versioned SQLite database. Installed
 builds place it under the platform application-data directory. The Windows
 portable bundle and Linux AppImage place it in a `data` folder beside the
-application. A first run imports the earlier webview local-storage records once;
-the Library page can write a consistent native SQLite backup. Every compile
+application. Versioned radio images live under the sibling `radios` directory;
+workspace backups copy that directory alongside the backup database. A first run
+imports the earlier webview local-storage records once; the Library page can write
+a consistent native SQLite backup. Every compile
 request still sends the user catalog partition through the Python validation
 boundary and combines it with the immutable built-in preset partition.
 

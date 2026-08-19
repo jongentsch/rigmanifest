@@ -340,7 +340,7 @@ async fn backup_before_update(
 #[allow(clippy::too_many_arguments)] // Tauri exposes command parameters by name to TypeScript.
 async fn compile_selection(
     app: tauri::AppHandle,
-    target: String,
+    radio_id: String,
     output_path: Option<String>,
     profiles: Vec<Value>,
     additional_frequency_set_ids: Vec<String>,
@@ -358,7 +358,8 @@ async fn compile_selection(
             "id": "desktop",
             "method": "compile",
             "params": {
-                "target": target,
+                "radio_id": radio_id,
+                "database_path": workspace_database_path(&app)?,
                 "output_path": output_path,
                 "profiles": profiles,
                 "additional_frequency_set_ids": additional_frequency_set_ids,
@@ -402,6 +403,43 @@ async fn import_chirp_csv(app: tauri::AppHandle, source_path: String) -> Result<
     .await
 }
 
+#[tauri::command]
+async fn import_chirp_image(
+    app: tauri::AppHandle,
+    radio_id: String,
+    source_path: String,
+) -> Result<Value, String> {
+    invoke_python(
+        &app,
+        json!({
+            "id": "desktop",
+            "method": "import_chirp_image",
+            "params": {
+                "database_path": workspace_database_path(&app)?,
+                "radio_id": radio_id,
+                "source_path": source_path,
+            }
+        }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn list_radio_images(app: tauri::AppHandle, radio_id: String) -> Result<Value, String> {
+    invoke_python(
+        &app,
+        json!({
+            "id": "desktop",
+            "method": "list_radio_images",
+            "params": {
+                "database_path": workspace_database_path(&app)?,
+                "radio_id": radio_id,
+            }
+        }),
+    )
+    .await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -415,7 +453,9 @@ pub fn run() {
             compile_selection,
             distribution_channel,
             import_chirp_csv,
+            import_chirp_image,
             load_catalog,
+            list_radio_images,
             load_workspace,
             save_workspace
         ])
