@@ -2,112 +2,116 @@
 
 ## Strategy
 
-RigManifest is intentionally GPLv3-compatible so that CHIRP can be treated as an upstream dependency rather than something to avoid.
+CHIRP is a pinned, headless Python dependency and the primary source of normalized
+radio-driver facts. RigManifest does not maintain a parallel hand-authored copy of
+facts that `RadioFeatures` already exposes.
 
-The first release should still use CHIRP CSV as the programming boundary.
+The dependency is pinned to commit
+`fa27a491d275f88b452d0488a51b4c85d4f7062a`. CHIRP publishes its Python package as
+version `0`, so an exact source revision is required for reproducible builds.
+wxPython is an optional CHIRP extra and is not part of the RigManifest core runtime.
 
-## Phase 1: CSV only
-
-```text
-RigManifest
-    ↓
-CompiledRadioPlan
-    ↓
-CHIRP CSV exporter
-    ↓
-CHIRP
-    ↓
-Radio
-```
-
-This proves the core product without coupling the MVP to CHIRP internals.
-
-CHIRP CSV rows and `chirp_common.Memory` objects represent destination radio
-memory locations. They are adapter formats, not RigManifest frequency definitions.
-CHIRP's separately named stock-configuration CSV files are useful source datasets,
-but they do not model normalized set membership or radio-model factory availability.
-
-## Phase 2: Capability extraction
-
-CHIRP drivers expose normalized feature information through structures such as `RadioFeatures`.
-
-Investigate mapping CHIRP feature data into RigManifest capabilities.
-
-Likely useful fields include:
-
-- memory bounds/capacity
-- valid bands
-- valid modes
-- valid tone modes
-- valid duplex modes
-- tuning steps
-- power levels
-- maximum name length
-- valid characters
-- bank support
-- settings support
-
-Architecture:
+## Current boundary
 
 ```text
 CHIRP driver
     ↓
 RadioFeatures
     ↓
-RigManifest CHIRP adapter
+RigManifest CHIRP adapter + explicit overlays
     ↓
-Base RadioCapabilities
-    +
-RigManifest overlays
+RadioCapabilities
     ↓
-Compiler
-```
-
-## Phase 3: Direct normalized-memory integration
-
-Later, RigManifest may produce CHIRP normalized memory objects and hand them directly to CHIRP drivers.
-
-Possible future path:
-
-```text
 RigManifest compiler
     ↓
-CompiledRadioPlan
+CompiledMemory
     ↓
-CHIRP Memory objects
+CHIRP Memory + driver.validate_memory()
     ↓
-CHIRP driver
-    ↓
-Radio
+CHIRP CSV
 ```
 
-Do not implement this in the MVP.
+The adapter currently obtains these facts from CHIRP:
 
-## Why overlays are still needed
+- memory address bounds
+- receive/programmable frequency ranges exposed by the driver
+- valid modes and tone modes
+- valid tuning steps
+- valid CTCSS tones and DCS codes
+- duplex, odd-split, and transmit-disable representations
+- label length and character set
+- bank support
+- separate receive-DCS and DCS-polarity support
 
-CHIRP models programming capabilities, but RigManifest also cares about policy and degradation semantics.
+The compiler still owns selection, capacity policy, deterministic ordering, safety
+policy, diagnostics, and omission behavior. A compiled memory that passes the
+RigManifest capability checks is translated to `chirp_common.Memory` and passed to
+the selected driver's `validate_memory()` method. A CHIRP validation error omits the
+definition with `TARGET_MEMORY_REJECTED`; a CHIRP warning remains visible without
+silently altering the memory.
 
-Examples:
+## Why overlays still exist
 
-- whether TX disable can be represented safely
-- how logical groups degrade
-- whether certain memories should be reserved
-- firmware-specific caveats
-- target-specific naming strategies
-- compiler warnings not represented by CHIRP
+`RadioFeatures.valid_bands` is one list and does not generally distinguish receive
+coverage from transmit coverage. The VX-6 driver, for example, exposes its wideband
+receive range but not the much narrower USA transmit ranges. It also does not expose
+manufacturer-advertised usable capacity or the number of banks.
+
+An overlay may therefore supply only facts absent from CHIRP, including:
+
+- separately sourced transmit ranges
+- manufacturer-advertised usable capacity when it differs from address bounds
+- bank count
+- firmware or regional caveats
 - radio-model relationships to verified factory frequency sets
 
-Factory-set coverage is never inferred from CHIRP memory-row frequency matching.
-A radio model references a preset frequency set by stable ID. Current driver support
-for reading or editing that factory interface is recorded independently.
+Every overlay fact carries source notes. It must not replace a CHIRP fact merely for
+convenience.
 
-## License direction
+## Catalog independence
 
-Because RigManifest is intended to be GPLv3-compatible, using CHIRP source and APIs is an intentional design choice.
+CHIRP compatibility is a compilation concern, not a catalog-entry restriction. A
+user can define any finite positive frequency as canonical intent, including an HF
+frequency when no owned target supports it.
 
-Still:
+Compilation checks the selected target in this order:
 
-- preserve CHIRP copyright notices where required
-- document imported/copied/adapted code clearly
-- prefer adapter boundaries over scattered CHIRP assumptions
-- avoid copying driver code when normalized APIs are sufficient
+1. RigManifest's separate receive and transmit capability ranges;
+2. supported mode, tone semantics, exact tone/code, and duplex form;
+3. CHIRP driver validation of the normalized target memory.
+
+Consequently, an HF transmit definition remains valid catalog data but is omitted
+when compiling for a VHF/UHF HT whose transmit ranges do not include it. A genuinely
+receive-only HF definition may compile for a wideband receiver only when the target
+can both receive it and safely represent transmit-disabled intent.
+
+## Domain separation
+
+CHIRP CSV rows and `chirp_common.Memory` objects represent destination radio memory
+locations. They are not RigManifest frequency definitions. CHIRP does not replace:
+
+- shared frequency definitions and sets
+- preset versus user ownership
+- profiles and selection intent
+- factory-frequency-set relationships
+- geographic frequency plans
+- provenance
+- ranking and capacity policy
+- explicit explanations of degradation
+
+Do not call CHIRP's import-conversion policy as the RigManifest compiler policy.
+Some CHIRP conversions intentionally coerce unsupported values for interactive
+copying between radios. RigManifest must instead explain and omit an unsafe or
+unrepresentable result.
+
+## Export and later direct programming
+
+CHIRP CSV remains the first external artifact. Direct image and radio programming can
+later reuse the same normalized-memory adapter and CHIRP drivers. It remains outside
+the MVP until compilation and validation are stable.
+
+## License
+
+RigManifest and CHIRP are GPLv3-compatible. Preserve upstream copyright notices,
+record the pinned revision, prefer normalized APIs over copied driver code, and keep
+all CHIRP-specific behavior inside the adapter boundary.

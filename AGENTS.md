@@ -10,9 +10,14 @@ The core idea is:
 
 > define the desired operating configuration once, then compile it for each radio according to that radio's capabilities.
 
-RigManifest is not primarily a radio-programming application and is not intended to replace CHIRP.
+RigManifest is the intent, maintenance, and workflow frontend for CHIRP. It provides
+an easier way to maintain reusable frequency definitions and sets, select them for
+owned radios, and understand how that intent compiles for each target.
 
-CHIRP remains the preferred final-mile programming layer.
+RigManifest is not intended to replace CHIRP. CHIRP owns normalized radio-driver
+knowledge, target-memory validation, image handling, and eventually the final radio
+I/O path. RigManifest owns reusable RF intent, profiles, provenance, compilation
+policy, and explainable diagnostics.
 
 ## License
 

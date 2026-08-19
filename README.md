@@ -4,6 +4,13 @@
 
 RigManifest is an open-source configuration-management application for programmable amateur radios.
 
+> **RigManifest is an easy-to-use configuration-management frontend for CHIRP,
+> built around reusable RF intent rather than individual radio-memory spreadsheets.**
+
+CHIRP supplies the radio-driver knowledge and target validation. RigManifest supplies
+the frequency library, reusable sets, profiles, radio inventory, compilation policy,
+and explanations needed to maintain multiple radios coherently.
+
 Traditional radio-programming software starts with the destination radio:
 
 > Edit memories 1–100 for this particular device.
@@ -36,7 +43,7 @@ Radio
 
 ## Why
 
-CHIRP is generally good at programming radios.
+CHIRP is the hardware engine and is generally good at programming radios.
 
 The frustrating part is everything before that:
 
@@ -94,7 +101,8 @@ The first executable slice currently includes:
 - immutable typed frequency-definition, set, radio-model, and plan models
 - deterministic profile compilation
 - structured diagnostics and omissions
-- a conservative USA Yaesu VX-6R capability definition
+- a pinned, headless CHIRP dependency and capability adapter
+- a USA Yaesu VX-6R target composed from CHIRP facts and sourced overlays
 - CHIRP-compatible CSV export
 - the `home` in-memory fixture
 - a Typer CLI
@@ -156,6 +164,11 @@ User-owned catalog records are currently stored in the desktop webview's local
 storage. Every compile request sends that user partition through the Python
 validation boundary and combines it with the immutable built-in preset partition.
 SQLite remains the planned durable-storage replacement after the workflow settles.
+
+Frequency definitions are not restricted to the bands supported by the current radio
+inventory. A user may keep HF, VHF, UHF, or receive-only definitions in the shared
+catalog; compilation omits anything the selected target cannot safely represent and
+reports the reason.
 
 See `docs/first-slice-plan.md` for the architecture decisions and delivery
 sequence.

@@ -67,6 +67,8 @@ class DiagnosticCode(StrEnum):
     FREQUENCY_OMITTED_CAPACITY = "FREQUENCY_OMITTED_CAPACITY"
     TX_DISABLE_NOT_REPRESENTABLE = "TX_DISABLE_NOT_REPRESENTABLE"
     CAPABILITY_DATA_INCOMPLETE = "CAPABILITY_DATA_INCOMPLETE"
+    TARGET_MEMORY_REJECTED = "TARGET_MEMORY_REJECTED"
+    TARGET_MEMORY_WARNING = "TARGET_MEMORY_WARNING"
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,6 +288,11 @@ class RadioCapabilities:
     supports_transmit_disable: bool = False
     supports_split: bool = False
     memory_start: int = 1
+    valid_tuning_steps_hz: tuple[int, ...] = ()
+    valid_ctcss_tones_hz: tuple[float, ...] = ()
+    valid_dtcs_codes: tuple[int, ...] = ()
+    supports_separate_rx_dtcs: bool = False
+    supports_dtcs_polarity: bool = False
     source_notes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -305,6 +312,9 @@ class RadioCapabilities:
         object.__setattr__(self, "transmit_ranges", tuple(self.transmit_ranges))
         object.__setattr__(self, "supported_modes", frozenset(self.supported_modes))
         object.__setattr__(self, "supported_tone_modes", frozenset(self.supported_tone_modes))
+        object.__setattr__(self, "valid_tuning_steps_hz", tuple(self.valid_tuning_steps_hz))
+        object.__setattr__(self, "valid_ctcss_tones_hz", tuple(self.valid_ctcss_tones_hz))
+        object.__setattr__(self, "valid_dtcs_codes", tuple(self.valid_dtcs_codes))
         object.__setattr__(self, "source_notes", tuple(self.source_notes))
 
     def supports_receive_frequency(self, frequency_hz: int) -> bool:
@@ -312,6 +322,15 @@ class RadioCapabilities:
 
     def supports_transmit_frequency(self, frequency_hz: int) -> bool:
         return any(item.contains(frequency_hz) for item in self.transmit_ranges)
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryValidationIssue:
+    """A target-adapter warning or error for one compiled memory."""
+
+    severity: Severity
+    message: str
+    details: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

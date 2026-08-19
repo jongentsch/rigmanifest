@@ -20,8 +20,8 @@ resolves them as follows:
 5. Optional incompatible definitions are omitted with warnings. An incompatible
    mandatory definition is an error. A target that cannot safely represent
    transmit-disabled intent always emits an error rather than enabling TX.
-6. Capability definitions carry source notes. CHIRP-derived facts and
-   RigManifest safety overlays remain distinguishable.
+6. Capability definitions are extracted from a pinned CHIRP driver. Only facts that
+   `RadioFeatures` cannot express remain in sourced RigManifest overlays.
 7. Factory frequency availability is modeled as a radio-model-to-preset-set
    relationship. It is never inferred by matching individual frequencies.
 8. The VX-6R USA capability uses a conservative capacity of 900 advertised
@@ -42,9 +42,9 @@ resolves them as follows:
 - Persistence: the first UI workflow keeps the user-owned catalog partition in
   local storage and submits it to Python validation for every compile. SQLite
   repository interfaces remain the next durability step.
-- CHIRP integration: CSV only. Do not vendor or install CHIRP in the first
-  slice. Keep the exporter isolated, then add an optional CHIRP capability
-  adapter after the compiler contract is stable.
+- CHIRP integration: a pinned headless dependency supplies normalized driver facts
+  and final memory validation. CSV remains the first output boundary; direct radio
+  programming is still deferred.
 
 ## Verified upstream constraints
 

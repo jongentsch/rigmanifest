@@ -8,6 +8,7 @@ from typing import Any, Mapping, Sequence
 
 from rigmanifest.capabilities import BUILTIN_TARGETS
 from rigmanifest.catalog_io import catalog_with_user_records
+from rigmanifest.chirp_adapter import chirp_memory_validator
 from rigmanifest.compiler import compile_profile
 from rigmanifest.exporters.chirp_csv import write_chirp_csv
 from rigmanifest.fixtures import BUILTIN_CATALOG, BUILTIN_PROFILES
@@ -55,7 +56,18 @@ def compile_builtin(
             raise RequestError(str(error)) from error
 
     try:
-        plan = compile_profile(catalog, profile, target, settings)
+        validator = (
+            chirp_memory_validator(target.chirp_driver_reference)
+            if target.chirp_driver_reference
+            else None
+        )
+        plan = compile_profile(
+            catalog,
+            profile,
+            target,
+            settings,
+            memory_validator=validator,
+        )
     except ValueError as error:
         raise RequestError(str(error)) from error
     if output_path is not None:
@@ -137,6 +149,28 @@ def catalog_to_dict() -> dict[str, Any]:
                 "max_label_length": target.capabilities.max_label_length,
                 "supports_banks": target.capabilities.supports_banks,
                 "bank_count": target.capabilities.bank_count,
+                "chirp_driver_reference": target.chirp_driver_reference,
+                "receive_ranges": [
+                    [item.lower_hz, item.upper_hz]
+                    for item in target.capabilities.receive_ranges
+                ],
+                "transmit_ranges": [
+                    [item.lower_hz, item.upper_hz]
+                    for item in target.capabilities.transmit_ranges
+                ],
+                "supported_modes": sorted(
+                    item.value for item in target.capabilities.supported_modes
+                ),
+                "supported_tone_modes": sorted(
+                    item.value for item in target.capabilities.supported_tone_modes
+                ),
+                "valid_tuning_steps_hz": list(
+                    target.capabilities.valid_tuning_steps_hz
+                ),
+                "valid_ctcss_tones_hz": list(
+                    target.capabilities.valid_ctcss_tones_hz
+                ),
+                "valid_dtcs_codes": list(target.capabilities.valid_dtcs_codes),
                 "factory_frequency_sets": [
                     {
                         "frequency_set_id": relation.frequency_set_id,

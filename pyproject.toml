@@ -11,6 +11,7 @@ requires-python = ">=3.12"
 license = "GPL-3.0-only"
 authors = [{ name = "Jon Gentsch" }]
 dependencies = [
+    "chirp @ https://github.com/kk7ds/chirp/archive/fa27a491d275f88b452d0488a51b4c85d4f7062a.zip",
     "typer>=0.16,<1",
 ]
 

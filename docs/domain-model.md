@@ -158,18 +158,30 @@ RadioCapabilities
 - transmit_ranges[]
 - supported_modes[]
 - supported_tone_modes[]
+- valid_tuning_steps_hz[]
+- valid_ctcss_tones_hz[]
+- valid_dtcs_codes[]
 - max_label_length
 - supported_label_characters
 - supports_banks
 - bank_count
 - supports_transmit_disable
 - supports_split
+- supports_separate_rx_dtcs
+- supports_dtcs_polarity
 - source_notes[]
 ```
 
-Capability data may come from CHIRP `RadioFeatures`, manufacturer documentation,
-RigManifest overlays, or verified testing. Proven facts and unknowns must remain
+Capability data comes from the pinned CHIRP driver's `RadioFeatures` wherever that
+API expresses the fact. Small RigManifest overlays provide separately sourced facts
+that CHIRP cannot represent, especially transmit ranges distinct from wideband
+receive coverage, usable capacity, and bank count. Proven facts and unknowns remain
 distinguishable.
+
+The catalog does not validate a definition against any radio. Any positive
+integer-Hz frequency is valid canonical intent. The compiler determines whether the
+selected target can receive it, transmit it when requested, and represent the final
+memory through its CHIRP driver.
 
 ## Profile
 

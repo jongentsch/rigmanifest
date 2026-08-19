@@ -36,6 +36,11 @@ These concepts are independent of any one radio.
 
 RigManifest separates **desired operating configuration** from **radio implementation**.
 
+Its product position is:
+
+> RigManifest is an easy-to-use configuration-management frontend for CHIRP, built
+> around reusable RF intent rather than individual radio-memory spreadsheets.
+
 ```text
 desired configuration
         ↓
@@ -93,13 +98,33 @@ Reason: receive frequency outside target capability
 
 ## Relationship to CHIRP
 
-RigManifest is not intended to replace CHIRP.
+RigManifest is a frontend and configuration-management companion to CHIRP, not a
+replacement for it.
 
-CHIRP remains the preferred final-mile programmer.
+CHIRP remains the preferred final-mile programmer and is a pinned Python dependency.
+RigManifest consumes CHIRP's normalized driver capability data and validates compiled
+memories through the selected driver. CHIRP-compatible CSV remains the first external
+programming artifact.
 
-The first integration target is CHIRP-compatible CSV.
+The ownership boundary is deliberate:
 
-Later, because RigManifest is GPLv3-compatible and Python-based, it may directly consume CHIRP's normalized radio APIs and driver capability data.
+```text
+RigManifest
+- reusable frequency definitions and sets
+- profiles and radio inventory
+- provenance and user intent
+- selection, ranking, and capacity policy
+- explainable omissions and degradations
+
+CHIRP
+- normalized radio models and driver capabilities
+- target-memory validation
+- clone images and radio-specific formats
+- hardware communication
+```
+
+RigManifest should expose CHIRP's power without forcing users to maintain separate
+radio-memory spreadsheets or understand every driver-specific constraint.
 
 ## Open-source direction
 

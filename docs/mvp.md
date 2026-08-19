@@ -77,6 +77,11 @@ Evaluate at least:
 - receive-only handling
 - set-to-bank mapping where modeled
 
+Radio capability facts come from the pinned headless CHIRP dependency. Sourced
+overlays fill only gaps in `RadioFeatures`, such as separate transmit ranges. The
+shared catalog itself is not limited to frequencies supported by the current radio
+inventory; incompatibility is a compile result.
+
 ### Diagnostics
 
 Return structured diagnostics with:

@@ -11,6 +11,19 @@ The architecture should:
 - allow a future hosted/client-side UI without rewriting compiler semantics
 - avoid premature distributed-system complexity
 
+## Product boundary
+
+RigManifest is the intent and configuration-management frontend for CHIRP. The core
+must make reusable definitions, set selection, multi-radio maintenance, and compiler
+diagnostics approachable. It should delegate normalized hardware facts, target-memory
+validation, image formats, and eventual device communication to the pinned CHIRP
+dependency wherever CHIRP already provides them.
+
+This boundary is not merely an export choice: it is the organizing principle for the
+application. New radio-specific logic belongs upstream in CHIRP or in a narrowly
+sourced overlay when CHIRP cannot express the fact. New user-intent and maintenance
+workflows belong in RigManifest.
+
 ## Proposed stack
 
 ### Core
@@ -21,7 +34,7 @@ Responsibilities:
 
 - canonical frequency catalog and set model
 - set/profile evaluation
-- radio capability model
+- CHIRP-backed radio capability model with explicit sourced overlays
 - compiler
 - diagnostics
 - CHIRP adapters
@@ -112,6 +125,10 @@ migrations, backups, or multi-window behavior make local storage inappropriate.
 Persistence should not leak database rows into compiler APIs.
 
 The canonical domain objects should remain independently serializable/testable.
+
+Frequency definitions are target-independent and accept any positive integer-Hz
+frequency. Target receive/transmit range and CHIRP driver validation happen during
+compilation, never while authoring the shared catalog.
 
 ## Hosted possibility
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 
 from rigmanifest.models import (
@@ -16,6 +17,7 @@ from rigmanifest.models import (
     FrequencyCatalog,
     FrequencyDefinition,
     FrequencySet,
+    MemoryValidationIssue,
     Mode,
     OmittedFrequencyDefinition,
     Priority,
@@ -25,6 +27,9 @@ from rigmanifest.models import (
     ToneMode,
     TransmitBehavior,
 )
+
+
+MemoryValidator = Callable[[CompiledMemory], tuple[MemoryValidationIssue, ...]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +50,8 @@ def compile_profile(
     profile: Profile,
     target: RadioModel,
     settings: CompilationSettings | None = None,
+    *,
+    memory_validator: MemoryValidator | None = None,
 ) -> CompiledRadioPlan:
     """Compile selected sets for one target without mutating catalog records."""
 
@@ -122,43 +129,76 @@ def compile_profile(
 
     candidates.sort(key=_ranking_key)
     capacity = target.capabilities.memory_capacity
-    selected_candidates = candidates[:capacity]
-    capacity_omissions = candidates[capacity:]
-
-    for candidate in capacity_omissions:
-        definition = candidate.selection.definition
-        diagnostic = Diagnostic.with_details(
-            code=DiagnosticCode.FREQUENCY_OMITTED_CAPACITY,
-            severity=_omission_severity(definition),
-            frequency_definition_id=definition.id,
-            message=f"{definition.name} was omitted because target memory is full",
-            details={"capacity": capacity},
-        )
-        diagnostics.append(diagnostic)
-        omitted.append(OmittedFrequencyDefinition(definition.id, diagnostic.code))
-
     memory_start = (
         settings.memory_start
         if settings.memory_start is not None
         else target.capabilities.memory_start
     )
-    memories = tuple(
-        replace(candidate.compiled, memory_number=memory_start + index)
-        for index, candidate in enumerate(selected_candidates)
-    )
+    memories: list[CompiledMemory] = []
+    capacity_omission_count = 0
+    target_rejection_count = 0
+
+    for candidate in candidates:
+        definition = candidate.selection.definition
+        if len(memories) >= capacity:
+            diagnostic = Diagnostic.with_details(
+                code=DiagnosticCode.FREQUENCY_OMITTED_CAPACITY,
+                severity=_omission_severity(definition),
+                frequency_definition_id=definition.id,
+                message=f"{definition.name} was omitted because target memory is full",
+                details={"capacity": capacity},
+            )
+            diagnostics.append(diagnostic)
+            omitted.append(OmittedFrequencyDefinition(definition.id, diagnostic.code))
+            capacity_omission_count += 1
+            continue
+
+        memory = replace(
+            candidate.compiled,
+            memory_number=memory_start + len(memories),
+        )
+        validation_issues = memory_validator(memory) if memory_validator else ()
+        rejected = False
+        for issue in validation_issues:
+            code = (
+                DiagnosticCode.TARGET_MEMORY_REJECTED
+                if issue.severity is Severity.ERROR
+                else DiagnosticCode.TARGET_MEMORY_WARNING
+            )
+            diagnostics.append(
+                Diagnostic(
+                    code=code,
+                    severity=issue.severity,
+                    frequency_definition_id=definition.id,
+                    frequency_set_id=None,
+                    message=issue.message,
+                    details=issue.details,
+                )
+            )
+            rejected = rejected or issue.severity is Severity.ERROR
+        if rejected:
+            omitted.append(
+                OmittedFrequencyDefinition(
+                    definition.id,
+                    DiagnosticCode.TARGET_MEMORY_REJECTED,
+                )
+            )
+            target_rejection_count += 1
+            continue
+        memories.append(memory)
 
     return CompiledRadioPlan(
         target=target,
         profile=profile,
-        memories=memories,
+        memories=tuple(memories),
         factory_sets=tuple(factory_coverage),
         omitted_frequency_definitions=tuple(omitted),
         diagnostics=tuple(diagnostics),
         capacity_summary=CapacitySummary(
             capacity=capacity,
-            compatible_candidates=len(candidates),
+            compatible_candidates=len(candidates) - target_rejection_count,
             used=len(memories),
-            omitted_for_capacity=len(capacity_omissions),
+            omitted_for_capacity=capacity_omission_count,
         ),
     )
 
@@ -285,6 +325,65 @@ def _find_incompatibility(
                 f"tone semantics for {definition.name}"
             ),
             details={"tone_mode": definition.tone.mode.value},
+        )
+    if (
+        definition.tone.encode_hz is not None
+        and capabilities.valid_ctcss_tones_hz
+        and definition.tone.encode_hz not in capabilities.valid_ctcss_tones_hz
+    ):
+        return Diagnostic.with_details(
+            code=DiagnosticCode.TONE_UNSUPPORTED,
+            severity=severity,
+            frequency_definition_id=definition.id,
+            message=(
+                f"{target.model} does not support {definition.tone.encode_hz:.1f} Hz "
+                f"for {definition.name}"
+            ),
+            details={"tone_hz": definition.tone.encode_hz},
+        )
+    if (
+        definition.tone.decode_hz is not None
+        and capabilities.valid_ctcss_tones_hz
+        and definition.tone.decode_hz not in capabilities.valid_ctcss_tones_hz
+    ):
+        return Diagnostic.with_details(
+            code=DiagnosticCode.TONE_UNSUPPORTED,
+            severity=severity,
+            frequency_definition_id=definition.id,
+            message=(
+                f"{target.model} does not support {definition.tone.decode_hz:.1f} Hz "
+                f"receive tone for {definition.name}"
+            ),
+            details={"tone_hz": definition.tone.decode_hz},
+        )
+    if (
+        definition.tone.dtcs_code is not None
+        and capabilities.valid_dtcs_codes
+        and definition.tone.dtcs_code not in capabilities.valid_dtcs_codes
+    ):
+        return Diagnostic.with_details(
+            code=DiagnosticCode.TONE_UNSUPPORTED,
+            severity=severity,
+            frequency_definition_id=definition.id,
+            message=(
+                f"{target.model} does not support DCS {definition.tone.dtcs_code:03d} "
+                f"for {definition.name}"
+            ),
+            details={"dtcs_code": f"{definition.tone.dtcs_code:03d}"},
+        )
+    if (
+        definition.tone.dtcs_polarity != "NN"
+        and not capabilities.supports_dtcs_polarity
+    ):
+        return Diagnostic.with_details(
+            code=DiagnosticCode.TONE_UNSUPPORTED,
+            severity=severity,
+            frequency_definition_id=definition.id,
+            message=(
+                f"{target.model} does not support selectable DCS polarity "
+                f"for {definition.name}"
+            ),
+            details={"dtcs_polarity": definition.tone.dtcs_polarity},
         )
     return None
 

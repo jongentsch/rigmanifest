@@ -27,7 +27,8 @@ Compiled Radio Plan
 4. Resolve shared frequency definitions for the remaining sets.
 5. Deduplicate definitions while preserving all source-set references.
 6. Validate target compatibility.
-7. Transform representable fields.
+7. Transform representable fields and validate the normalized memory with the
+   pinned CHIRP driver.
 8. Rank candidates deterministically.
 9. Resolve programmable-memory capacity.
 10. Map selected sets to radio banks where supported and requested.
@@ -63,6 +64,9 @@ omit
 diagnostic: RX_FREQUENCY_UNSUPPORTED
 ```
 
+This is a target compilation result. It never makes the canonical frequency
+definition invalid or removes it from the shared catalog.
+
 ### Transmit frequency
 
 If transmission is required but unsupported, omit it and report the reason. Mandatory
@@ -85,6 +89,10 @@ represent a programmable `duplex=off` memory.
 
 Unsupported modes and tone semantics are omitted with structured diagnostics. They are
 never silently converted.
+
+Exact CTCSS tones and DCS codes are checked against the target driver's CHIRP
+catalog. After target-independent policy checks, CHIRP `validate_memory()` is the
+final representability check. Driver errors omit the result; warnings remain visible.
 
 ## Field transformations
 

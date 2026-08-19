@@ -120,6 +120,14 @@ export interface RadioModelRecord {
   max_label_length: number;
   supports_banks: boolean;
   bank_count: number;
+  chirp_driver_reference: string | null;
+  receive_ranges: [number, number][];
+  transmit_ranges: [number, number][];
+  supported_modes: string[];
+  supported_tone_modes: string[];
+  valid_tuning_steps_hz: number[];
+  valid_ctcss_tones_hz: number[];
+  valid_dtcs_codes: number[];
   factory_frequency_sets: FactoryFrequencySetRecord[];
 }
 
