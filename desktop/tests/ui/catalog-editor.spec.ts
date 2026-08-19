@@ -36,6 +36,9 @@ test("creates, persists, and submits user-owned frequency records", async ({ pag
   await expect(customSet).toBeVisible();
   await customSet.check();
   await page.getByRole("button", { name: "Compile plan" }).click();
+  await expect(
+    page.getByRole("heading", { name: "VX-6R (USA) memory plan" }),
+  ).toBeVisible();
 
   const calls = await page.evaluate(() =>
     (

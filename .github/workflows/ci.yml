@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python core
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project and test dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+
+      - name: Run tests with branch coverage
+        run: >-
+          python -m pytest
+          --cov=rigmanifest
+          --cov-report=term-missing
+          --cov-fail-under=95
+
+  desktop:
+    name: Desktop renderer
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Build pinned Playwright image
+        run: docker compose -f compose.ui-tests.yaml build
+
+      - name: Check Svelte and TypeScript
+        run: docker compose -f compose.ui-tests.yaml run --rm ui-tests pnpm check
+
+      - name: Build desktop frontend
+        run: docker compose -f compose.ui-tests.yaml run --rm ui-tests pnpm build
+
+      - name: Run browser, accessibility, and visual tests
+        run: docker compose -f compose.ui-tests.yaml run --rm ui-tests
+
+  native:
+    name: Native Rust boundary
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop/src-tauri
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Check Rust formatting
+        run: cargo fmt --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run Rust tests
+        run: cargo test

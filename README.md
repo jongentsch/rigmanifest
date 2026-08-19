@@ -1,5 +1,7 @@
 # RigManifest
 
+[![CI](https://github.com/jongentsch/rigmanifest/actions/workflows/ci.yml/badge.svg)](https://github.com/jongentsch/rigmanifest/actions/workflows/ci.yml)
+
 **Define your radio configuration once. Compile it for every rig.**
 
 RigManifest is an open-source configuration-management application for programmable amateur radios.
