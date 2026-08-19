@@ -71,7 +71,9 @@ $smokeStartInfo.RedirectStandardError = $true
 $smokeProcess = New-Object System.Diagnostics.Process
 $smokeProcess.StartInfo = $smokeStartInfo
 [void]$smokeProcess.Start()
-$smokeProcess.StandardInput.WriteLine('{"id":"portable-smoke","method":"catalog"}')
+$utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+$smokeInput = $utf8WithoutBom.GetBytes("{`"id`":`"portable-smoke`",`"method`":`"catalog`"}`n")
+$smokeProcess.StandardInput.BaseStream.Write($smokeInput, 0, $smokeInput.Length)
 $smokeProcess.StandardInput.Close()
 $smokeResponse = $smokeProcess.StandardOutput.ReadToEnd()
 $smokeError = $smokeProcess.StandardError.ReadToEnd()
