@@ -4,7 +4,7 @@ Read `AGENTS.md` and every file in `docs/`.
 
 This repository is **RigManifest**.
 
-Do not implement the full product yet.
+Do not implement the full project yet.
 
 First review the proposed architecture and MVP for contradictions, missing abstractions, unnecessary complexity, or decisions that should be deferred.
 

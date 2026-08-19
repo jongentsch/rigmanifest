@@ -389,4 +389,4 @@ All sources were accessed 2026-08-19.
 - [Kenwood TH-F6A/TH-F7E instruction manual](https://kasc.kenwood.com/files/prod/268/5/TH-F7-English.pdf)
 - [Kenwood TM-281A specifications](https://www.kenwood.com/ca/com/amateur/tm-281a/)
 - [Kenwood TH-K20A specifications](https://www.kenwood.com/ca/com/amateur/th-k20a/)
-- [Yaesu FT-257 product specifications](https://www.yaesu.com/product-detail.aspx?CatName=Legacy&Model=FT-257)
+- [Yaesu FT-257 specifications](https://www.yaesu.com/product-detail.aspx?CatName=Legacy&Model=FT-257)

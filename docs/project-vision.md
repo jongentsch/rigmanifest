@@ -1,4 +1,4 @@
-# Product Vision
+# Project Vision
 
 ## Problem
 
@@ -36,7 +36,7 @@ These concepts are independent of any one radio.
 
 RigManifest separates **desired operating configuration** from **radio implementation**.
 
-Its product position is:
+Its role in the ecosystem is:
 
 > RigManifest is an easy-to-use configuration-management frontend for CHIRP, built
 > around reusable RF intent rather than individual radio-memory spreadsheets.

@@ -50,13 +50,13 @@ Svelte UI
 Tauri desktop shell
 ```
 
-The Python core is the product logic.
+The Python core owns the project's domain logic.
 
 The Svelte/Tauri layer is presentation and desktop packaging.
 
 Do not put compiler logic, capability logic, selection rules, or CHIRP semantics in the frontend.
 
-## Product principles
+## Project principles
 
 1. User intent is the source of truth.
 2. Frequency definitions and sets do not belong to a specific radio.
@@ -75,7 +75,7 @@ Do not put compiler logic, capability logic, selection rules, or CHIRP semantics
 
 Read all documents in `docs/` before making architectural decisions:
 
-- `docs/product-vision.md`
+- `docs/project-vision.md`
 - `docs/architecture.md`
 - `docs/mvp.md`
 - `docs/domain-model.md`

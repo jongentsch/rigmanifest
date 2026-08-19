@@ -9,7 +9,8 @@ RigManifest and CHIRP turn that intent into a radio-specific image.**
 
 ![RigManifest compiled memory plan](docs/images/compile-plan.png)
 
-RigManifest is a desktop configuration manager for programmable radios. It keeps
+RigManifest is an open-source desktop project for managing programmable-radio
+configurations. It keeps
 frequency definitions independent of any one radio, combines them into reusable
 sets and profiles, and compiles those selections against the exact CHIRP driver and
 capabilities detected from a radio image.
@@ -95,7 +96,7 @@ between RigManifest and CHIRP.
 - [Getting Started](docs/getting-started.md) — install, import a radio, compile, and export
 - [User Guide](docs/user-guide.md) — page-by-page workflows with screenshots
 - [Core Concepts](docs/concepts.md) — definitions, sets, profiles, banks, and images
-- [Product Vision](docs/product-vision.md) — the problem and long-term direction
+- [Project Vision](docs/project-vision.md) — the problem and long-term direction
 - [Architecture](docs/architecture.md) — desktop, compiler, persistence, and updater boundaries
 - [CHIRP Integration](docs/chirp-integration.md) — driver, image, validation, and export strategy
 - [Domain Model](docs/domain-model.md) — canonical entities and invariants

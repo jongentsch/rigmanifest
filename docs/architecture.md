@@ -11,7 +11,7 @@ The architecture should:
 - allow a future hosted/client-side UI without rewriting compiler semantics
 - avoid premature distributed-system complexity
 
-## Product boundary
+## Project scope
 
 RigManifest is the intent and configuration-management frontend for CHIRP. The core
 must make reusable definitions, set selection, multi-radio maintenance, and compiler
