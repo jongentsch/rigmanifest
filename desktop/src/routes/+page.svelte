@@ -10,6 +10,10 @@
     Diagnostic,
   } from "$lib/types";
 
+  type ThemePreference = "dark" | "light" | "system";
+
+  const themeStorageKey = "rigmanifest-theme";
+
   let profileId = $state("home");
   let targetId = $state("yaesu-vx6r");
   let plan = $state<CompileResult | null>(null);
@@ -17,10 +21,52 @@
   let exporting = $state(false);
   let failure = $state("");
   let exportedPath = $state("");
+  let themePreference = $state<ThemePreference>("dark");
+  let systemTheme: MediaQueryList | null = null;
 
   onMount(() => {
+    const storedTheme = localStorage.getItem(themeStorageKey);
+    if (isThemePreference(storedTheme)) themePreference = storedTheme;
+
+    systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
+    systemTheme.addEventListener("change", handleSystemThemeChange);
+    applyTheme(themePreference);
     void runCompile();
+
+    return () => systemTheme?.removeEventListener("change", handleSystemThemeChange);
   });
+
+  function isThemePreference(value: string | null): value is ThemePreference {
+    return value === "dark" || value === "light" || value === "system";
+  }
+
+  function resolvedTheme(preference: ThemePreference): "dark" | "light" {
+    if (preference !== "system") return preference;
+    return systemTheme?.matches ? "dark" : "light";
+  }
+
+  function applyTheme(preference: ThemePreference): void {
+    const theme = resolvedTheme(preference);
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.themePreference = preference;
+    document.documentElement.style.colorScheme = theme;
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", theme === "dark" ? "#171a1e" : "#f4f1e9");
+  }
+
+  function changeTheme(event: Event): void {
+    const value = (event.currentTarget as HTMLSelectElement).value;
+    if (!isThemePreference(value)) return;
+
+    themePreference = value;
+    localStorage.setItem(themeStorageKey, value);
+    applyTheme(value);
+  }
+
+  function handleSystemThemeChange(): void {
+    if (themePreference === "system") applyTheme("system");
+  }
 
   function errorMessage(error: unknown): string {
     if (typeof error === "string") return error;
@@ -65,15 +111,29 @@
     return `${(frequencyHz / 1_000_000).toFixed(6)} MHz`;
   }
 
+  function offsetSummary(offsetHz: number): string {
+    const sign = offsetHz > 0 ? "+" : "-";
+    return `${sign}${(Math.abs(offsetHz) / 1_000_000).toFixed(3)} MHz`;
+  }
+
   function txSummary(memory: CompiledMemory): string {
     if (memory.transmit_behavior === "same") return "Same as RX";
     if (memory.transmit_behavior === "disabled") return "Disabled";
     if (memory.transmit_behavior === "offset" && memory.offset_hz !== null) {
-      const sign = memory.offset_hz > 0 ? "+" : "−";
-      return `${sign}${(Math.abs(memory.offset_hz) / 1_000_000).toFixed(3)} MHz`;
+      return offsetSummary(memory.offset_hz);
     }
     if (memory.transmit_frequency_hz !== null) return mhz(memory.transmit_frequency_hz);
-    return "—";
+    return "-";
+  }
+
+  function channelTxSummary(channel: ChannelRecord): string {
+    if (channel.transmit_behavior === "same") return "Same as RX";
+    if (channel.transmit_behavior === "disabled") return "Disabled";
+    if (channel.transmit_behavior === "offset" && channel.offset_hz !== null) {
+      return offsetSummary(channel.offset_hz);
+    }
+    if (channel.transmit_frequency_hz !== null) return mhz(channel.transmit_frequency_hz);
+    return "-";
   }
 
   function diagnosticClass(diagnostic: Diagnostic): string {
@@ -99,61 +159,98 @@
   />
 </svelte:head>
 
-<div class="app-shell">
-  <header class="topbar">
-    <div class="brand-mark" aria-hidden="true"><span>RM</span></div>
-    <div class="brand-copy">
-      <p class="eyebrow">Radio configuration compiler</p>
-      <h1>RigManifest</h1>
-    </div>
-    <div class:status-attention={(plan?.summary.errors ?? 0) > 0} class="core-status">
-      <span class="status-dot"></span>
-      {#if busy}
-        Compiling
-      {:else if failure}
-        Core unavailable
-      {:else if (plan?.summary.errors ?? 0) > 0}
-        Review required
-      {:else}
-        Core connected
-      {/if}
-    </div>
-  </header>
-
-  <main>
-    <section class="control-panel" aria-labelledby="compile-heading">
+<div class="workbench-shell">
+  <aside class="app-sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-monogram" aria-hidden="true">RM</div>
       <div>
-        <p class="section-kicker">Compile intent</p>
-        <h2 id="compile-heading">Build a target-specific plan</h2>
-        <p class="section-description">
-          Canonical channels stay unchanged. Target compromises remain visible.
-        </p>
+        <strong>RigManifest</strong>
+        <span>Configuration compiler</span>
       </div>
+    </div>
 
-      <div class="controls">
-        <label>
-          <span>Profile</span>
-          <select bind:value={profileId} disabled={busy || exporting}>
-            <option value="home">Home</option>
-          </select>
-        </label>
-        <label>
-          <span>Target radio</span>
-          <select bind:value={targetId} disabled={busy || exporting}>
-            <option value="yaesu-vx6r">Yaesu VX-6R · USA</option>
-          </select>
-        </label>
-        <button class="button button--primary" onclick={runCompile} disabled={busy || exporting}>
-          {busy ? "Compiling…" : "Compile plan"}
-        </button>
-        <button
-          class="button button--secondary"
-          onclick={exportCsv}
-          disabled={!plan || busy || exporting}
-        >
-          {exporting ? "Exporting…" : "Export CHIRP CSV"}
-        </button>
+    <nav class="sidebar-nav" aria-label="Workspace sections">
+      <a class="active" href="#plan-workspace">
+        <span>Compile plan</span>
+      </a>
+      <a href="#diagnostics">
+        <span>Diagnostics</span>
+        {#if plan}<small>{plan.diagnostics.length}</small>{/if}
+      </a>
+      <a href="#channel-library">
+        <span>Channel library</span>
+        {#if plan}<small>{plan.channel_library.length}</small>{/if}
+      </a>
+    </nav>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="sidebar-connection">
+      <span
+        class:attention={Boolean(failure) || (plan?.summary.errors ?? 0) > 0}
+        class="connection-dot"
+      ></span>
+      <div>
+        <strong>
+          {#if busy}
+            Compiling
+          {:else if failure}
+            Core unavailable
+          {:else if (plan?.summary.errors ?? 0) > 0}
+            Review required
+          {:else}
+            Core connected
+          {/if}
+        </strong>
+        <span>Compiler {plan?.compiler_version ?? "-"}</span>
       </div>
+    </div>
+
+    <label class="theme-control">
+      <span>Appearance</span>
+      <select value={themePreference} onchange={changeTheme} aria-label="Color theme">
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+        <option value="system">System</option>
+      </select>
+    </label>
+  </aside>
+
+  <main class="workspace" id="plan-workspace">
+    <header class="workspace-header">
+      <div>
+        <p class="workspace-kicker">Profile workspace</p>
+        <h1>Home configuration</h1>
+        <p>Compile canonical operator intent for a specific radio.</p>
+      </div>
+      {#if plan}
+        <div class:attention={plan.summary.errors > 0} class="review-status">
+          <span></span>
+          {plan.summary.errors > 0 ? "Review required" : "Ready to export"}
+        </div>
+      {/if}
+    </header>
+
+    <section class="compile-toolbar" aria-label="Compile controls">
+      <label>
+        <span>Profile</span>
+        <select bind:value={profileId} disabled={busy || exporting}>
+          <option value="home">Home</option>
+        </select>
+      </label>
+      <label>
+        <span>Target radio</span>
+        <select bind:value={targetId} disabled={busy || exporting}>
+          <option value="yaesu-vx6r">Yaesu VX-6R - USA</option>
+        </select>
+      </label>
+      <div class="toolbar-spacer"></div>
+      <button class="button button--secondary" onclick={exportCsv} disabled={!plan || busy || exporting}>
+        {exporting ? "Exporting..." : "Export CHIRP CSV"}
+      </button>
+      <button class="button button--primary" onclick={runCompile} disabled={busy || exporting}>
+        {busy ? "Compiling..." : "Compile plan"}
+      </button>
     </section>
 
     {#if failure}
@@ -171,41 +268,30 @@
     {/if}
 
     {#if plan}
-      <section class="summary-grid" aria-label="Compilation summary">
-        <article class="metric-card metric-card--accent">
-          <span>Included</span>
-          <strong>{plan.summary.included}</strong>
-          <small>{plan.capacity.used} of {plan.capacity.capacity} memories</small>
-        </article>
-        <article class="metric-card">
-          <span>Omitted</span>
-          <strong>{plan.summary.omitted}</strong>
-          <small>{plan.capacity.omitted_for_capacity} due to capacity</small>
-        </article>
-        <article class="metric-card metric-card--warning">
-          <span>Warnings</span>
-          <strong>{plan.summary.warnings}</strong>
-          <small>Representable compromises</small>
-        </article>
-        <article class="metric-card metric-card--error">
-          <span>Errors</span>
-          <strong>{plan.summary.errors}</strong>
-          <small>Safety or required intent</small>
-        </article>
-      </section>
+      <div class="compile-summary" aria-label="Compilation summary">
+        <div><strong>{plan.summary.included}</strong><span>Included</span></div>
+        <div><strong>{plan.summary.omitted}</strong><span>Omitted</span></div>
+        <div class:has-issues={plan.summary.warnings > 0}>
+          <strong>{plan.summary.warnings}</strong><span>Warnings</span>
+        </div>
+        <div class:has-errors={plan.summary.errors > 0}>
+          <strong>{plan.summary.errors}</strong><span>Errors</span>
+        </div>
+        <p>Canonical channels remain unchanged; target-specific compromises stay visible.</p>
+      </div>
 
-      <div class="workspace-grid">
-        <section class="panel panel--wide" aria-labelledby="memory-plan-heading">
+      <div class="plan-layout">
+        <section class="workspace-panel memory-panel" aria-labelledby="memory-plan-heading">
           <div class="panel-heading">
             <div>
-              <p class="section-kicker">Compiled output</p>
+              <p class="section-label">Compiled output</p>
               <h2 id="memory-plan-heading">{plan.target.model} memory plan</h2>
             </div>
-            <span class="schema-chip">Schema v{plan.schema_version}</span>
+            <span class="schema-label">Schema v{plan.schema_version}</span>
           </div>
 
           <div class="table-wrap">
-            <table>
+            <table class="data-table">
               <thead>
                 <tr>
                   <th scope="col">Memory</th>
@@ -219,15 +305,15 @@
               <tbody>
                 {#each plan.memories as memory (memory.source_channel_id)}
                   <tr>
-                    <td class="memory-number">{memory.memory_number}</td>
+                    <td class="memory-number">{memory.memory_number.toString().padStart(2, "0")}</td>
                     <td>
                       <strong class="radio-label">{memory.target_name}</strong>
                       <small>{memory.source_channel_id}</small>
                     </td>
                     <td class="frequency">{mhz(memory.receive_frequency_hz)}</td>
                     <td>{txSummary(memory)}</td>
-                    <td><span class="mode-chip">{memory.mode}</span></td>
-                    <td>{memory.bank_assignments.join(", ") || "—"}</td>
+                    <td>{memory.mode}</td>
+                    <td>{memory.bank_assignments.join(", ") || "-"}</td>
                   </tr>
                 {/each}
               </tbody>
@@ -235,13 +321,24 @@
           </div>
         </section>
 
-        <section class="panel diagnostics-panel" aria-labelledby="diagnostics-heading">
+        <aside class="workspace-panel inspector" id="diagnostics" aria-labelledby="inspector-heading">
           <div class="panel-heading">
             <div>
-              <p class="section-kicker">Explainability</p>
-              <h2 id="diagnostics-heading">Diagnostics</h2>
+              <p class="section-label">Target adaptation</p>
+              <h2 id="inspector-heading">Plan inspector</h2>
             </div>
-            <span class="count-chip">{plan.diagnostics.length}</span>
+          </div>
+
+          <dl class="inspector-facts">
+            <div><dt>Memory use</dt><dd>{plan.capacity.used} of {plan.capacity.capacity}</dd></div>
+            <div><dt>Compatible candidates</dt><dd>{plan.capacity.compatible_candidates}</dd></div>
+            <div><dt>Capacity omissions</dt><dd>{plan.capacity.omitted_for_capacity}</dd></div>
+            <div><dt>Target</dt><dd>{plan.target.manufacturer} {plan.target.model}</dd></div>
+          </dl>
+
+          <div class="inspector-section-heading">
+            <h3>Diagnostics</h3>
+            <span>{plan.diagnostics.length}</span>
           </div>
 
           <div class="diagnostic-list">
@@ -252,54 +349,59 @@
                   <code>{diagnostic.code}</code>
                 </div>
                 <p>{diagnostic.message}</p>
-                {#if diagnostic.channel_id}
-                  <small>{diagnostic.channel_id}</small>
-                {/if}
+                {#if diagnostic.channel_id}<small>{diagnostic.channel_id}</small>{/if}
               </article>
             {/each}
           </div>
-        </section>
+        </aside>
       </div>
 
-      <section class="panel library-panel" aria-labelledby="library-heading">
+      <section class="workspace-panel library-panel" id="channel-library" aria-labelledby="library-heading">
         <div class="panel-heading">
           <div>
-            <p class="section-kicker">Source of truth</p>
+            <p class="section-label">Source of truth</p>
             <h2 id="library-heading">Canonical channel library</h2>
           </div>
-          <span class="count-chip">{plan.channel_library.length}</span>
+          <span class="schema-label">{plan.channel_library.length} channels</span>
         </div>
 
-        <div class="channel-grid">
-          {#each plan.channel_library as channel (channel.id)}
-            <article class="channel-card">
-              <div class="channel-card__topline">
-                <span class:outcome-omitted={channelStatus(channel) === "Omitted"} class="outcome-chip">
-                  {channelStatus(channel)}
-                </span>
-                <span class="priority-chip">{channel.priority}</span>
-              </div>
-              <h3>{channel.name}</h3>
-              <p class="frequency">{mhz(channel.receive_frequency_hz)}</p>
-              <div class="tag-list">
-                {#each channel.tags as tag}
-                  <span>{tag}</span>
-                {/each}
-              </div>
-            </article>
-          {/each}
+        <div class="table-wrap">
+          <table class="data-table library-table">
+            <thead>
+              <tr>
+                <th scope="col">Status</th>
+                <th scope="col">Channel</th>
+                <th scope="col">Receive</th>
+                <th scope="col">Transmit intent</th>
+                <th scope="col">Priority</th>
+                <th scope="col">Tags</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each plan.channel_library as channel (channel.id)}
+                <tr>
+                  <td>
+                    <span
+                      class:status--omitted={channelStatus(channel) === "Omitted"}
+                      class="channel-status"
+                    >{channelStatus(channel)}</span>
+                  </td>
+                  <td><strong>{channel.name}</strong><small>{channel.id}</small></td>
+                  <td class="frequency">{mhz(channel.receive_frequency_hz)}</td>
+                  <td>{channelTxSummary(channel)}</td>
+                  <td class="priority">{channel.priority}</td>
+                  <td>{channel.tags.join(", ")}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
         </div>
       </section>
     {:else if busy}
-      <section class="loading-panel" aria-live="polite">
-        <span class="loading-pulse"></span>
-        <p>Compiling the Home profile for the VX-6R…</p>
+      <section class="workspace-panel loading-panel" aria-live="polite">
+        <span class="loading-indicator"></span>
+        <div><strong>Compiling Home</strong><p>Adapting intent for the Yaesu VX-6R.</p></div>
       </section>
     {/if}
   </main>
-
-  <footer>
-    <span>Compiler {plan?.compiler_version ?? "—"}</span>
-    <span>Intent in. Explainable radio plans out.</span>
-  </footer>
 </div>

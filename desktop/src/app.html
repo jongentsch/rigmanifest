@@ -4,7 +4,24 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%sveltekit.assets%/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0b1118" />
+    <meta name="theme-color" content="#171a1e" />
+    <script>
+      (() => {
+        const stored = localStorage.getItem("rigmanifest-theme");
+        const preference = ["dark", "light", "system"].includes(stored ?? "")
+          ? stored
+          : "dark";
+        const theme =
+          preference === "system"
+            ? matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light"
+            : preference;
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.dataset.themePreference = preference;
+        document.documentElement.style.colorScheme = theme;
+      })();
+    </script>
     <title>RigManifest</title>
     %sveltekit.head%
   </head>

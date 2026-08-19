@@ -99,6 +99,8 @@ The first executable slice currently includes:
 - a versioned newline-delimited JSON sidecar boundary
 - a minimal Svelte 5 + Tauri 2 desktop UI for compiling, reviewing diagnostics,
   and exporting CHIRP CSV files
+- a dark-first Modern Workshop interface with persistent Dark, Light, and
+  System appearance modes
 
 Set up the Python project and run its tests:
 

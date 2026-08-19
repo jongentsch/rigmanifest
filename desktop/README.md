@@ -18,6 +18,10 @@ The desktop app uses `<repository>/.venv/Scripts/python.exe` on Windows and
 `<repository>/.venv/bin/python` elsewhere. Set `RIGMANIFEST_PYTHON` to override
 that executable.
 
+The Appearance control in the sidebar supports Dark, Light, and System modes.
+Dark is the first-run default, and the selected preference persists between
+launches.
+
 ## Verification
 
 ```bash
