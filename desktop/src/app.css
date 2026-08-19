@@ -711,6 +711,45 @@ code {
   margin: 0 auto 14px;
 }
 
+.plan-context {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.45fr) minmax(280px, 1fr) minmax(280px, 1.3fr);
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.plan-context label {
+  display: grid;
+  gap: 5px;
+}
+
+.plan-context label > span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.plan-context select {
+  min-height: 36px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  color: var(--text);
+  background: var(--input);
+}
+
+.plan-context p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
 .catalog-summary > div {
   min-width: 120px;
   padding: 12px 14px;

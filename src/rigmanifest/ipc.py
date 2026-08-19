@@ -110,6 +110,7 @@ def catalog_to_dict() -> dict[str, Any]:
                 "id": profile.id,
                 "name": profile.name,
                 "frequency_set_ids": list(profile.frequency_set_ids),
+                "frequency_plan_id": profile.frequency_plan_id,
             }
             for profile in sorted(BUILTIN_PROFILES.values(), key=lambda item: item.id)
         ],

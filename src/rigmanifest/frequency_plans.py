@@ -217,4 +217,115 @@ ARRL_US_NATIONAL = FrequencyPlan(
 )
 
 
-BUILTIN_FREQUENCY_PLANS = {ARRL_US_NATIONAL.id: ARRL_US_NATIONAL}
+KANSAS_REPEATER_COUNCIL = FrequencyPlan(
+    id="kansas-repeater-council",
+    name="Kansas Repeater Council",
+    jurisdiction="Kansas",
+    authority_tier=AuthorityTier.REGIONAL_COORDINATOR,
+    reviewed_at="2026-08-19",
+    source_label="Kansas repeater frequency-use plans",
+    source_url="https://kansasrepeater.org/kansas-70-cm-repeater-frequency-use-plan/",
+    segments=(
+        FrequencyPlanSegment(
+            "kansas-2m-output-low",
+            "Kansas 2 m repeater outputs (145 MHz)",
+            145_110_000,
+            145_490_000,
+            PlanUse.REPEATER_OUTPUT,
+            suggested_offset_hz=-600_000,
+            raster_anchor_hz=145_110_000,
+            raster_spacing_hz=20_000,
+        ),
+        FrequencyPlanSegment(
+            "kansas-2m-output-mid",
+            "Kansas 2 m repeater outputs (146 MHz)",
+            146_610_000,
+            146_985_000,
+            PlanUse.REPEATER_OUTPUT,
+            suggested_offset_hz=-600_000,
+            raster_anchor_hz=146_610_000,
+            raster_spacing_hz=15_000,
+        ),
+        FrequencyPlanSegment(
+            "kansas-2m-output-high",
+            "Kansas 2 m repeater outputs (147 MHz)",
+            147_000_000,
+            147_375_000,
+            PlanUse.REPEATER_OUTPUT,
+            suggested_offset_hz=600_000,
+            raster_anchor_hz=147_000_000,
+            raster_spacing_hz=15_000,
+        ),
+        FrequencyPlanSegment(
+            "kansas-70cm-output",
+            "Kansas 70 cm repeater outputs",
+            442_000_000,
+            444_975_000,
+            PlanUse.REPEATER_OUTPUT,
+            suggested_offset_hz=5_000_000,
+            raster_anchor_hz=442_000_000,
+            raster_spacing_hz=25_000,
+            notes="The coordinator publishes explicit input/output pairs; verify the selected pair.",
+        ),
+    ),
+)
+
+
+SOUTHERN_NEVADA_REPEATER_COUNCIL = FrequencyPlan(
+    id="southern-nevada-repeater-council",
+    name="Southern Nevada Repeater Council",
+    jurisdiction="Southern Nevada",
+    authority_tier=AuthorityTier.REGIONAL_COORDINATOR,
+    reviewed_at="2026-08-19",
+    source_label="Southern Nevada VHF/UHF band plan",
+    source_url="https://snrc.us/band-plan/",
+    segments=(
+        FrequencyPlanSegment(
+            "snrc-2m-output-mid",
+            "Southern Nevada 2 m repeater outputs (146 MHz)",
+            146_610_000,
+            146_970_000,
+            PlanUse.REPEATER_OUTPUT,
+            suggested_offset_hz=-600_000,
+            raster_anchor_hz=146_610_000,
+            raster_spacing_hz=20_000,
+        ),
+        FrequencyPlanSegment(
+            "snrc-2m-output-147000",
+            "Southern Nevada 2 m repeater output 147.000",
+            147_000_000,
+            147_000_000,
+            PlanUse.REPEATER_OUTPUT,
+            suggested_offset_hz=-600_000,
+            raster_anchor_hz=147_000_000,
+            raster_spacing_hz=20_000,
+        ),
+        FrequencyPlanSegment(
+            "snrc-2m-output-high",
+            "Southern Nevada 2 m repeater outputs above 147 MHz",
+            147_020_000,
+            147_380_000,
+            PlanUse.REPEATER_OUTPUT,
+            suggested_offset_hz=600_000,
+            raster_anchor_hz=147_020_000,
+            raster_spacing_hz=20_000,
+        ),
+        FrequencyPlanSegment(
+            "snrc-70cm-output",
+            "Southern Nevada 70 cm repeater outputs",
+            447_000_000,
+            450_000_000,
+            PlanUse.REPEATER_OUTPUT,
+            suggested_offset_hz=-5_000_000,
+            raster_anchor_hz=447_000_000,
+            raster_spacing_hz=25_000,
+        ),
+    ),
+)
+
+
+BUILTIN_FREQUENCY_PLANS = {
+    ARRL_US_NATIONAL.id: ARRL_US_NATIONAL,
+    KANSAS_REPEATER_COUNCIL.id: KANSAS_REPEATER_COUNCIL,
+    SOUTHERN_NEVADA_REPEATER_COUNCIL.id: SOUTHERN_NEVADA_REPEATER_COUNCIL,
+}

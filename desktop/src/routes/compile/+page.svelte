@@ -3,6 +3,7 @@
 
   import { chooseCsvOutputPath, compileProfile, loadCatalog } from "$lib/api";
   import { memoryTxSummary, mhz } from "$lib/format";
+  import { loadPlanPreference, savePlanPreference } from "$lib/plan-preferences";
   import { loadRadioInventory } from "$lib/radios";
   import type {
     CompileConfiguration,
@@ -15,6 +16,7 @@
   let catalog = $state<WorkspaceCatalog | null>(null);
   let radios = $state<RadioInstance[]>([]);
   let profileId = $state("home");
+  let selectedPlanId = $state("arrl-us-national");
   let radioId = $state("");
   let selectedSetIds = $state<string[]>([]);
   let useFactorySets = $state(true);
@@ -35,6 +37,7 @@
       radios = loadRadioInventory();
       radioId = radios[0]?.id ?? "";
       const profile = catalog.profiles.find((item) => item.id === profileId);
+      if (profile) selectedPlanId = loadPlanPreference(profile);
       const availableSetIds = new Set(catalog.frequency_sets.map((item) => item.id));
       selectedSetIds = (profile?.frequency_set_ids ?? []).filter((item) =>
         availableSetIds.has(item),
@@ -111,6 +114,7 @@
 
   function resetProfileSets(): void {
     const profile = catalog?.profiles.find((item) => item.id === profileId);
+    if (profile) selectedPlanId = loadPlanPreference(profile);
     const availableSetIds = new Set(
       catalog?.frequency_sets.map((item) => item.id) ?? [],
     );
@@ -118,6 +122,11 @@
       availableSetIds.has(item),
     );
     plan = null;
+  }
+
+  function selectPlan(nextPlanId: string): void {
+    selectedPlanId = nextPlanId;
+    savePlanPreference(profileId, nextPlanId);
   }
 
   function isFactorySet(setId: string): string | null {
@@ -171,6 +180,12 @@
       <span>My radio</span>
       <select bind:value={radioId} disabled={busy || exporting}>
         {#each radios as radio}<option value={radio.id}>{radio.name}</option>{/each}
+      </select>
+    </label>
+    <label>
+      <span>Plan advice</span>
+      <select value={selectedPlanId} onchange={(event) => selectPlan(event.currentTarget.value)} disabled={busy || exporting}>
+        {#each catalog?.frequency_plans ?? [] as frequencyPlan}<option value={frequencyPlan.id}>{frequencyPlan.name}</option>{/each}
       </select>
     </label>
     <div class="toolbar-spacer"></div>

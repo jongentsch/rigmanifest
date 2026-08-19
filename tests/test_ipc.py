@@ -54,6 +54,7 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
             "id": "home",
             "name": "Home",
             "frequency_set_ids": ["home-essentials", "us-noaa-weather"],
+            "frequency_plan_id": "arrl-us-national",
         }
     ]
     assert [item["id"] for item in result["radio_models"]] == [
@@ -77,6 +78,11 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
     assert result["frequency_plans"][0]["source_url"] == (
         "https://www.arrl.org/band-plan"
     )
+    assert [plan["id"] for plan in result["frequency_plans"]] == [
+        "arrl-us-national",
+        "kansas-repeater-council",
+        "southern-nevada-repeater-council",
+    ]
     two_meter = next(
         segment
         for segment in result["frequency_plans"][0]["segments"]

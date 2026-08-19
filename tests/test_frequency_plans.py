@@ -8,6 +8,8 @@ from rigmanifest.frequency_plans import (
     FrequencyPlan,
     FrequencyPlanSegment,
     PlanUse,
+    KANSAS_REPEATER_COUNCIL,
+    SOUTHERN_NEVADA_REPEATER_COUNCIL,
 )
 
 
@@ -39,6 +41,25 @@ def test_segment_without_raster_returns_unknown_rather_than_invalid() -> None:
 
     assert segment is not None
     assert segment.is_on_raster(146_910_000) is None
+
+
+def test_regional_plans_preserve_conflicting_seventy_centimeter_conventions() -> None:
+    kansas = KANSAS_REPEATER_COUNCIL.matching_segment(444_500_000)
+    nevada = SOUTHERN_NEVADA_REPEATER_COUNCIL.matching_segment(447_500_000)
+
+    assert kansas is not None and kansas.suggested_offset_hz == 5_000_000
+    assert kansas.is_on_raster(444_500_000) is True
+    assert nevada is not None and nevada.suggested_offset_hz == -5_000_000
+    assert nevada.is_on_raster(447_500_000) is True
+    assert kansas.id != nevada.id
+
+
+def test_southern_nevada_treats_exactly_147_mhz_as_the_sign_boundary() -> None:
+    boundary = SOUTHERN_NEVADA_REPEATER_COUNCIL.matching_segment(147_000_000)
+    above = SOUTHERN_NEVADA_REPEATER_COUNCIL.matching_segment(147_020_000)
+
+    assert boundary is not None and boundary.suggested_offset_hz == -600_000
+    assert above is not None and above.suggested_offset_hz == 600_000
 
 
 @pytest.mark.parametrize(

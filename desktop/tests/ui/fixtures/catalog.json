@@ -7,7 +7,8 @@
       "frequency_set_ids": [
         "home-essentials",
         "us-noaa-weather"
-      ]
+      ],
+      "frequency_plan_id": "arrl-us-national"
     }
   ],
   "radio_models": [
@@ -222,6 +223,74 @@
           "suggested_offset_hz": -25000000,
           "raster_anchor_hz": 927125000,
           "raster_spacing_hz": 12500,
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "id": "kansas-repeater-council",
+      "name": "Kansas Repeater Council",
+      "jurisdiction": "Kansas",
+      "authority_tier": "regional-coordinator",
+      "reviewed_at": "2026-08-19",
+      "source_label": "Kansas repeater frequency-use plans",
+      "source_url": "https://kansasrepeater.org/kansas-70-cm-repeater-frequency-use-plan/",
+      "advisory": true,
+      "segments": [
+        {
+          "id": "kansas-2m-output-mid",
+          "name": "Kansas 2 m repeater outputs (146 MHz)",
+          "lower_hz": 146610000,
+          "upper_hz": 146985000,
+          "use": "repeater-output",
+          "suggested_offset_hz": -600000,
+          "raster_anchor_hz": 146610000,
+          "raster_spacing_hz": 15000,
+          "notes": ""
+        },
+        {
+          "id": "kansas-70cm-output",
+          "name": "Kansas 70 cm repeater outputs",
+          "lower_hz": 442000000,
+          "upper_hz": 444975000,
+          "use": "repeater-output",
+          "suggested_offset_hz": 5000000,
+          "raster_anchor_hz": 442000000,
+          "raster_spacing_hz": 25000,
+          "notes": "Verify the selected published pair."
+        }
+      ]
+    },
+    {
+      "id": "southern-nevada-repeater-council",
+      "name": "Southern Nevada Repeater Council",
+      "jurisdiction": "Southern Nevada",
+      "authority_tier": "regional-coordinator",
+      "reviewed_at": "2026-08-19",
+      "source_label": "Southern Nevada VHF/UHF band plan",
+      "source_url": "https://snrc.us/band-plan/",
+      "advisory": true,
+      "segments": [
+        {
+          "id": "snrc-2m-output-mid",
+          "name": "Southern Nevada 2 m repeater outputs (146 MHz)",
+          "lower_hz": 146610000,
+          "upper_hz": 146970000,
+          "use": "repeater-output",
+          "suggested_offset_hz": -600000,
+          "raster_anchor_hz": 146610000,
+          "raster_spacing_hz": 20000,
+          "notes": ""
+        },
+        {
+          "id": "snrc-70cm-output",
+          "name": "Southern Nevada 70 cm repeater outputs",
+          "lower_hz": 447000000,
+          "upper_hz": 450000000,
+          "use": "repeater-output",
+          "suggested_offset_hz": -5000000,
+          "raster_anchor_hz": 447000000,
+          "raster_spacing_hz": 25000,
           "notes": ""
         }
       ]

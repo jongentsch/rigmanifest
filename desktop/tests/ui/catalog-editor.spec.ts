@@ -180,6 +180,29 @@ test("shows preset provenance without making the set editable", async ({ page })
   await expect(page.getByText("Preset definitions cannot be edited.")).toBeVisible();
 });
 
+test("stores regional advice per profile and gives it precedence", async ({ page }) => {
+  await page.goto("/library");
+
+  const plan = page.getByLabel("Frequency-plan advice");
+  await plan.selectOption("kansas-repeater-council");
+  const receive = page.getByLabel("Receive MHz");
+  await receive.fill("444.500000");
+  await receive.press("Tab");
+
+  const suggestion = page.getByLabel("Frequency plan suggestion");
+  await expect(suggestion).toContainText("Kansas 70 cm repeater outputs");
+  await expect(suggestion).toContainText("Suggested offset +5.000 MHz");
+
+  await plan.selectOption("southern-nevada-repeater-council");
+  await receive.fill("447.500000");
+  await receive.press("Tab");
+  await expect(suggestion).toContainText("Southern Nevada 70 cm repeater outputs");
+  await expect(suggestion).toContainText("Suggested offset -5.000 MHz");
+
+  await page.reload();
+  await expect(plan).toHaveValue("southern-nevada-repeater-council");
+});
+
 test("imports a CHIRP CSV into reusable definitions and a set", async ({ page }) => {
   await page.goto("/library");
 

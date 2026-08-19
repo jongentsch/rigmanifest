@@ -346,10 +346,10 @@ other nonchannelized activity merely because a radio happens to tune in fixed st
 
 ## Review questions before implementation
 
-The first implementation decisions are: ARRL national plan only, advisory checking
-only, independent transmit/receive signaling now, and no repeater-directory import
-in this slice. Regional-plan selection remains future work and will use the same
-source/segment schema.
+The implementation is advisory-only, models independent transmit/receive signaling,
+and does not import a repeater directory. Profiles can select ARRL national advice,
+the Kansas Repeater Council plan, or the Southern Nevada Repeater Council plan.
+Regional matches take precedence and the ARRL national plan remains the fallback.
 
 1. Should the first implementation support one selected regional plan per profile,
    or resolve plans from a saved station/location?

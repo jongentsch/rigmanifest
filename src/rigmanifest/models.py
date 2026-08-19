@@ -294,9 +294,10 @@ class Profile:
     id: str
     name: str
     frequency_set_ids: tuple[str, ...]
+    frequency_plan_id: str = "arrl-us-national"
 
     def __post_init__(self) -> None:
-        if not self.id or not self.name:
+        if not self.id or not self.name or not self.frequency_plan_id:
             raise ValueError("profile ID and name are required")
         if not self.frequency_set_ids:
             raise ValueError("profile requires at least one frequency set")

@@ -108,6 +108,7 @@ export interface ProfileRecord {
   id: string;
   name: string;
   frequency_set_ids: string[];
+  frequency_plan_id: string;
 }
 
 export interface FactoryFrequencySetRecord {

@@ -8,6 +8,11 @@
   } from "$lib/api";
   import { saveWorkspaceUserCatalog } from "$lib/catalog";
   import { definitionTxSummary, mhz, offsetSummary } from "$lib/format";
+  import {
+    advicePlans,
+    loadPlanPreference,
+    savePlanPreference,
+  } from "$lib/plan-preferences";
   import type {
     FrequencyDefinitionRecord,
     FrequencyPlanRecord,
@@ -22,6 +27,8 @@
   let catalog = $state<WorkspaceCatalog | null>(null);
   let selectedSetId = $state("");
   let selectedDefinitionId = $state("");
+  let profileId = $state("home");
+  let selectedPlanId = $state("arrl-us-national");
   let existingDefinitionId = $state("");
   let failure = $state("");
   let saved = $state(false);
@@ -47,12 +54,20 @@
     ),
   );
   let planSuggestion = $derived(
-    resolvePlanSuggestion(selectedDefinition, catalog?.frequency_plans ?? []),
+    resolvePlanSuggestion(
+      selectedDefinition,
+      advicePlans(catalog?.frequency_plans ?? [], selectedPlanId),
+    ),
   );
 
   onMount(async () => {
     try {
       catalog = await loadCatalog();
+      const profile = catalog.profiles.find((item) => item.id === profileId) ?? catalog.profiles[0];
+      if (profile) {
+        profileId = profile.id;
+        selectedPlanId = loadPlanPreference(profile);
+      }
       const initialSet =
         catalog.frequency_sets.find((item) => !item.read_only) ??
         catalog.frequency_sets[0] ??
@@ -62,6 +77,17 @@
       failure = errorMessage(error);
     }
   });
+
+  function selectProfile(nextProfileId: string): void {
+    profileId = nextProfileId;
+    const profile = catalog?.profiles.find((item) => item.id === nextProfileId);
+    if (profile) selectedPlanId = loadPlanPreference(profile);
+  }
+
+  function selectPlan(nextPlanId: string): void {
+    selectedPlanId = nextPlanId;
+    savePlanPreference(profileId, nextPlanId);
+  }
 
   function resolveDefinitions(
     frequencySet: FrequencySetRecord | null,
@@ -443,6 +469,21 @@
       <div><strong>Loading frequency catalog</strong><p>Resolving sets and definitions.</p></div>
     </section>
   {:else}
+    <section class="plan-context" aria-label="Frequency plan context">
+      <label>
+        <span>Saved profile</span>
+        <select value={profileId} onchange={(event) => selectProfile(event.currentTarget.value)}>
+          {#each catalog.profiles as profile}<option value={profile.id}>{profile.name}</option>{/each}
+        </select>
+      </label>
+      <label>
+        <span>Frequency-plan advice</span>
+        <select value={selectedPlanId} onchange={(event) => selectPlan(event.currentTarget.value)}>
+          {#each catalog.frequency_plans as frequencyPlan}<option value={frequencyPlan.id}>{frequencyPlan.name} · {frequencyPlan.jurisdiction}</option>{/each}
+        </select>
+      </label>
+      <p>Regional coordinator advice takes precedence; ARRL national advice remains the fallback.</p>
+    </section>
     {#if importFailure}
       <div class="banner banner--error" role="alert"><strong>Import failed.</strong><span>{importFailure}</span></div>
     {:else if importMessage}
