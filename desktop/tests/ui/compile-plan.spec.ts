@@ -77,7 +77,7 @@ test("recompiles and exports through the UI-test adapter", async ({ page }) => {
 test("keeps profiles, the frequency library, and radio inventory on separate pages", async ({ page }) => {
   await page.getByRole("link", { name: "Profiles" }).click();
   await expect(page.getByRole("heading", { name: "Profiles", exact: true }).first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
 
   await page.getByRole("link", { name: "Frequency library" }).click();
   await expect(page.getByRole("heading", { name: "Frequency library" })).toBeVisible();

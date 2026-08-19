@@ -1,4 +1,5 @@
 :root {
+  font-size: 16px;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
@@ -133,14 +134,14 @@ a:focus-visible {
 }
 
 .sidebar-brand strong {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .sidebar-brand span,
 .sidebar-connection span {
   margin-top: 2px;
   color: var(--sidebar-muted);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .sidebar-nav {
@@ -157,7 +158,7 @@ a:focus-visible {
   border-left: 2px solid transparent;
   border-radius: 4px;
   color: #aeb7bd;
-  font-size: 12px;
+  font-size: 0.75rem;
   text-decoration: none;
 }
 
@@ -175,7 +176,7 @@ a:focus-visible {
 .sidebar-nav small {
   min-width: 20px;
   color: var(--sidebar-muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   text-align: right;
 }
 
@@ -193,7 +194,7 @@ a:focus-visible {
 }
 
 .sidebar-connection strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .connection-dot {
@@ -216,7 +217,7 @@ a:focus-visible {
 
 .theme-control > span {
   color: var(--sidebar-muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -230,7 +231,7 @@ a:focus-visible {
   border-radius: 4px;
   color: var(--sidebar-text);
   background: var(--sidebar-raised);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .workspace {
@@ -259,7 +260,7 @@ a:focus-visible {
 
 .workspace-header h1 {
   margin-top: 3px;
-  font-size: 24px;
+  font-size: 1.5rem;
   line-height: 1.25;
   letter-spacing: -0.025em;
 }
@@ -267,13 +268,13 @@ a:focus-visible {
 .workspace-header > div > p:last-child {
   margin-top: 6px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .workspace-kicker,
 .section-label {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 700;
   letter-spacing: 0.11em;
   text-transform: uppercase;
@@ -285,7 +286,7 @@ a:focus-visible {
   gap: 7px;
   margin-top: 5px;
   color: var(--muted-strong);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
 }
 
@@ -319,7 +320,7 @@ a:focus-visible {
 
 .compile-toolbar label > span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 600;
 }
 
@@ -331,7 +332,7 @@ a:focus-visible {
   border-radius: 4px;
   color: var(--text);
   background: var(--input);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .toolbar-spacer {
@@ -343,7 +344,7 @@ a:focus-visible {
   padding: 0 14px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 650;
   cursor: pointer;
 }
@@ -380,7 +381,7 @@ a:focus-visible {
   margin: 12px auto 0;
   padding: 10px 12px;
   border: 1px solid;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .banner span {
@@ -415,13 +416,13 @@ a:focus-visible {
 
 .compile-summary strong {
   font-family: "Cascadia Mono", Consolas, monospace;
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 .compile-summary span,
 .compile-summary p {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .compile-summary .has-issues strong {
@@ -464,13 +465,13 @@ a:focus-visible {
 
 .panel-heading h2 {
   margin-top: 3px;
-  font-size: 15px;
+  font-size: 0.9375rem;
   letter-spacing: -0.01em;
 }
 
 .schema-label {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .table-wrap {
@@ -480,7 +481,7 @@ a:focus-visible {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .data-table th,
@@ -494,7 +495,7 @@ a:focus-visible {
 .data-table th {
   color: var(--muted);
   background: var(--surface-subtle);
-  font-size: 9px;
+  font-size: 0.5625rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -512,7 +513,7 @@ a:focus-visible {
   display: block;
   margin-top: 3px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .memory-number,
@@ -551,12 +552,12 @@ code {
 
 .inspector-facts dt {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .inspector-facts dd {
   margin: 0;
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 650;
   text-align: right;
 }
@@ -569,12 +570,12 @@ code {
 }
 
 .inspector-section-heading h3 {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .inspector-section-heading span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .diagnostic-list {
@@ -609,7 +610,7 @@ code {
 
 .diagnostic-meta span {
   color: var(--muted-strong);
-  font-size: 8px;
+  font-size: 0.5rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -617,12 +618,12 @@ code {
 
 .diagnostic-meta code {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 0.5rem;
 }
 
 .diagnostic p {
   margin-top: 7px;
-  font-size: 10px;
+  font-size: 0.625rem;
   line-height: 1.45;
 }
 
@@ -631,7 +632,7 @@ code {
   margin-top: 5px;
   color: var(--muted);
   font-family: "Cascadia Mono", Consolas, monospace;
-  font-size: 8px;
+  font-size: 0.5rem;
 }
 
 .library-panel {
@@ -655,13 +656,13 @@ code {
 }
 
 .loading-panel strong {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .loading-panel p {
   margin-top: 4px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .loading-indicator {
@@ -722,13 +723,13 @@ code {
 
 .update-toast strong {
   margin-top: 3px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .update-toast small {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .update-toast-actions {
@@ -740,7 +741,7 @@ code {
 
 .update-toast-actions a {
   color: var(--muted-strong);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .settings-layout {
@@ -752,8 +753,41 @@ code {
   align-items: start;
 }
 
+.settings-primary {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
 .settings-content {
   padding: 16px;
+}
+
+.settings-field {
+  display: grid;
+  gap: 6px;
+  max-width: 420px;
+}
+
+.settings-field > span {
+  color: var(--muted);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.settings-field select {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  color: var(--text);
+  background: var(--input);
+}
+
+.settings-field small {
+  color: var(--muted);
+  font-size: 0.625rem;
+  line-height: 1.45;
 }
 
 .settings-facts {
@@ -770,7 +804,7 @@ code {
 
 .settings-facts dt,
 .settings-facts dd {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .settings-facts dt {
@@ -803,13 +837,13 @@ code {
 }
 
 .settings-toggle strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .settings-toggle small {
   margin-top: 4px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   line-height: 1.45;
 }
 
@@ -828,7 +862,7 @@ code {
 .backup-note {
   margin: 6px 0 0;
   color: var(--muted-strong);
-  font-size: 10px;
+  font-size: 0.625rem;
   line-height: 1.55;
   white-space: pre-wrap;
 }
@@ -850,7 +884,7 @@ code {
 .settings-help p {
   margin: 10px 0 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   line-height: 1.55;
 }
 
@@ -864,7 +898,7 @@ code {
   display: block;
   margin-top: 2px;
   color: var(--sidebar-muted);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .catalog-layout,
@@ -890,6 +924,10 @@ code {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.profile-layout .profile-source-grid {
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+}
+
 .profile-source-grid > section {
   min-width: 0;
   padding: 16px;
@@ -897,6 +935,142 @@ code {
 
 .profile-source-grid > section + section {
   border-left: 1px solid var(--border-soft);
+}
+
+.profile-composition {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.profile-composition-group + .profile-composition-group {
+  padding-top: 16px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.profile-selection-list {
+  max-height: 250px;
+}
+
+.profile-preview-note {
+  margin: -2px 0 12px;
+  color: var(--muted);
+  font-size: 0.5625rem;
+  line-height: 1.45;
+}
+
+.profile-bank-list {
+  display: grid;
+  gap: 12px;
+  max-height: 620px;
+  padding-right: 3px;
+  overflow-y: auto;
+}
+
+.profile-bank-group {
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-subtle);
+}
+
+.profile-bank-group > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.profile-bank-group > header span,
+.profile-bank-group > header h4 {
+  display: block;
+  margin: 0;
+}
+
+.profile-bank-group > header span {
+  color: var(--muted);
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.profile-bank-group > header h4 {
+  margin-top: 3px;
+  font-size: 0.6875rem;
+}
+
+.profile-bank-group > header b {
+  color: var(--accent-hover);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.625rem;
+}
+
+.profile-frequency-columns,
+.profile-frequency-row {
+  display: grid;
+  grid-template-columns: 32px minmax(100px, 1fr) auto 34px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+}
+
+.profile-frequency-columns {
+  color: var(--muted);
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.profile-frequency-row {
+  border-top: 1px solid var(--border-soft);
+  font-size: 0.5625rem;
+}
+
+.profile-frequency-row:hover {
+  background: var(--row-hover);
+}
+
+.profile-frequency-row strong,
+.profile-frequency-row small {
+  display: block;
+  min-width: 0;
+}
+
+.profile-frequency-row strong {
+  overflow: hidden;
+  font-size: 0.625rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-frequency-row small {
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.profile-frequency-slot {
+  color: var(--accent-hover);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-weight: 700;
+}
+
+.profile-preview-empty {
+  display: grid;
+  place-content: center;
+  min-height: 260px;
+  padding: 20px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.profile-preview-empty p {
+  max-width: 240px;
+  margin: 6px 0 0;
+  font-size: 0.5625rem;
+  line-height: 1.45;
 }
 
 .subsection-heading {
@@ -914,12 +1088,12 @@ code {
 
 .subsection-heading h3 {
   margin-top: 3px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .subsection-heading > span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .selection-list {
@@ -953,18 +1127,18 @@ code {
 }
 
 .selection-row strong {
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .selection-row small {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .selection-row b {
   color: var(--warning);
-  font-size: 8px;
+  font-size: 0.5rem;
   text-align: right;
 }
 
@@ -976,7 +1150,7 @@ code {
 
 .selection-search span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
   font-weight: 650;
 }
 
@@ -1001,7 +1175,7 @@ code {
 .set-section h3 {
   margin: 0 6px 8px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1042,20 +1216,20 @@ code {
 
 .set-row strong,
 .radio-row strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .set-row small,
 .radio-row small {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .set-row b {
   color: var(--muted);
   font-family: "Cascadia Mono", Consolas, monospace;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .panel-description,
@@ -1063,7 +1237,7 @@ code {
   margin: 0;
   padding: 12px 16px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   line-height: 1.5;
 }
 
@@ -1074,7 +1248,7 @@ code {
   margin: -6px 0 0;
   padding: 0 16px 12px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .preset-source a {
@@ -1104,7 +1278,7 @@ code {
 .set-editor-fields label > span,
 .definition-form label > span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
   font-weight: 650;
 }
 
@@ -1122,7 +1296,7 @@ code {
   color: var(--text);
   background: var(--input);
   font: inherit;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .definition-form textarea {
@@ -1156,7 +1330,7 @@ code {
 
 .plan-suggestion p {
   color: var(--accent-hover);
-  font-size: 8px;
+  font-size: 0.5rem;
   font-weight: 750;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -1164,14 +1338,14 @@ code {
 
 .plan-suggestion strong {
   margin-top: 4px;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .plan-suggestion span,
 .plan-suggestion small {
   margin-top: 4px;
   color: var(--muted-strong);
-  font-size: 9px;
+  font-size: 0.5625rem;
   line-height: 1.45;
 }
 
@@ -1184,7 +1358,7 @@ code {
 
 .plan-suggestion-actions a {
   color: var(--accent-hover);
-  font-size: 9px;
+  font-size: 0.5625rem;
   font-weight: 650;
 }
 
@@ -1229,7 +1403,7 @@ code {
 
 .text-button {
   color: var(--accent-hover);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .designator-input {
@@ -1272,14 +1446,14 @@ code {
 
 .definition-editor-heading h3 {
   margin-top: 3px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .definition-usage {
   display: block;
   margin-top: 5px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .definition-advisory {
@@ -1291,7 +1465,7 @@ code {
 
 .definition-advisory > span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
   font-weight: 700;
 }
 
@@ -1302,7 +1476,7 @@ code {
   border-radius: var(--radius-control);
   color: var(--text);
   background: var(--input);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .definition-facts {
@@ -1327,7 +1501,7 @@ code {
 
 .definition-facts dt,
 .definition-facts dd {
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .definition-facts dt {
@@ -1353,7 +1527,7 @@ code {
 
 .empty-workspace p {
   margin: -120px 0 0;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .record-badge {
@@ -1364,7 +1538,7 @@ code {
   border: 1px solid var(--success);
   border-radius: 999px;
   color: var(--success);
-  font-size: 9px;
+  font-size: 0.5625rem;
   font-weight: 700;
   text-transform: capitalize;
 }
@@ -1372,7 +1546,7 @@ code {
 .record-badge.compact {
   min-height: 20px;
   padding: 0 6px;
-  font-size: 8px;
+  font-size: 0.5rem;
 }
 
 .record-badge.badge--preset {
@@ -1410,7 +1584,7 @@ code {
 
 .form-grid label > span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 650;
 }
 
@@ -1425,7 +1599,7 @@ code {
   color: var(--text);
   background: var(--input);
   font: inherit;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .form-grid textarea {
@@ -1450,7 +1624,7 @@ code {
 
 .model-picker > label span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 650;
 }
 
@@ -1471,7 +1645,7 @@ code {
 .model-picker-results h3 {
   margin: 0 0 5px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1507,12 +1681,12 @@ code {
 .model-picker-results p {
   margin: 3px 0 0;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .model-picker-results b {
   color: var(--accent);
-  font-size: 8px;
+  font-size: 0.5rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -1533,7 +1707,7 @@ code {
 .model-facts span,
 .model-facts strong {
   display: block;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .model-facts span {
@@ -1575,14 +1749,14 @@ code {
 }
 
 .image-version-heading strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .image-kind {
   padding: 3px 6px;
   border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
   color: var(--accent-hover);
-  font-size: 8px;
+  font-size: 0.5rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1596,7 +1770,7 @@ code {
 .image-version-meta {
   margin-top: 7px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .image-version code {
@@ -1604,7 +1778,7 @@ code {
   overflow: hidden;
   margin-top: 8px;
   color: var(--code);
-  font-size: 9px;
+  font-size: 0.5625rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1626,13 +1800,13 @@ code {
 }
 
 .factory-card strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .factory-card small {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .factory-card dl {
@@ -1644,7 +1818,7 @@ code {
 
 .factory-card dt,
 .factory-card dd {
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .factory-card dt {
@@ -1693,7 +1867,7 @@ code {
 .compile-empty p:last-child {
   margin: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .set-picker-grid {
@@ -1725,18 +1899,18 @@ code {
 }
 
 .set-choice strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .set-choice small {
   margin-top: 4px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .set-choice b {
   color: var(--warning);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .compile-options {
@@ -1753,12 +1927,12 @@ code {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .compile-options > span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 .factory-coverage {
@@ -1783,12 +1957,12 @@ code {
 }
 
 .factory-coverage strong {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .factory-coverage small {
   color: var(--muted-strong);
-  font-size: 9px;
+  font-size: 0.5625rem;
 }
 
 @media (max-width: 1120px) {

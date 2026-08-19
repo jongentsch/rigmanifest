@@ -1,5 +1,25 @@
 import { expect, test } from "@playwright/test";
 
+test("previews selected sets as banks and keeps standalone additions unassigned", async ({ page }) => {
+  await page.goto("/profiles");
+
+  const preview = page.getByRole("region", { name: "Prospective banks" });
+  const homeBank = preview.getByRole("region", { name: "Home essentials frequency group" });
+  const weatherBank = preview.getByRole("region", { name: "US NOAA Weather Broadcasts frequency group" });
+  await expect(homeBank).toContainText("Bank from set");
+  await expect(homeBank).toContainText("2m Calling");
+  await expect(homeBank).toContainText("146.520000 MHz");
+  await expect(weatherBank).toContainText("NOAA Weather 1");
+
+  await page.getByRole("checkbox", { name: /^NOAA Weather 1 / }).check();
+  await page.getByRole("checkbox", { name: /US NOAA Weather Broadcasts/ }).uncheck();
+
+  const additions = preview.getByRole("region", { name: "Individual definitions frequency group" });
+  await expect(additions).toContainText("Unassigned additions");
+  await expect(additions).toContainText("NOAA Weather 1");
+  await expect(weatherBank).toHaveCount(0);
+});
+
 test("persists reusable profile composition and submits multiple profiles", async ({ page }) => {
   await page.goto("/profiles");
   await page.getByRole("button", { name: "Add profile" }).click();

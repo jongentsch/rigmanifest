@@ -6,7 +6,24 @@
     loadDefaultFrequencyPlan,
     saveProfiles,
   } from "$lib/api";
-  import type { ProfileRecord, WorkspaceCatalog } from "$lib/types";
+  import { definitionTxSummary, mhz } from "$lib/format";
+  import type {
+    FrequencyDefinitionRecord,
+    ProfileRecord,
+    WorkspaceCatalog,
+  } from "$lib/types";
+
+  type ProfileBankPreviewMember = {
+    definition: FrequencyDefinitionRecord;
+    designation: string;
+  };
+
+  type ProfileBankPreviewGroup = {
+    id: string;
+    name: string;
+    assignment: "Bank from set" | "Unassigned additions";
+    members: ProfileBankPreviewMember[];
+  };
 
   let catalog = $state<WorkspaceCatalog | null>(null);
   let profiles = $state<ProfileRecord[]>([]);
@@ -24,6 +41,7 @@
       return !query || `${definition.name} ${definition.receive_frequency_hz}`.toLocaleLowerCase().includes(query);
     }),
   );
+  let bankPreview = $derived(resolveBankPreview(selectedProfile, catalog));
 
   onMount(async () => {
     try {
@@ -75,6 +93,57 @@
         ? [...selectedProfile.frequency_definition_ids, definitionId]
         : selectedProfile.frequency_definition_ids.filter((id) => id !== definitionId),
     });
+  }
+
+  function resolveBankPreview(
+    profile: ProfileRecord | null,
+    workspace: WorkspaceCatalog | null,
+  ): ProfileBankPreviewGroup[] {
+    if (!profile || !workspace) return [];
+
+    const definitions = new Map(
+      workspace.frequency_definitions.map((definition) => [definition.id, definition]),
+    );
+    const sets = new Map(
+      workspace.frequency_sets.map((frequencySet) => [frequencySet.id, frequencySet]),
+    );
+    const assignedDefinitionIds = new Set<string>();
+    const groups: ProfileBankPreviewGroup[] = profile.frequency_set_ids.flatMap((setId) => {
+      const frequencySet = sets.get(setId);
+      if (!frequencySet) return [];
+      const members = [...frequencySet.members]
+        .sort((left, right) => left.position - right.position)
+        .flatMap((member, index) => {
+          const definition = definitions.get(member.frequency_definition_id);
+          if (!definition) return [];
+          assignedDefinitionIds.add(definition.id);
+          return [{
+            definition,
+            designation: member.channel_designator ?? String(index + 1),
+          }];
+        });
+      return [{
+        id: frequencySet.id,
+        name: frequencySet.name,
+        assignment: "Bank from set" as const,
+        members,
+      }];
+    });
+
+    const additions = profile.frequency_definition_ids.flatMap((definitionId) => {
+      if (assignedDefinitionIds.has(definitionId)) return [];
+      const definition = definitions.get(definitionId);
+      return definition ? [{ definition, designation: "—" }] : [];
+    });
+    if (additions.length > 0) {
+      groups.push({
+        id: "profile-additions",
+        name: "Individual definitions",
+        assignment: "Unassigned additions",
+        members: additions,
+      });
+    }
+    return groups;
   }
 
   function deleteProfile(): void {
@@ -147,21 +216,57 @@
           </div>
 
           <div class="profile-source-grid">
-            <section aria-labelledby="profile-sets-heading">
-              <div class="subsection-heading"><div><p class="section-label">Reusable groups</p><h3 id="profile-sets-heading">Frequency sets</h3></div><span>{selectedProfile.frequency_set_ids.length} selected</span></div>
-              <div class="selection-list">
-                {#each catalog.frequency_sets as frequencySet (frequencySet.id)}
-                  <label class="selection-row"><input type="checkbox" checked={selectedProfile.frequency_set_ids.includes(frequencySet.id)} onchange={(event) => toggleSet(frequencySet.id, event.currentTarget.checked)} /><span><strong>{frequencySet.name}</strong><small>{frequencySet.members.length} definitions · {frequencySet.read_only ? "Preset" : "My set"}</small></span></label>
-                {/each}
+            <section class="profile-composition" aria-label="Profile composition">
+              <div class="profile-composition-group" aria-labelledby="profile-sets-heading">
+                <div class="subsection-heading"><div><p class="section-label">Reusable groups</p><h3 id="profile-sets-heading">Frequency sets</h3></div><span>{selectedProfile.frequency_set_ids.length} selected</span></div>
+                <div class="selection-list profile-selection-list">
+                  {#each catalog.frequency_sets as frequencySet (frequencySet.id)}
+                    <label class="selection-row"><input type="checkbox" checked={selectedProfile.frequency_set_ids.includes(frequencySet.id)} onchange={(event) => toggleSet(frequencySet.id, event.currentTarget.checked)} /><span><strong>{frequencySet.name}</strong><small>{frequencySet.members.length} definitions · {frequencySet.read_only ? "Preset" : "My set"}</small></span></label>
+                  {/each}
+                </div>
+              </div>
+
+              <div class="profile-composition-group" aria-labelledby="profile-definitions-heading">
+                <div class="subsection-heading"><div><p class="section-label">Profile-specific additions</p><h3 id="profile-definitions-heading">Individual definitions</h3></div><span>{selectedProfile.frequency_definition_ids.length} selected</span></div>
+                <label class="selection-search"><span>Find a definition</span><input bind:value={definitionSearch} placeholder="Name or frequency" /></label>
+                <div class="selection-list profile-selection-list">
+                  {#each filteredDefinitions as definition (definition.id)}
+                    <label class="selection-row"><input type="checkbox" checked={selectedProfile.frequency_definition_ids.includes(definition.id)} onchange={(event) => toggleDefinition(definition.id, event.currentTarget.checked)} /><span><strong>{definition.name}</strong><small>{(definition.receive_frequency_hz / 1_000_000).toFixed(6)} MHz · {definition.read_only ? "Preset" : "User"}</small></span></label>
+                  {/each}
+                </div>
               </div>
             </section>
 
-            <section aria-labelledby="profile-definitions-heading">
-              <div class="subsection-heading"><div><p class="section-label">Profile-specific additions</p><h3 id="profile-definitions-heading">Individual definitions</h3></div><span>{selectedProfile.frequency_definition_ids.length} selected</span></div>
-              <label class="selection-search"><span>Find a definition</span><input bind:value={definitionSearch} placeholder="Name or frequency" /></label>
-              <div class="selection-list">
-                {#each filteredDefinitions as definition (definition.id)}
-                  <label class="selection-row"><input type="checkbox" checked={selectedProfile.frequency_definition_ids.includes(definition.id)} onchange={(event) => toggleDefinition(definition.id, event.currentTarget.checked)} /><span><strong>{definition.name}</strong><small>{(definition.receive_frequency_hz / 1_000_000).toFixed(6)} MHz · {definition.read_only ? "Preset" : "User"}</small></span></label>
+            <section class="profile-bank-preview" aria-labelledby="profile-bank-preview-heading">
+              <div class="subsection-heading">
+                <div><p class="section-label">Set-based preview</p><h3 id="profile-bank-preview-heading">Prospective banks</h3></div>
+              </div>
+              <p class="profile-preview-note">This is profile intent, not a compiled radio plan. Radio limits and final bank behavior are applied during compilation.</p>
+              <div class="profile-bank-list">
+                {#each bankPreview as group (group.id)}
+                  <section class="profile-bank-group" aria-label={`${group.name} frequency group`}>
+                    <header>
+                      <div><span>{group.assignment}</span><h4>{group.name}</h4></div>
+                      <b>{group.members.length}</b>
+                    </header>
+                    <div class="profile-frequency-list" role="table" aria-label={`${group.name} frequencies`}>
+                      <div class="profile-frequency-columns" role="row">
+                        <span role="columnheader">Slot</span><span role="columnheader">Frequency</span><span role="columnheader">Receive</span><span role="columnheader">Mode</span>
+                      </div>
+                      {#each group.members as member (member.definition.id)}
+                        <div class="profile-frequency-row" role="row">
+                          <span class="profile-frequency-slot" role="cell">{member.designation}</span>
+                          <span role="cell"><strong>{member.definition.name}</strong><small>{definitionTxSummary(member.definition)}</small></span>
+                          <span class="frequency" role="cell">{mhz(member.definition.receive_frequency_hz)}</span>
+                          <span role="cell">{member.definition.mode}</span>
+                        </div>
+                      {:else}
+                        <p class="empty-copy">This set has no frequency definitions.</p>
+                      {/each}
+                    </div>
+                  </section>
+                {:else}
+                  <div class="profile-preview-empty"><strong>No frequencies selected</strong><p>Choose sets or individual definitions to preview this profile.</p></div>
                 {/each}
               </div>
             </section>

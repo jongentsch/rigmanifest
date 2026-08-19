@@ -2,6 +2,14 @@
   import { onMount } from "svelte";
 
   import {
+    applyTextScale,
+    loadTextScale,
+    saveTextScale,
+    textScaleOptions,
+    type TextScale,
+  } from "$lib/appearance";
+
+  import {
     automaticUpdateChecksEnabled,
     checkForUpdates,
     currentUpdateSnapshot,
@@ -16,8 +24,11 @@
 
   let updateState = $state<UpdateSnapshot>(currentUpdateSnapshot());
   let automaticChecks = $state(true);
+  let textScale = $state<TextScale>("1");
 
   onMount(() => {
+    textScale = loadTextScale();
+    applyTextScale(textScale);
     automaticChecks = automaticUpdateChecksEnabled();
     const unsubscribe = subscribeToUpdates((next) => updateState = next);
     void initializeUpdates().catch(() => undefined);
@@ -27,6 +38,11 @@
   function changeAutomaticChecks(event: Event): void {
     automaticChecks = (event.currentTarget as HTMLInputElement).checked;
     setAutomaticUpdateChecks(automaticChecks);
+  }
+
+  function changeTextScale(event: Event): void {
+    textScale = (event.currentTarget as HTMLSelectElement).value as TextScale;
+    saveTextScale(textScale);
   }
 
   function channelName(channel: DistributionChannel): string {
@@ -71,7 +87,26 @@
   </header>
 
   <div class="settings-layout">
-    <section class="workspace-panel settings-panel" aria-labelledby="updates-heading">
+    <div class="settings-primary">
+      <section class="workspace-panel settings-panel" aria-labelledby="appearance-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="section-label">Readability</p>
+            <h2 id="appearance-heading">Appearance</h2>
+          </div>
+        </div>
+        <div class="settings-content">
+          <label class="settings-field">
+            <span>Text scale</span>
+            <select aria-label="Text scale" aria-describedby="text-scale-description" value={textScale} onchange={changeTextScale}>
+              {#each textScaleOptions as option}<option value={option.value}>{option.label}</option>{/each}
+            </select>
+            <small id="text-scale-description">Scales all interface text while preserving the existing size hierarchy.</small>
+          </label>
+        </div>
+      </section>
+
+      <section class="workspace-panel settings-panel" aria-labelledby="updates-heading">
       <div class="panel-heading">
         <div>
           <p class="section-label">GitHub Releases</p>
@@ -119,7 +154,8 @@
           {/if}
         </div>
       </div>
-    </section>
+      </section>
+    </div>
 
     <aside class="workspace-panel settings-help" aria-label="Update information">
       <div class="panel-heading"><h2>How updates work</h2></div>

@@ -2,6 +2,8 @@
   import { page } from "$app/state";
   import { onMount } from "svelte";
 
+  import { applyTextScale, loadTextScale } from "$lib/appearance";
+
   import {
     automaticCheckIsDue,
     automaticUpdateChecksEnabled,
@@ -32,6 +34,7 @@
     systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
     systemTheme.addEventListener("change", handleSystemThemeChange);
     applyTheme(themePreference);
+    applyTextScale(loadTextScale());
 
     const unsubscribeUpdates = subscribeToUpdates((next) => updateState = next);
     void initializeUpdates()
