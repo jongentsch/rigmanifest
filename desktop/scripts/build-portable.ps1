@@ -60,13 +60,33 @@ $builtSidecar = Join-Path $sidecarDist "rigmanifest-sidecar$extension"
 $tauriSidecar = Join-Path $binaryDirectory "rigmanifest-sidecar-$targetTriple$extension"
 Copy-Item -LiteralPath $builtSidecar -Destination $tauriSidecar -Force
 
-$smokeResponse = '{"id":"portable-smoke","method":"catalog"}' | & $tauriSidecar
-if ($LASTEXITCODE -ne 0) {
-    throw "Frozen sidecar smoke test failed with exit code $LASTEXITCODE."
+$smokeStartInfo = New-Object System.Diagnostics.ProcessStartInfo
+$smokeStartInfo.FileName = $tauriSidecar
+$smokeStartInfo.Arguments = "--once"
+$smokeStartInfo.UseShellExecute = $false
+$smokeStartInfo.CreateNoWindow = $true
+$smokeStartInfo.RedirectStandardInput = $true
+$smokeStartInfo.RedirectStandardOutput = $true
+$smokeStartInfo.RedirectStandardError = $true
+$smokeProcess = New-Object System.Diagnostics.Process
+$smokeProcess.StartInfo = $smokeStartInfo
+[void]$smokeProcess.Start()
+$smokeProcess.StandardInput.WriteLine('{"id":"portable-smoke","method":"catalog"}')
+$smokeProcess.StandardInput.Close()
+$smokeResponse = $smokeProcess.StandardOutput.ReadToEnd()
+$smokeError = $smokeProcess.StandardError.ReadToEnd()
+$smokeProcess.WaitForExit()
+if ($smokeProcess.ExitCode -ne 0) {
+    throw "Frozen sidecar smoke test failed with exit code $($smokeProcess.ExitCode): $smokeError"
 }
-$smokePayload = $smokeResponse | ConvertFrom-Json
+try {
+    $smokePayload = $smokeResponse | ConvertFrom-Json -ErrorAction Stop
+}
+catch {
+    throw "Frozen sidecar smoke test returned invalid JSON: $smokeResponse"
+}
 if ($smokePayload.id -ne "portable-smoke" -or -not $smokePayload.result.schema_version) {
-    throw "Frozen sidecar smoke test returned an invalid response."
+    throw "Frozen sidecar smoke test returned an invalid response: $smokeResponse"
 }
 
 Write-Host "Portable sidecar ready: $tauriSidecar"
