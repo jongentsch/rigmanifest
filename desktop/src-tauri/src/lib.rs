@@ -96,6 +96,7 @@ fn invoke_python(request: Value) -> Result<Value, String> {
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // Tauri exposes command parameters by name to TypeScript.
 fn compile_profile(
     profile: String,
     target: String,
