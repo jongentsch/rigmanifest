@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { save } from "@tauri-apps/plugin-dialog";
 
-  import { compileProfile } from "$lib/api";
+  import { chooseCsvOutputPath, compileProfile } from "$lib/api";
   import type {
     ChannelRecord,
     CompileResult,
@@ -89,11 +88,7 @@
 
   async function exportCsv(): Promise<void> {
     failure = "";
-    const outputPath = await save({
-      title: "Export CHIRP CSV",
-      defaultPath: `${profileId}-${targetId}.csv`,
-      filters: [{ name: "CHIRP CSV", extensions: ["csv"] }],
-    });
+    const outputPath = await chooseCsvOutputPath(profileId, targetId);
     if (!outputPath) return;
 
     exporting = true;
@@ -341,7 +336,13 @@
             <span>{plan.diagnostics.length}</span>
           </div>
 
-          <div class="diagnostic-list">
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex (Scrollable diagnostics need keyboard access.) -->
+          <div
+            class="diagnostic-list"
+            role="region"
+            aria-label="Compilation diagnostics"
+            tabindex="0"
+          >
             {#each plan.diagnostics as diagnostic, index (`${diagnostic.code}-${diagnostic.channel_id}-${index}`)}
               <article class={diagnosticClass(diagnostic)}>
                 <div class="diagnostic-meta">

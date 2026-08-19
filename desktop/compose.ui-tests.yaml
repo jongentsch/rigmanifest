@@ -1,0 +1,9 @@
+services:
+  ui-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui-tests
+    init: true
+    ipc: host
+    volumes:
+      - ./tests/ui:/work/desktop/tests/ui

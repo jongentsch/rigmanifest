@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "compiler_version": "0.1.0",
+  "profile": { "id": "home", "name": "Home" },
+  "target": {
+    "id": "yaesu-vx6r",
+    "manufacturer": "Yaesu",
+    "model": "VX-6R (USA)"
+  },
+  "summary": { "included": 3, "omitted": 1, "warnings": 3, "errors": 1 },
+  "capacity": {
+    "capacity": 900,
+    "compatible_candidates": 3,
+    "used": 3,
+    "omitted_for_capacity": 0
+  },
+  "memories": [
+    {
+      "source_channel_id": "simplex-calling-2m",
+      "memory_number": 1,
+      "target_name": "2M CAL",
+      "receive_frequency_hz": 146520000,
+      "transmit_behavior": "same",
+      "transmit_frequency_hz": 146520000,
+      "offset_hz": null,
+      "mode": "FM",
+      "tone": {
+        "mode": "none",
+        "encode_hz": null,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "bank_assignments": ["simplex"],
+      "applied_transformations": [
+        "LABEL_CHARACTERS_NORMALIZED",
+        "LABEL_TRUNCATED"
+      ]
+    },
+    {
+      "source_channel_id": "local-2m-repeater",
+      "memory_number": 2,
+      "target_name": "2M LOC",
+      "receive_frequency_hz": 146910000,
+      "transmit_behavior": "offset",
+      "transmit_frequency_hz": 146310000,
+      "offset_hz": -600000,
+      "mode": "FM",
+      "tone": {
+        "mode": "tone",
+        "encode_hz": 100,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "bank_assignments": ["local-repeaters"],
+      "applied_transformations": [
+        "LABEL_CHARACTERS_NORMALIZED",
+        "LABEL_TRUNCATED"
+      ]
+    },
+    {
+      "source_channel_id": "local-70cm-repeater",
+      "memory_number": 3,
+      "target_name": "70CM L",
+      "receive_frequency_hz": 444500000,
+      "transmit_behavior": "offset",
+      "transmit_frequency_hz": 449500000,
+      "offset_hz": 5000000,
+      "mode": "FM",
+      "tone": {
+        "mode": "tone",
+        "encode_hz": 100,
+        "decode_hz": null,
+        "dtcs_code": null,
+        "dtcs_polarity": "NN"
+      },
+      "bank_assignments": ["local-repeaters"],
+      "applied_transformations": [
+        "LABEL_CHARACTERS_NORMALIZED",
+        "LABEL_TRUNCATED"
+      ]
+    }
+  ],
+  "omitted_channels": [
+    { "channel_id": "noaa-weather-1", "reason": "TX_DISABLE_NOT_REPRESENTABLE" }
+  ],
+  "diagnostics": [
+    {
+      "code": "LABEL_CHARACTERS_NORMALIZED",
+      "severity": "info",
+      "channel_id": "local-2m-repeater",
+      "message": "2m Local Repeater was normalized for VX-6R (USA)",
+      "details": { "normalized": "2M LOCAL REPEATER", "original": "2m Local Repeater" }
+    },
+    {
+      "code": "LABEL_TRUNCATED",
+      "severity": "warning",
+      "channel_id": "local-2m-repeater",
+      "message": "2m Local Repeater was shortened to 2M LOC",
+      "details": { "compiled": "2M LOC", "original": "2m Local Repeater" }
+    },
+    {
+      "code": "LABEL_CHARACTERS_NORMALIZED",
+      "severity": "info",
+      "channel_id": "local-70cm-repeater",
+      "message": "70cm Local Repeater was normalized for VX-6R (USA)",
+      "details": { "normalized": "70CM LOCAL REPEATER", "original": "70cm Local Repeater" }
+    },
+    {
+      "code": "LABEL_TRUNCATED",
+      "severity": "warning",
+      "channel_id": "local-70cm-repeater",
+      "message": "70cm Local Repeater was shortened to 70CM L",
+      "details": { "compiled": "70CM L", "original": "70cm Local Repeater" }
+    },
+    {
+      "code": "TX_DISABLE_NOT_REPRESENTABLE",
+      "severity": "error",
+      "channel_id": "noaa-weather-1",
+      "message": "VX-6R (USA) cannot safely represent transmit-disabled intent for NOAA Weather 1",
+      "details": {}
+    },
+    {
+      "code": "LABEL_CHARACTERS_NORMALIZED",
+      "severity": "info",
+      "channel_id": "simplex-calling-2m",
+      "message": "2m Calling was normalized for VX-6R (USA)",
+      "details": { "normalized": "2M CALLING", "original": "2m Calling" }
+    },
+    {
+      "code": "LABEL_TRUNCATED",
+      "severity": "warning",
+      "channel_id": "simplex-calling-2m",
+      "message": "2m Calling was shortened to 2M CAL",
+      "details": { "compiled": "2M CAL", "original": "2m Calling" }
+    }
+  ],
+  "channel_library": [
+    {
+      "id": "local-2m-repeater",
+      "name": "2m Local Repeater",
+      "receive_frequency_hz": 146910000,
+      "transmit_behavior": "offset",
+      "transmit_frequency_hz": 146310000,
+      "offset_hz": -600000,
+      "mode": "FM",
+      "tags": ["local-repeater"],
+      "priority": "high"
+    },
+    {
+      "id": "local-70cm-repeater",
+      "name": "70cm Local Repeater",
+      "receive_frequency_hz": 444500000,
+      "transmit_behavior": "offset",
+      "transmit_frequency_hz": 449500000,
+      "offset_hz": 5000000,
+      "mode": "FM",
+      "tags": ["local-repeater"],
+      "priority": "high"
+    },
+    {
+      "id": "noaa-weather-1",
+      "name": "NOAA Weather 1",
+      "receive_frequency_hz": 162550000,
+      "transmit_behavior": "disabled",
+      "transmit_frequency_hz": null,
+      "offset_hz": null,
+      "mode": "FM",
+      "tags": ["weather"],
+      "priority": "normal"
+    },
+    {
+      "id": "simplex-calling-2m",
+      "name": "2m Calling",
+      "receive_frequency_hz": 146520000,
+      "transmit_behavior": "same",
+      "transmit_frequency_hz": 146520000,
+      "offset_hz": null,
+      "mode": "FM",
+      "tags": ["calling", "simplex"],
+      "priority": "mandatory"
+    }
+  ],
+  "csv_path": null
+}

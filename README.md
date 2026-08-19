@@ -101,6 +101,8 @@ The first executable slice currently includes:
   and exporting CHIRP CSV files
 - a dark-first Modern Workshop interface with persistent Dark, Light, and
   System appearance modes
+- Dockerized Playwright coverage for compile/export behavior, appearance
+  modes, accessibility, and visual regressions
 
 Set up the Python project and run its tests:
 
@@ -124,6 +126,17 @@ cd desktop
 pnpm install
 pnpm tauri dev
 ```
+
+Run the deterministic renderer-level UI suite in Docker:
+
+```bash
+cd desktop
+docker compose -f compose.ui-tests.yaml build
+docker compose -f compose.ui-tests.yaml run --rm ui-tests
+```
+
+The test image includes its own pinned Chromium runtime, so no host browser
+setup is required. See `desktop/README.md` for test scope and snapshot updates.
 
 The desktop shell calls the same Python compiler through the JSON sidecar. In
 this first source-based slice it expects the repository's `.venv` by default;

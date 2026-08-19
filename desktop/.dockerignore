@@ -1,0 +1,10 @@
+.DS_Store
+.git
+.svelte-kit
+build
+node_modules
+package
+playwright-report
+src-tauri/gen
+src-tauri/target
+test-results
