@@ -1,6 +1,6 @@
 # US Amateur Frequency Practices
 
-Status: research draft for review
+Status: reviewed baseline; national-plan editor suggestions implemented
 Research date: 2026-08-19
 Scope: United States amateur service, with emphasis on analog FM memories that a
 CHIRP-oriented application is likely to compile. This document is not an operating
@@ -345,6 +345,11 @@ Do not impose a raster on continuous HF, weak-signal, experimental, satellite, o
 other nonchannelized activity merely because a radio happens to tune in fixed steps.
 
 ## Review questions before implementation
+
+The first implementation decisions are: ARRL national plan only, advisory checking
+only, independent transmit/receive signaling now, and no repeater-directory import
+in this slice. Regional-plan selection remains future work and will use the same
+source/segment schema.
 
 1. Should the first implementation support one selected regional plan per profile,
    or resolve plans from a saved station/location?

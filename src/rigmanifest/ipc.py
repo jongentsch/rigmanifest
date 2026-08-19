@@ -11,6 +11,7 @@ from rigmanifest.catalog_io import catalog_with_user_records
 from rigmanifest.chirp_adapter import chirp_memory_validator
 from rigmanifest.compiler import compile_profile
 from rigmanifest.exporters.chirp_csv import write_chirp_csv
+from rigmanifest.frequency_plans import BUILTIN_FREQUENCY_PLANS
 from rigmanifest.fixtures import BUILTIN_CATALOG, BUILTIN_PROFILES
 from rigmanifest.models import CompilationSettings, CompiledRadioPlan, SignalingSpec
 
@@ -125,7 +126,7 @@ def catalog_to_dict() -> dict[str, Any]:
     """Return shared preset/user catalog data without running compilation."""
 
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "profiles": [
             {
                 "id": profile.id,
@@ -184,6 +185,33 @@ def catalog_to_dict() -> dict[str, Any]:
         ],
         "frequency_sets": frequency_sets_to_list(),
         "frequency_definitions": frequency_definitions_to_list(),
+        "frequency_plans": [
+            {
+                "id": plan.id,
+                "name": plan.name,
+                "jurisdiction": plan.jurisdiction,
+                "authority_tier": plan.authority_tier.value,
+                "reviewed_at": plan.reviewed_at,
+                "source_label": plan.source_label,
+                "source_url": plan.source_url,
+                "advisory": plan.advisory,
+                "segments": [
+                    {
+                        "id": segment.id,
+                        "name": segment.name,
+                        "lower_hz": segment.lower_hz,
+                        "upper_hz": segment.upper_hz,
+                        "use": segment.use.value,
+                        "suggested_offset_hz": segment.suggested_offset_hz,
+                        "raster_anchor_hz": segment.raster_anchor_hz,
+                        "raster_spacing_hz": segment.raster_spacing_hz,
+                        "notes": segment.notes,
+                    }
+                    for segment in plan.segments
+                ],
+            }
+            for plan in sorted(BUILTIN_FREQUENCY_PLANS.values(), key=lambda item: item.id)
+        ],
     }
 
 

@@ -46,7 +46,7 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
 
     result = response["result"]
     assert isinstance(result, dict)
-    assert result["schema_version"] == 4
+    assert result["schema_version"] == 5
     assert result["profiles"] == [
         {
             "id": "home",
@@ -72,6 +72,16 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
     assert next(
         item for item in result["radio_models"] if item["id"] == "quansheng-uv-k5"
     )["chirp_driver_reference"] == "Quansheng_UV-K5"
+    assert result["frequency_plans"][0]["source_url"] == (
+        "https://www.arrl.org/band-plan"
+    )
+    two_meter = next(
+        segment
+        for segment in result["frequency_plans"][0]["segments"]
+        if segment["id"] == "2m-repeater-output-mid"
+    )
+    assert two_meter["suggested_offset_hz"] == -600_000
+    assert two_meter["raster_spacing_hz"] is None
     assert len(result["frequency_definitions"]) == 13
     assert {item["origin"] for item in result["frequency_sets"]} == {
         "preset",

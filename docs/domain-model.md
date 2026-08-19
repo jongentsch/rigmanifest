@@ -208,6 +208,21 @@ Users program radios by selecting sets. If individual definitions need special
 treatment, the user can create another user-owned set instead of embedding target
 memory rows in a profile.
 
+## Frequency plans
+
+Frequency plans are sourced advisory data, separate from both frequency definitions
+and radio capabilities. A plan records jurisdiction, authority tier, review date,
+source URL, and bounded segments. A segment may suggest a repeater offset and may
+define a raster using both an anchor and spacing.
+
+The first built-in plan is the ARRL US national baseline. It includes exact paired
+repeater-output segments on 10 m, 6 m, 2 m, 1.25 m, 33 cm, and 23 cm, plus the
+national 2 m simplex segments. National data intentionally leaves the 2 m and 70 cm
+regional raster/sign choices unspecified where the ARRL plan delegates them to local
+coordinators. The editor displays the source and only mutates transmit behavior when
+the user explicitly accepts an offset suggestion. It never suggests CTCSS or DCS
+from a band segment.
+
 ## Compilation outputs
 
 ```text

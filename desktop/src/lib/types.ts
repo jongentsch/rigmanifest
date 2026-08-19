@@ -135,12 +135,37 @@ export interface RadioModelRecord {
   factory_frequency_sets: FactoryFrequencySetRecord[];
 }
 
+export interface FrequencyPlanSegmentRecord {
+  id: string;
+  name: string;
+  lower_hz: number;
+  upper_hz: number;
+  use: "simplex" | "repeater-output";
+  suggested_offset_hz: number | null;
+  raster_anchor_hz: number | null;
+  raster_spacing_hz: number | null;
+  notes: string;
+}
+
+export interface FrequencyPlanRecord {
+  id: string;
+  name: string;
+  jurisdiction: string;
+  authority_tier: "national-recommendation" | "regional-coordinator";
+  reviewed_at: string;
+  source_label: string;
+  source_url: string;
+  advisory: boolean;
+  segments: FrequencyPlanSegmentRecord[];
+}
+
 export interface WorkspaceCatalog {
   schema_version: number;
   profiles: ProfileRecord[];
   radio_models: RadioModelRecord[];
   frequency_sets: FrequencySetRecord[];
   frequency_definitions: FrequencyDefinitionRecord[];
+  frequency_plans: FrequencyPlanRecord[];
 }
 
 export interface UserCatalogRecords {

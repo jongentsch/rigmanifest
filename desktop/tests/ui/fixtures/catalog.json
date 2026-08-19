@@ -1,5 +1,5 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "profiles": [
     {
       "id": "home",
@@ -161,6 +161,64 @@
           "frequency_definition_id": "us-noaa-weather-10",
           "position": 9,
           "channel_designator": "WX10"
+        }
+      ]
+    }
+  ],
+  "frequency_plans": [
+    {
+      "id": "arrl-us-national",
+      "name": "ARRL US national band plan",
+      "jurisdiction": "United States",
+      "authority_tier": "national-recommendation",
+      "reviewed_at": "2026-08-19",
+      "source_label": "ARRL Band Plan",
+      "source_url": "https://www.arrl.org/band-plan",
+      "advisory": true,
+      "segments": [
+        {
+          "id": "2m-simplex-low",
+          "name": "2 m simplex",
+          "lower_hz": 146400000,
+          "upper_hz": 146580000,
+          "use": "simplex",
+          "suggested_offset_hz": null,
+          "raster_anchor_hz": null,
+          "raster_spacing_hz": null,
+          "notes": "146.520 MHz is the national FM simplex calling frequency."
+        },
+        {
+          "id": "2m-repeater-output-mid",
+          "name": "2 m repeater outputs (146 MHz)",
+          "lower_hz": 146610000,
+          "upper_hz": 146970000,
+          "use": "repeater-output",
+          "suggested_offset_hz": -600000,
+          "raster_anchor_hz": null,
+          "raster_spacing_hz": null,
+          "notes": "National plan supplies paired ranges; local coordinators set the raster."
+        },
+        {
+          "id": "2m-repeater-output-high",
+          "name": "2 m repeater outputs (147 MHz)",
+          "lower_hz": 147000000,
+          "upper_hz": 147390000,
+          "use": "repeater-output",
+          "suggested_offset_hz": 600000,
+          "raster_anchor_hz": null,
+          "raster_spacing_hz": null,
+          "notes": "National plan supplies paired ranges; local coordinators set the raster."
+        },
+        {
+          "id": "33cm-repeater-output-high",
+          "name": "33 cm repeater outputs",
+          "lower_hz": 927125000,
+          "upper_hz": 928000000,
+          "use": "repeater-output",
+          "suggested_offset_hz": -25000000,
+          "raster_anchor_hz": 927125000,
+          "raster_spacing_hz": 12500,
+          "notes": ""
         }
       ]
     }

@@ -874,6 +874,71 @@ code {
   grid-column: 1 / -1;
 }
 
+.plan-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-left-width: 3px;
+  border-radius: 4px;
+  background: var(--active);
+}
+
+.plan-suggestion p,
+.plan-suggestion strong,
+.plan-suggestion span,
+.plan-suggestion small {
+  display: block;
+  margin: 0;
+}
+
+.plan-suggestion p {
+  color: var(--accent-hover);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.plan-suggestion strong {
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.plan-suggestion span,
+.plan-suggestion small {
+  margin-top: 4px;
+  color: var(--muted-strong);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.plan-suggestion-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.plan-suggestion-actions a {
+  color: var(--accent-hover);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+@media (max-width: 760px) {
+  .plan-suggestion {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .plan-suggestion-actions {
+    justify-content: space-between;
+  }
+}
+
 .catalog-actions {
   display: flex;
   gap: 8px;

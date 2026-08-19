@@ -3,9 +3,11 @@
 
   import { loadCatalog } from "$lib/api";
   import { saveWorkspaceUserCatalog } from "$lib/catalog";
-  import { definitionTxSummary, mhz } from "$lib/format";
+  import { definitionTxSummary, mhz, offsetSummary } from "$lib/format";
   import type {
     FrequencyDefinitionRecord,
+    FrequencyPlanRecord,
+    FrequencyPlanSegmentRecord,
     FrequencySetMemberRecord,
     FrequencySetRecord,
     SignalingKind,
@@ -36,6 +38,9 @@
           (member) => member.frequency_definition_id === definition.id,
         ),
     ),
+  );
+  let planSuggestion = $derived(
+    resolvePlanSuggestion(selectedDefinition, catalog?.frequency_plans ?? []),
   );
 
   onMount(async () => {
@@ -273,6 +278,56 @@
     updateDefinition({ [key]: Math.round(megahertz * 1_000_000) });
   }
 
+  function applyPlanOffset(): void {
+    const offset = planSuggestion?.segment.suggested_offset_hz;
+    if (offset === null || offset === undefined) return;
+    updateDefinition({
+      transmit_behavior: "offset",
+      transmit_frequency_hz: null,
+      offset_hz: offset,
+    });
+  }
+
+  function resolvePlanSuggestion(
+    definition: FrequencyDefinitionRecord | null,
+    plans: FrequencyPlanRecord[],
+  ): { plan: FrequencyPlanRecord; segment: FrequencyPlanSegmentRecord } | null {
+    if (!definition) return null;
+    for (const plan of plans) {
+      const segment = plan.segments.find(
+        (item) =>
+          definition.receive_frequency_hz >= item.lower_hz &&
+          definition.receive_frequency_hz <= item.upper_hz,
+      );
+      if (segment) return { plan, segment };
+    }
+    return null;
+  }
+
+  function rasterStatus(
+    definition: FrequencyDefinitionRecord,
+    segment: FrequencyPlanSegmentRecord,
+  ): boolean | null {
+    if (segment.raster_anchor_hz === null || segment.raster_spacing_hz === null) {
+      return null;
+    }
+    return (
+      (definition.receive_frequency_hz - segment.raster_anchor_hz) %
+        segment.raster_spacing_hz ===
+      0
+    );
+  }
+
+  function planOffsetApplied(
+    definition: FrequencyDefinitionRecord,
+    segment: FrequencyPlanSegmentRecord,
+  ): boolean {
+    return (
+      definition.transmit_behavior === "offset" &&
+      definition.offset_hz === segment.suggested_offset_hz
+    );
+  }
+
   function deleteDefinition(): void {
     if (!catalog || !selectedDefinition || selectedDefinition.read_only) return;
     if (
@@ -486,6 +541,36 @@
                   <label><span>Transmit MHz</span><input type="number" min="0.000001" step="0.000001" value={(selectedDefinition.transmit_frequency_hz ?? selectedDefinition.receive_frequency_hz) / 1_000_000} onchange={(event) => updateFrequency("transmit_frequency_hz", event.currentTarget.valueAsNumber)} /></label>
                 {/if}
                 <label><span>Mode</span><select value={selectedDefinition.mode} onchange={(event) => updateDefinition({ mode: event.currentTarget.value })}><option>FM</option><option>NFM</option><option>AM</option><option>WFM</option></select></label>
+                {#if planSuggestion}
+                  <aside class="plan-suggestion wide" aria-label="Frequency plan suggestion">
+                    <div>
+                      <p>{planSuggestion.plan.source_label} Â· Advisory</p>
+                      <strong>{planSuggestion.segment.name}</strong>
+                      <span>
+                        {#if planSuggestion.segment.suggested_offset_hz !== null}
+                          Suggested offset {offsetSummary(planSuggestion.segment.suggested_offset_hz)}.
+                        {:else}
+                          No repeater offset is suggested for this segment.
+                        {/if}
+                        {#if planSuggestion.segment.raster_spacing_hz !== null}
+                          {planSuggestion.segment.raster_spacing_hz / 1_000} kHz raster:
+                          {rasterStatus(selectedDefinition, planSuggestion.segment) ? "on raster" : "off raster"}.
+                        {:else}
+                          Consult the local coordinator for its frequency raster.
+                        {/if}
+                      </span>
+                      {#if planSuggestion.segment.notes}<small>{planSuggestion.segment.notes}</small>{/if}
+                    </div>
+                    <div class="plan-suggestion-actions">
+                      <a href={planSuggestion.plan.source_url} target="_blank" rel="noreferrer">View source</a>
+                      {#if planSuggestion.segment.suggested_offset_hz !== null}
+                        <button class="button button--secondary" onclick={applyPlanOffset} disabled={planOffsetApplied(selectedDefinition, planSuggestion.segment)}>
+                          {planOffsetApplied(selectedDefinition, planSuggestion.segment) ? "Offset applied" : "Use suggested offset"}
+                        </button>
+                      {/if}
+                    </div>
+                  </aside>
+                {/if}
                 <label><span>Transmit access</span><select value={selectedDefinition.transmit_access.kind} onchange={(event) => changeSignaling("transmit_access", event.currentTarget.value as SignalingKind)}><option value="none">None</option><option value="ctcss">CTCSS</option><option value="dcs">DCS</option></select></label>
                 {#if selectedDefinition.transmit_access.kind === "ctcss"}
                   <label><span>Transmit CTCSS Hz</span><input type="number" min="0.1" step="0.1" value={selectedDefinition.transmit_access.ctcss_hz ?? 100} onchange={(event) => updateSignaling("transmit_access", { ctcss_hz: event.currentTarget.valueAsNumber })} /></label>

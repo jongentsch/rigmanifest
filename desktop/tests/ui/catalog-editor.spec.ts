@@ -138,3 +138,32 @@ test("migrates the legacy combined tone record without losing user data", async 
   );
   expect(migrated.frequencyDefinitions[0]).not.toHaveProperty("tone");
 });
+
+test("shows sourced plan advice and only applies an offset on request", async ({ page }) => {
+  await page.goto("/library");
+  await expect(page.getByRole("heading", { name: "Frequency library" })).toBeVisible();
+
+  const receive = page.getByLabel("Receive MHz");
+  await receive.fill("147.300000");
+  await receive.press("Tab");
+
+  const suggestion = page.getByLabel("Frequency plan suggestion");
+  await expect(suggestion).toContainText("2 m repeater outputs (147 MHz)");
+  await expect(suggestion).toContainText("Suggested offset +0.600 MHz");
+  await expect(suggestion.getByRole("link", { name: "View source" })).toHaveAttribute(
+    "href",
+    "https://www.arrl.org/band-plan",
+  );
+  await expect(page.getByLabel("Transmit behavior")).toHaveValue("same");
+
+  await suggestion.getByRole("button", { name: "Use suggested offset" }).click();
+
+  await expect(page.getByLabel("Transmit behavior")).toHaveValue("offset");
+  await expect(page.getByLabel("Offset MHz")).toHaveValue("0.6");
+  await expect(suggestion.getByRole("button", { name: "Offset applied" })).toBeDisabled();
+
+  await receive.fill("927.138000");
+  await receive.press("Tab");
+  await expect(suggestion).toContainText("33 cm repeater outputs");
+  await expect(suggestion).toContainText("12.5 kHz raster: off raster");
+});
