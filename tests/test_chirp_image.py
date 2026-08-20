@@ -20,10 +20,15 @@ from rigmanifest.chirp_image import (
 from rigmanifest.compiler import compile_profiles
 from rigmanifest.ipc import handle_request
 from rigmanifest.models import (
+    CatalogOrigin,
     CompilationSettings,
     CompiledMemory,
     FrequencyCatalog,
+    FrequencySet,
+    FrequencySetMember,
     Mode,
+    Priority,
+    Profile,
     SignalingSpec,
     TransmitBehavior,
 )
@@ -119,6 +124,66 @@ def test_compiled_image_is_saved_by_chirp_with_bank_membership(tmp_path: Path) -
     ]
     assert reloaded.frequency_definitions[1].scan_skip == "S"
     assert reloaded.frequency_definitions[1].power_label == "Hi"
+
+
+def test_image_bank_order_comes_from_profile_not_memory_priority(tmp_path: Path) -> None:
+    source = _vx6_image(tmp_path / "source.img")
+    imported = import_chirp_image(source, radio_id="handheld")
+    first_definition = imported.frequency_definitions[0]
+    second_definition = replace(
+        imported.frequency_definitions[1],
+        priority=Priority.MANDATORY,
+    )
+    first_set = FrequencySet(
+        "first-bank",
+        "FIRST",
+        CatalogOrigin.USER,
+        (FrequencySetMember(first_definition.id, 0),),
+    )
+    second_set = FrequencySet(
+        "second-bank",
+        "SECOND",
+        CatalogOrigin.USER,
+        (FrequencySetMember(second_definition.id, 0),),
+    )
+    plan = compile_profiles(
+        FrequencyCatalog(
+            (first_definition, second_definition),
+            (first_set, second_set),
+        ),
+        (Profile("ordered", "Ordered", (first_set.id, second_set.id)),),
+        imported.target,
+        CompilationSettings(map_sets_to_banks=True),
+    )
+    assert [memory.source_frequency_definition_id for memory in plan.memories] == [
+        second_definition.id,
+        first_definition.id,
+    ]
+    assert [bank.frequency_set_id for bank in plan.banks] == [
+        first_set.id,
+        second_set.id,
+    ]
+    output = tmp_path / "compiled.img"
+
+    write_compiled_image(
+        plan,
+        source,
+        output,
+        bank_names={first_set.id: first_set.name, second_set.id: second_set.name},
+    )
+
+    radio = load_chirp_image(output)
+    mappings = radio.get_bank_model().get_mappings()
+    assert mappings[0].get_name() == "FIRST"
+    assert mappings[1].get_name() == "SECOND"
+    assert [
+        int(memory.number)
+        for memory in radio.get_bank_model().get_mapping_memories(mappings[0])
+    ] == [2]
+    assert [
+        int(memory.number)
+        for memory in radio.get_bank_model().get_mapping_memories(mappings[1])
+    ] == [1]
 
 
 def test_compiled_image_erases_unselected_regular_memories(tmp_path: Path) -> None:

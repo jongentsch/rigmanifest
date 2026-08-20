@@ -7,6 +7,7 @@ from dataclasses import dataclass, replace
 
 from rigmanifest.models import (
     CapacitySummary,
+    CompiledBank,
     CompilationSettings,
     CompiledMemory,
     CompiledRadioPlan,
@@ -316,7 +317,15 @@ def compile_profiles(
             continue
         memories.append(memory)
 
+    compiled_banks, normalized_memories, bank_diagnostics = _compile_banks(
+        selected_sets,
+        tuple(memories),
+        target,
+        settings,
+    )
+    memories = list(normalized_memories)
     diagnostics.extend(grouping_diagnostics)
+    diagnostics.extend(bank_diagnostics)
     primary_profile = profiles[0] if profiles else Profile("ad-hoc", "Ad hoc", ())
     return CompiledRadioPlan(
         target=target,
@@ -335,6 +344,7 @@ def compile_profiles(
         additional_frequency_set_ids=additional_frequency_set_ids,
         additional_frequency_definition_ids=additional_frequency_definition_ids,
         advisory_plan_id=advisory_plan_id,
+        banks=compiled_banks,
     )
 
 
@@ -351,6 +361,77 @@ def _resolve_selected_sets(
                 f"compile selection references unknown frequency set: {set_id}"
             ) from error
     return tuple(selected)
+
+
+def _compile_banks(
+    selected_sets: tuple[FrequencySet, ...],
+    memories: tuple[CompiledMemory, ...],
+    target: RadioModel,
+    settings: CompilationSettings,
+) -> tuple[
+    tuple[CompiledBank, ...],
+    tuple[CompiledMemory, ...],
+    tuple[Diagnostic, ...],
+]:
+    """Resolve ordered set intent into the target's finite bank positions."""
+
+    if not settings.map_sets_to_banks or not target.capabilities.supports_banks:
+        return (), memories, ()
+
+    active_set_ids = tuple(
+        frequency_set.id
+        for frequency_set in selected_sets
+        if any(
+            frequency_set.id in memory.bank_assignments for memory in memories
+        )
+    )
+    mapped_set_ids = active_set_ids[: target.capabilities.bank_count]
+    mapped_set_id_set = set(mapped_set_ids)
+    normalized_memories = tuple(
+        replace(
+            memory,
+            bank_assignments=tuple(
+                set_id
+                for set_id in memory.bank_assignments
+                if set_id in mapped_set_id_set
+            ),
+        )
+        for memory in memories
+    )
+    sets_by_id = {frequency_set.id: frequency_set for frequency_set in selected_sets}
+    banks = tuple(
+        CompiledBank(
+            bank_number=index,
+            frequency_set_id=set_id,
+            name=sets_by_id[set_id].name,
+            memory_numbers=tuple(
+                memory.memory_number
+                for memory in normalized_memories
+                if set_id in memory.bank_assignments
+            ),
+        )
+        for index, set_id in enumerate(mapped_set_ids, start=1)
+    )
+    diagnostics = tuple(
+        Diagnostic.with_details(
+            code=DiagnosticCode.GROUPING_DEGRADED,
+            severity=Severity.WARNING,
+            frequency_set_id=set_id,
+            message=(
+                f"{sets_by_id[set_id].name} will program normally on {target.model}, "
+                f"but all {target.capabilities.bank_count} radio banks are already "
+                "assigned; this set will remain unbanked"
+            ),
+            details={
+                "set_id": set_id,
+                "bank_count": target.capabilities.bank_count,
+                "programming": "unaffected",
+                "grouping": "bank_capacity_exhausted",
+            },
+        )
+        for set_id in active_set_ids[target.capabilities.bank_count :]
+    )
+    return banks, normalized_memories, diagnostics
 
 
 def _validated_factory_sets(

@@ -263,6 +263,13 @@ export interface RadioInstance {
   notes: string;
 }
 
+export interface CompiledBank {
+  bank_number: number;
+  frequency_set_id: string;
+  name: string;
+  memory_numbers: number[];
+}
+
 export interface CompileResult {
   schema_version: number;
   compiler_version: string;
@@ -277,6 +284,7 @@ export interface CompileResult {
   summary: PlanSummary;
   capacity: CapacitySummary;
   memories: CompiledMemory[];
+  banks: CompiledBank[];
   factory_sets: FactorySetCoverage[];
   omitted_frequency_definitions: OmittedFrequencyDefinition[];
   diagnostics: Diagnostic[];

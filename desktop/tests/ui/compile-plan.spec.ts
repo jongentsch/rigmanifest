@@ -32,11 +32,19 @@ test("compiles selected sets for the image-backed radio", async ({ page }) => {
     "+5.000 MHz",
   );
 
+  const bankPreview = page.getByRole("region", { name: "Bank 1: Home essentials" });
+  await expect(page.getByRole("heading", { name: "Compiled banks" })).toBeVisible();
+  await expect(bankPreview).toContainText("Bank 1");
+  await expect(bankPreview).toContainText("Home essentials");
+  await expect(bankPreview).toContainText("2M CAL");
+  await expect(bankPreview).toContainText("2M LOC");
+
   await expect(page.getByText("US NOAA Weather Broadcasts").first()).toBeVisible();
   await expect(page.getByText("FACTORY_SET_AVAILABLE")).toHaveCount(0);
   await expect(page.getByText("TX_DISABLE_NOT_REPRESENTABLE")).toHaveCount(0);
+  const compiledTable = page.getByLabel("Compiled frequency table");
   for (const heading of ["TX access", "RX squelch", "Step", "Power / scan", "Banks"]) {
-    await expect(page.getByRole("columnheader", { name: heading })).toBeVisible();
+    await expect(compiledTable.getByRole("columnheader", { name: heading })).toBeVisible();
   }
 });
 

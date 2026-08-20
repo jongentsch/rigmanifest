@@ -959,6 +959,18 @@ code {
   line-height: 1.45;
 }
 
+.compiled-bank-preview {
+  margin-bottom: 14px;
+}
+
+.compiled-bank-preview-body {
+  padding: 14px 16px 16px;
+}
+
+.compiled-bank-preview .profile-bank-list {
+  max-height: 520px;
+}
+
 .profile-bank-list {
   display: grid;
   gap: 12px;
@@ -983,6 +995,7 @@ code {
 }
 
 .profile-bank-group > header span,
+.profile-bank-group > header h3,
 .profile-bank-group > header h4 {
   display: block;
   margin: 0;
@@ -996,6 +1009,7 @@ code {
   text-transform: uppercase;
 }
 
+.profile-bank-group > header h3,
 .profile-bank-group > header h4 {
   margin-top: 3px;
   font-size: 0.6875rem;

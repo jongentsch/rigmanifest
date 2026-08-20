@@ -8,9 +8,10 @@ import re
 import shutil
 import sqlite3
 from collections.abc import Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 from uuid import uuid4
 
 from rigmanifest.catalog_io import catalog_with_user_records
@@ -93,7 +94,8 @@ class SQLiteWorkspace:
         if destination.resolve() == self.path.resolve():
             raise ValueError("backup destination must differ from the workspace database")
         destination.parent.mkdir(parents=True, exist_ok=True)
-        with self._connect() as source, sqlite3.connect(destination) as target:
+        destination_workspace = SQLiteWorkspace(destination)
+        with self._connect() as source, destination_workspace._connect() as target:
             self._migrate(source)
             source.commit()
             source.backup(target)
@@ -214,11 +216,16 @@ class SQLiteWorkspace:
             created_at=str(row[8]),
         )
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.path)
         connection.execute("PRAGMA foreign_keys = ON")
-        return connection
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
 
     def _migrate(self, connection: sqlite3.Connection) -> None:
         connection.execute(

@@ -303,7 +303,7 @@ def plan_to_dict(plan: CompiledRadioPlan) -> dict[str, Any]:
     """Convert a compiled plan into an explicit, versionable wire shape."""
 
     return {
-        "schema_version": 5,
+        "schema_version": 6,
         "compiler_version": plan.compiler_version,
         "profile": {
             "id": plan.profile.id,
@@ -365,6 +365,15 @@ def plan_to_dict(plan: CompiledRadioPlan) -> dict[str, Any]:
                 ],
             }
             for memory in plan.memories
+        ],
+        "banks": [
+            {
+                "bank_number": bank.bank_number,
+                "frequency_set_id": bank.frequency_set_id,
+                "name": bank.name,
+                "memory_numbers": list(bank.memory_numbers),
+            }
+            for bank in plan.banks
         ],
         "factory_sets": [
             {

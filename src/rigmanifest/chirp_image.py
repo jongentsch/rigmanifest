@@ -244,13 +244,15 @@ def write_compiled_image(
     features = radio.get_features()
     bank_model = radio.get_bank_model() if features.has_bank else None
     bank_mappings = bank_model.get_mappings() if bank_model is not None else []
-    assignment_order = tuple(
-        dict.fromkeys(
-            assignment
-            for memory in plan.memories
-            for assignment in memory.bank_assignments
+    assignment_order = tuple(bank.frequency_set_id for bank in plan.banks)
+    if not assignment_order:
+        assignment_order = tuple(
+            dict.fromkeys(
+                assignment
+                for memory in plan.memories
+                for assignment in memory.bank_assignments
+            )
         )
-    )
     if len(assignment_order) > len(bank_mappings):
         raise ValueError("compiled plan contains more sets than the radio has banks")
     mapping_by_assignment = {

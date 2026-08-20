@@ -56,6 +56,17 @@ def test_workspace_initializes_and_round_trips_state(tmp_path) -> None:
         ).fetchone() == (3,)
 
 
+def test_workspace_releases_database_file_after_operations(tmp_path) -> None:
+    database = tmp_path / "workspace.sqlite3"
+    workspace = SQLiteWorkspace(database)
+
+    workspace.load()
+    workspace.radio_image_versions("unused-radio")
+    database.unlink()
+
+    assert not database.exists()
+
+
 def test_first_open_imports_legacy_state_only_once(tmp_path) -> None:
     workspace = SQLiteWorkspace(tmp_path / "workspace.sqlite3")
     legacy = default_workspace_state()

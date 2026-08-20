@@ -576,6 +576,111 @@ def test_selected_sets_map_to_banks_or_degrade_visibly() -> None:
     assert mapped.memories[1].bank_assignments == ("selected",)
 
 
+def test_compiled_banks_follow_set_order_and_share_one_memory_across_banks() -> None:
+    first_only = make_definition("first-only", frequency_hz=146_550_000)
+    shared_calling = make_definition(
+        "shared-calling",
+        priority=Priority.MANDATORY,
+    )
+    second_only = make_definition(
+        "second-only",
+        frequency_hz=146_580_000,
+        priority=Priority.HIGH,
+    )
+    catalog = FrequencyCatalog(
+        definitions=(first_only, shared_calling, second_only),
+        sets=(
+            FrequencySet(
+                "first-bank",
+                "First bank",
+                CatalogOrigin.USER,
+                (
+                    FrequencySetMember("first-only", 0),
+                    FrequencySetMember("shared-calling", 1),
+                ),
+            ),
+            FrequencySet(
+                "second-bank",
+                "Second bank",
+                CatalogOrigin.USER,
+                (
+                    FrequencySetMember("shared-calling", 0),
+                    FrequencySetMember("second-only", 1),
+                ),
+            ),
+        ),
+    )
+    plan = compile_profiles(
+        catalog,
+        (
+            Profile("home", "Home", ("first-bank", "second-bank")),
+            Profile("duplicate-source", "Duplicate source", ("first-bank",)),
+        ),
+        make_radio(supports_banks=True, bank_count=4),
+    )
+
+    assert [memory.source_frequency_definition_id for memory in plan.memories] == [
+        "shared-calling",
+        "second-only",
+        "first-only",
+    ]
+    shared = plan.memories[0]
+    assert shared.bank_assignments == ("first-bank", "second-bank")
+    assert len(
+        [
+            memory
+            for memory in plan.memories
+            if memory.source_frequency_definition_id == "shared-calling"
+        ]
+    ) == 1
+    assert [bank.frequency_set_id for bank in plan.banks] == [
+        "first-bank",
+        "second-bank",
+    ]
+    assert plan.banks[0].memory_numbers == (1, 3)
+    assert plan.banks[1].memory_numbers == (1, 2)
+
+
+def test_bank_capacity_keeps_later_set_memories_unbanked_with_warning() -> None:
+    first = make_definition("first")
+    second = make_definition("second", frequency_hz=146_550_000)
+    catalog = FrequencyCatalog(
+        definitions=(first, second),
+        sets=(
+            FrequencySet(
+                "first-bank",
+                "First bank",
+                CatalogOrigin.USER,
+                (FrequencySetMember("first", 0),),
+            ),
+            FrequencySet(
+                "overflow-bank",
+                "Overflow bank",
+                CatalogOrigin.USER,
+                (FrequencySetMember("second", 0),),
+            ),
+        ),
+    )
+
+    plan = compile_profile(
+        catalog,
+        Profile("limited", "Limited", ("first-bank", "overflow-bank")),
+        make_radio(supports_banks=True, bank_count=1),
+    )
+
+    assert [bank.frequency_set_id for bank in plan.banks] == ["first-bank"]
+    assert plan.memories[0].bank_assignments == ("first-bank",)
+    assert plan.memories[1].bank_assignments == ()
+    diagnostic = next(
+        item
+        for item in plan.diagnostics
+        if item.code is DiagnosticCode.GROUPING_DEGRADED
+    )
+    assert diagnostic.severity is Severity.WARNING
+    assert diagnostic.frequency_set_id == "overflow-bank"
+    assert dict(diagnostic.details)["grouping"] == "bank_capacity_exhausted"
+
+
 def test_user_set_can_reference_a_shared_preset_definition() -> None:
     definition = make_definition("shared", origin=CatalogOrigin.PRESET)
     catalog = FrequencyCatalog(

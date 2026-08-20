@@ -481,6 +481,23 @@ class CompiledMemory:
 
 
 @dataclass(frozen=True, slots=True)
+class CompiledBank:
+    bank_number: int
+    frequency_set_id: str
+    name: str
+    memory_numbers: tuple[int, ...]
+
+    def __post_init__(self) -> None:
+        if self.bank_number <= 0:
+            raise ValueError("compiled bank number must be positive")
+        if not self.frequency_set_id or not self.name:
+            raise ValueError("compiled bank requires a frequency set ID and name")
+        object.__setattr__(self, "memory_numbers", tuple(self.memory_numbers))
+        if len(self.memory_numbers) != len(set(self.memory_numbers)):
+            raise ValueError("compiled bank contains a duplicate memory")
+
+
+@dataclass(frozen=True, slots=True)
 class OmittedFrequencyDefinition:
     frequency_definition_id: str
     reason: DiagnosticCode
@@ -532,6 +549,7 @@ class CompiledRadioPlan:
     additional_frequency_set_ids: tuple[str, ...] = ()
     additional_frequency_definition_ids: tuple[str, ...] = ()
     advisory_plan_id: str | None = None
+    banks: tuple[CompiledBank, ...] = ()
     compiler_version: str = "0.3.0"
 
     def __post_init__(self) -> None:
@@ -549,6 +567,7 @@ class CompiledRadioPlan:
             "additional_frequency_definition_ids",
             tuple(self.additional_frequency_definition_ids),
         )
+        object.__setattr__(self, "banks", tuple(self.banks))
 
     @property
     def warning_count(self) -> int:

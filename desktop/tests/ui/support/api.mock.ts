@@ -200,6 +200,28 @@ export async function compileSelection(
     }));
   }
 
+  const selectedSetOrder = [...new Set([
+    ...profiles.flatMap((profile) => profile.frequency_set_ids),
+    ...configuration.additionalFrequencySetIds,
+  ])];
+  const activeSetIds = selectedSetOrder.filter((setId) =>
+    result.memories.some((memory) => memory.bank_assignments.includes(setId))
+  );
+  const setNames = new Map([
+    ...catalogFixture.frequency_sets,
+    ...userCatalog.frequencySets,
+  ].map((frequencySet) => [frequencySet.id, frequencySet.name]));
+  result.banks = configuration.mapSetsToBanks
+    ? activeSetIds.map((setId, index) => ({
+        bank_number: index + 1,
+        frequency_set_id: setId,
+        name: setNames.get(setId) ?? setId,
+        memory_numbers: result.memories
+          .filter((memory) => memory.bank_assignments.includes(setId))
+          .map((memory) => memory.memory_number),
+      }))
+    : [];
+
   if (
     !selectedSetIds.has("us-noaa-weather") ||
     !configuration.useFactorySets

@@ -6,6 +6,7 @@ import pytest
 
 from rigmanifest.models import (
     CatalogOrigin,
+    CompiledBank,
     CompilationSettings,
     FactoryFrequencySet,
     FrequencyCatalog,
@@ -39,6 +40,26 @@ def _capabilities(**changes: object) -> RadioCapabilities:
         supports_banks=False,
     )
     return replace(base, **changes)
+
+
+def test_compiled_bank_normalizes_memory_numbers() -> None:
+    bank = CompiledBank(1, "local-repeaters", "Local repeaters", [1, 2])  # type: ignore[arg-type]
+
+    assert bank.memory_numbers == (1, 2)
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        (0, "set", "Set", (1,)),
+        (1, "", "Set", (1,)),
+        (1, "set", "", (1,)),
+        (1, "set", "Set", (1, 1)),
+    ],
+)
+def test_invalid_compiled_banks_are_rejected(arguments: tuple[object, ...]) -> None:
+    with pytest.raises(ValueError):
+        CompiledBank(*arguments)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("bounds", [(0, 1), (2, 1)])

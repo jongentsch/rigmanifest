@@ -22,7 +22,7 @@ def test_compile_request_returns_set_based_plan() -> None:
     assert response["id"] == "request-1"
     result = response["result"]
     assert isinstance(result, dict)
-    assert result["schema_version"] == 5
+    assert result["schema_version"] == 6
     assert result["summary"] == {
         "included": 13,
         "programmed": 3,
@@ -35,6 +35,14 @@ def test_compile_request_returns_set_based_plan() -> None:
     assert result["profile"]["frequency_set_ids"] == [
         "home-essentials",
         "us-noaa-weather",
+    ]
+    assert result["banks"] == [
+        {
+            "bank_number": 1,
+            "frequency_set_id": "home-essentials",
+            "name": "Home essentials",
+            "memory_numbers": [1, 2, 3],
+        }
     ]
     assert any(
         item["code"] == "FACTORY_SET_AVAILABLE"
