@@ -41,6 +41,9 @@
   let draggedSetId = $state("");
   let setDropTargetId = $state("");
   let setDropPosition = $state<"before" | "after">("before");
+  let draggedProfileId = $state("");
+  let profileDropTargetId = $state("");
+  let profileDropPosition = $state<"before" | "after">("before");
 
   let selectedProfile = $derived(
     profiles.find((profile) => profile.id === selectedProfileId) ?? null,
@@ -86,6 +89,74 @@
       profile.id === selectedProfileId ? { ...profile, ...changes } : profile,
     );
     persist();
+  }
+
+  function moveProfile(profileId: string, delta: -1 | 1): void {
+    const orderedProfiles = [...profiles];
+    const sourceIndex = orderedProfiles.findIndex((profile) => profile.id === profileId);
+    const targetIndex = sourceIndex + delta;
+    if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= orderedProfiles.length) return;
+    [orderedProfiles[sourceIndex], orderedProfiles[targetIndex]] = [
+      orderedProfiles[targetIndex],
+      orderedProfiles[sourceIndex],
+    ];
+    profiles = orderedProfiles;
+    persist();
+  }
+
+  function startProfileDrag(event: DragEvent, profileId: string): void {
+    draggedProfileId = profileId;
+    event.dataTransfer?.setData("text/plain", profileId);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  }
+
+  function dragProfileOver(
+    event: DragEvent & { currentTarget: HTMLDivElement },
+    targetId: string,
+  ): void {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    if (!draggedProfileId || draggedProfileId === targetId) {
+      profileDropTargetId = "";
+      return;
+    }
+    const bounds = event.currentTarget.getBoundingClientRect();
+    profileDropTargetId = targetId;
+    profileDropPosition = event.clientY >= bounds.top + bounds.height / 2
+      ? "after"
+      : "before";
+  }
+
+  function dropProfile(event: DragEvent, targetId: string): void {
+    event.preventDefault();
+    const sourceId = draggedProfileId || event.dataTransfer?.getData("text/plain") || "";
+    const orderedProfiles = [...profiles];
+    const sourceIndex = orderedProfiles.findIndex(
+      (profile) => profile.id === sourceId,
+    );
+    if (sourceIndex < 0 || sourceId === targetId) {
+      clearProfileDrag();
+      return;
+    }
+    const [source] = orderedProfiles.splice(sourceIndex, 1);
+    const targetIndex = orderedProfiles.findIndex((profile) => profile.id === targetId);
+    const insertIndex = targetIndex + (profileDropPosition === "after" ? 1 : 0);
+    orderedProfiles.splice(insertIndex, 0, source);
+    profiles = orderedProfiles;
+    persist();
+    clearProfileDrag();
+  }
+
+  function clearProfileDrag(): void {
+    draggedProfileId = "";
+    profileDropTargetId = "";
+    profileDropPosition = "before";
+  }
+
+  function profileHandleKeydown(event: KeyboardEvent, profileId: string): void {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    event.preventDefault();
+    moveProfile(profileId, event.key === "ArrowUp" ? -1 : 1);
   }
 
   function toggleSet(setId: string, checked: boolean): void {
@@ -134,9 +205,12 @@
     event: DragEvent & { currentTarget: HTMLDivElement },
     targetId: string,
   ): void {
-    if (!draggedSetId || draggedSetId === targetId) return;
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    if (!draggedSetId || draggedSetId === targetId) {
+      setDropTargetId = "";
+      return;
+    }
     const bounds = event.currentTarget.getBoundingClientRect();
     setDropTargetId = targetId;
     setDropPosition = event.clientY >= bounds.top + bounds.height / 2
@@ -146,20 +220,21 @@
 
   function dropProfileSet(event: DragEvent, targetId: string): void {
     event.preventDefault();
-    if (!selectedProfile || !draggedSetId) {
+    const sourceId = draggedSetId || event.dataTransfer?.getData("text/plain") || "";
+    if (!selectedProfile || !sourceId) {
       clearSetDrag();
       return;
     }
     const setIds = [...selectedProfile.frequency_set_ids];
-    const sourceIndex = setIds.indexOf(draggedSetId);
-    if (sourceIndex < 0 || draggedSetId === targetId) {
+    const sourceIndex = setIds.indexOf(sourceId);
+    if (sourceIndex < 0 || sourceId === targetId) {
       clearSetDrag();
       return;
     }
-    const [sourceId] = setIds.splice(sourceIndex, 1);
+    const [movedSetId] = setIds.splice(sourceIndex, 1);
     const targetIndex = setIds.indexOf(targetId);
     const insertIndex = targetIndex + (setDropPosition === "after" ? 1 : 0);
-    setIds.splice(insertIndex, 0, sourceId);
+    setIds.splice(insertIndex, 0, movedSetId);
     updateProfile({ frequency_set_ids: setIds });
     clearSetDrag();
   }
@@ -282,11 +357,30 @@
           <div><p class="section-label">Saved loadouts</p><h2 id="profile-list-heading">Profiles</h2></div>
           <span class="schema-label">{profiles.length}</span>
         </div>
-        <div class="radio-list-body">
+        <div class="radio-list-body" role="list" aria-label="Profile order">
           {#each profiles as profile (profile.id)}
-            <button class:active={profile.id === selectedProfileId} class="radio-row" onclick={() => selectedProfileId = profile.id}>
-              <span><strong>{profile.name}</strong><small>{profile.frequency_set_ids.length} sets · {profile.frequency_definition_ids.length} individual</small></span>
-            </button>
+            <div
+              class="profile-order-row"
+              role="listitem"
+              class:dragging-record={profile.id === draggedProfileId}
+              class:drop-before={profile.id === profileDropTargetId && profileDropPosition === "before"}
+              class:drop-after={profile.id === profileDropTargetId && profileDropPosition === "after"}
+              ondragover={(event) => dragProfileOver(event, profile.id)}
+              ondrop={(event) => dropProfile(event, profile.id)}
+            >
+              <button
+                class="drag-handle"
+                draggable={true}
+                aria-label={`Reorder ${profile.name}. Use Up and Down arrow keys or drag.`}
+                title="Drag to reorder; arrow keys also work"
+                ondragstart={(event) => startProfileDrag(event, profile.id)}
+                ondragend={clearProfileDrag}
+                onkeydown={(event) => profileHandleKeydown(event, profile.id)}
+              >⋮⋮</button>
+              <button class:active={profile.id === selectedProfileId} class="radio-row" onclick={() => selectedProfileId = profile.id}>
+                <span><strong>{profile.name}</strong><small>{profile.frequency_set_ids.length} sets · {profile.frequency_definition_ids.length} individual</small></span>
+              </button>
+            </div>
           {:else}
             <p class="empty-copy">Add a profile to create a reusable operating loadout.</p>
           {/each}
@@ -324,7 +418,7 @@
                       >
                         <button
                           class="drag-handle"
-                          draggable="true"
+                          draggable={true}
                           aria-label={`Reorder ${frequencySet.name}. Use Up and Down arrow keys or drag.`}
                           title="Drag to reorder; arrow keys also work"
                           ondragstart={(event) => startSetDrag(event, frequencySet.id)}

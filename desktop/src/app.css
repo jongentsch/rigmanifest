@@ -1276,6 +1276,20 @@ code {
   cursor: pointer;
 }
 
+.library-set-order-row,
+.profile-order-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.library-set-order-row .set-row,
+.profile-order-row .radio-row {
+  min-width: 0;
+}
+
 .set-row:hover,
 .radio-row:hover {
   background: var(--row-hover);
@@ -1399,6 +1413,8 @@ code {
   letter-spacing: -0.2em;
   line-height: 1;
   cursor: grab;
+  user-select: none;
+  -webkit-user-drag: element;
 }
 
 .drag-handle:hover {
@@ -1427,6 +1443,16 @@ code {
 }
 
 .selected-set-order-row.drop-after {
+  box-shadow: inset 0 -2px var(--accent);
+}
+
+.library-set-order-row.drop-before,
+.profile-order-row.drop-before {
+  box-shadow: inset 0 2px var(--accent);
+}
+
+.library-set-order-row.drop-after,
+.profile-order-row.drop-after {
   box-shadow: inset 0 -2px var(--accent);
 }
 

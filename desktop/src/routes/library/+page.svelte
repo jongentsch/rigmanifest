@@ -42,6 +42,9 @@
   let draggedDefinitionId = $state("");
   let definitionDropTargetId = $state("");
   let definitionDropPosition = $state<"before" | "after">("before");
+  let draggedLibrarySetId = $state("");
+  let librarySetDropTargetId = $state("");
+  let librarySetDropPosition = $state<"before" | "after">("before");
   let selectedPlanId = $state("arrl-us-national");
   let existingDefinitionId = $state("");
   let failure = $state("");
@@ -57,6 +60,9 @@
   let selectedDefinitions = $derived(resolveDefinitions(selectedSet, catalog));
   let allDefinitions = $derived(
     [...(catalog?.frequency_definitions ?? [])].sort(compareDefinitions),
+  );
+  let userFrequencySets = $derived(
+    (catalog?.frequency_sets ?? []).filter((item) => !item.read_only),
   );
   let displayedDefinitions = $derived(
     viewMode === "all"
@@ -200,6 +206,83 @@
         item.id === selectedSetId ? { ...item, ...changes } : item,
       ),
     });
+  }
+
+  function saveUserSetOrder(orderedUserSets: FrequencySetRecord[]): void {
+    if (!catalog) return;
+    persist({
+      ...catalog,
+      frequency_sets: [
+        ...orderedUserSets,
+        ...catalog.frequency_sets.filter((item) => item.read_only),
+      ],
+    });
+  }
+
+  function moveUserSet(setId: string, delta: -1 | 1): void {
+    const orderedUserSets = [...userFrequencySets];
+    const sourceIndex = orderedUserSets.findIndex((item) => item.id === setId);
+    const targetIndex = sourceIndex + delta;
+    if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= orderedUserSets.length) return;
+    [orderedUserSets[sourceIndex], orderedUserSets[targetIndex]] = [
+      orderedUserSets[targetIndex],
+      orderedUserSets[sourceIndex],
+    ];
+    saveUserSetOrder(orderedUserSets);
+  }
+
+  function startLibrarySetDrag(event: DragEvent, setId: string): void {
+    draggedLibrarySetId = setId;
+    event.dataTransfer?.setData("text/plain", setId);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  }
+
+  function dragLibrarySetOver(
+    event: DragEvent & { currentTarget: HTMLDivElement },
+    targetId: string,
+  ): void {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    if (!draggedLibrarySetId || draggedLibrarySetId === targetId) {
+      librarySetDropTargetId = "";
+      return;
+    }
+    const bounds = event.currentTarget.getBoundingClientRect();
+    librarySetDropTargetId = targetId;
+    librarySetDropPosition = event.clientY >= bounds.top + bounds.height / 2
+      ? "after"
+      : "before";
+  }
+
+  function dropLibrarySet(event: DragEvent, targetId: string): void {
+    event.preventDefault();
+    const sourceId = draggedLibrarySetId || event.dataTransfer?.getData("text/plain") || "";
+    const orderedUserSets = [...userFrequencySets];
+    const sourceIndex = orderedUserSets.findIndex(
+      (item) => item.id === sourceId,
+    );
+    if (sourceIndex < 0 || sourceId === targetId) {
+      clearLibrarySetDrag();
+      return;
+    }
+    const [source] = orderedUserSets.splice(sourceIndex, 1);
+    const targetIndex = orderedUserSets.findIndex((item) => item.id === targetId);
+    const insertIndex = targetIndex + (librarySetDropPosition === "after" ? 1 : 0);
+    orderedUserSets.splice(insertIndex, 0, source);
+    saveUserSetOrder(orderedUserSets);
+    clearLibrarySetDrag();
+  }
+
+  function clearLibrarySetDrag(): void {
+    draggedLibrarySetId = "";
+    librarySetDropTargetId = "";
+    librarySetDropPosition = "before";
+  }
+
+  function librarySetHandleKeydown(event: KeyboardEvent, setId: string): void {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    event.preventDefault();
+    moveUserSet(setId, event.key === "ArrowUp" ? -1 : 1);
   }
 
   function addSet(): void {
@@ -531,9 +614,13 @@
     event: DragEvent & { currentTarget: HTMLTableRowElement },
     targetId: string,
   ): void {
-    if (!draggedDefinitionId || draggedDefinitionId === targetId) return;
+    if (!selectedSet || selectedSet.read_only) return;
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    if (!draggedDefinitionId || draggedDefinitionId === targetId) {
+      definitionDropTargetId = "";
+      return;
+    }
     const bounds = event.currentTarget.getBoundingClientRect();
     definitionDropTargetId = targetId;
     definitionDropPosition = event.clientY >= bounds.top + bounds.height / 2
@@ -543,7 +630,8 @@
 
   function dropDefinition(event: DragEvent, targetId: string): void {
     event.preventDefault();
-    if (!selectedSet || selectedSet.read_only || !draggedDefinitionId) {
+    const sourceId = draggedDefinitionId || event.dataTransfer?.getData("text/plain") || "";
+    if (!selectedSet || selectedSet.read_only || !sourceId) {
       clearDefinitionDrag();
       return;
     }
@@ -551,9 +639,9 @@
       (left, right) => left.position - right.position,
     );
     const sourceIndex = members.findIndex(
-      (member) => member.frequency_definition_id === draggedDefinitionId,
+      (member) => member.frequency_definition_id === sourceId,
     );
-    if (sourceIndex < 0 || draggedDefinitionId === targetId) {
+    if (sourceIndex < 0 || sourceId === targetId) {
       clearDefinitionDrag();
       return;
     }
@@ -827,18 +915,39 @@
 
         <div class="set-section">
           <h3>My sets</h3>
-          {#each catalog.frequency_sets.filter((item) => !item.read_only) as frequencySet (frequencySet.id)}
-            <button
-              class:active={frequencySet.id === selectedSetId}
-              class="set-row"
-              onclick={() => selectSet(frequencySet.id)}
-            >
-              <span><strong>{frequencySet.name}</strong><small>User-owned</small></span>
-              <b>{frequencySet.members.length}</b>
-            </button>
-          {:else}
-            <p class="empty-copy">No user sets yet.</p>
-          {/each}
+          <div role="list" aria-label="User set order">
+            {#each userFrequencySets as frequencySet (frequencySet.id)}
+              <div
+                class="library-set-order-row"
+                role="listitem"
+                class:dragging-record={frequencySet.id === draggedLibrarySetId}
+                class:drop-before={frequencySet.id === librarySetDropTargetId && librarySetDropPosition === "before"}
+                class:drop-after={frequencySet.id === librarySetDropTargetId && librarySetDropPosition === "after"}
+                ondragover={(event) => dragLibrarySetOver(event, frequencySet.id)}
+                ondrop={(event) => dropLibrarySet(event, frequencySet.id)}
+              >
+                <button
+                  class="drag-handle"
+                  draggable={true}
+                  aria-label={`Reorder ${frequencySet.name}. Use Up and Down arrow keys or drag.`}
+                  title="Drag to reorder; arrow keys also work"
+                  ondragstart={(event) => startLibrarySetDrag(event, frequencySet.id)}
+                  ondragend={clearLibrarySetDrag}
+                  onkeydown={(event) => librarySetHandleKeydown(event, frequencySet.id)}
+                >⋮⋮</button>
+                <button
+                  class:active={frequencySet.id === selectedSetId}
+                  class="set-row"
+                  onclick={() => selectSet(frequencySet.id)}
+                >
+                  <span><strong>{frequencySet.name}</strong><small>User-owned</small></span>
+                  <b>{frequencySet.members.length}</b>
+                </button>
+              </div>
+            {:else}
+              <p class="empty-copy">No user sets yet.</p>
+            {/each}
+          </div>
         </div>
 
         <div class="set-section">
@@ -960,7 +1069,7 @@
                             <button
                               class="drag-handle"
                               data-row-action
-                              draggable="true"
+                              draggable={true}
                               aria-label={`Reorder ${item.definition.name}. Use Up and Down arrow keys or drag.`}
                               title="Drag to reorder; arrow keys also work"
                               ondragstart={(event) => startDefinitionDrag(event, item.definition.id)}

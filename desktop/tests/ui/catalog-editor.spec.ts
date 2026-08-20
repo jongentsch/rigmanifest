@@ -113,7 +113,7 @@ test("merges same-frequency definitions across sets and direct profile reference
   await expect(page.getByRole("row", { name: /Calling duplicate/ })).toHaveCount(0);
   await expect(page.getByRole("row", { name: /Calling keeper/ })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("Catalog saved");
-  await page.getByRole("button", { name: /BANK 2/ }).click();
+  await page.locator(".set-row").filter({ hasText: "BANK 2" }).click();
   await expect(page.getByRole("row", { name: /Calling keeper/ })).toHaveCount(1);
 
   const workspace = await page.evaluate(() => JSON.parse(
@@ -142,6 +142,31 @@ test("reorders definitions within a user set by dragging", async ({ page }) => {
   await expect(table.locator("tbody tr").nth(0)).toContainText("70cm Local Repeater");
 });
 
+test("reorders user frequency sets by dragging", async ({ page }) => {
+  await page.goto("/library");
+  await page.getByRole("button", { name: "Add set" }).click();
+  await page.getByLabel("Set name").fill("Priority set");
+  await page.getByLabel("Set name").press("Tab");
+
+  const setBrowser = page.getByRole("complementary", { name: "Frequency sets" });
+  const rows = setBrowser.locator(".library-set-order-row");
+  await expect(rows.nth(0)).toContainText("Home essentials");
+  await expect(rows.nth(1)).toContainText("Priority set");
+
+  const source = page.getByRole("button", { name: /Reorder Priority set/ });
+  const target = page.getByRole("button", { name: /Reorder Home essentials/ });
+  await source.dragTo(target, { targetPosition: { x: 4, y: 2 } });
+
+  await expect(rows.nth(0)).toContainText("Priority set");
+  await expect(rows.nth(1)).toContainText("Home essentials");
+  await expect(page.getByRole("status")).toContainText("Catalog saved");
+
+  await page.reload();
+  await expect(setBrowser.locator(".library-set-order-row").nth(0)).toContainText(
+    "Priority set",
+  );
+});
+
 test("creates, persists, and submits user-owned frequency records", async ({ page }) => {
   await page.goto("/library");
   await expect(page.getByRole("heading", { name: "Frequency library" })).toBeVisible();
@@ -168,7 +193,7 @@ test("creates, persists, and submits user-owned frequency records", async ({ pag
   await expect(page.getByRole("status")).toContainText("Catalog saved");
 
   await page.reload();
-  await page.getByRole("button", { name: /Field day/ }).click();
+  await page.locator(".set-row").filter({ hasText: "Field day" }).click();
   await expect(page.getByRole("row", { name: /Field simplex/ })).toContainText(
     "146.550000 MHz",
   );
@@ -409,7 +434,7 @@ test("imports a CHIRP CSV into reusable definitions and a set", async ({ page })
   );
 
   await page.reload();
-  await page.getByRole("button", { name: /Imported road-trip/ }).click();
+  await page.locator(".set-row").filter({ hasText: "Imported road-trip" }).click();
   await expect(page.getByRole("row", { name: /Road repeater/ })).toBeVisible();
 
   await page.getByRole("link", { name: "Compile & export" }).click();

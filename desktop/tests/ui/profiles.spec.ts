@@ -53,6 +53,34 @@ test("reorders selected profile sets by dragging", async ({ page }) => {
   await expect(previewGroups.nth(1)).toContainText("Home essentials");
 });
 
+test("reorders profiles by dragging", async ({ page }) => {
+  await page.goto("/profiles");
+  await page.getByRole("button", { name: "Add profile" }).click();
+  await page.getByLabel("Profile name").fill("Priority profile");
+  await page.getByLabel("Profile name").press("Tab");
+
+  const profileRows = page.locator(".profile-order-row");
+  await expect(profileRows.nth(0)).toContainText("Home");
+  await expect(profileRows.nth(1)).toContainText("Priority profile");
+
+  const source = page.getByRole("button", {
+    name: "Reorder Priority profile. Use Up and Down arrow keys or drag.",
+  });
+  const target = page.getByRole("button", {
+    name: "Reorder Home. Use Up and Down arrow keys or drag.",
+  });
+  await source.dragTo(target, { targetPosition: { x: 4, y: 2 } });
+
+  await expect(profileRows.nth(0)).toContainText("Priority profile");
+  await expect(profileRows.nth(1)).toContainText("Home");
+  await expect(page.getByRole("status")).toContainText("Profiles saved");
+
+  await page.reload();
+  await expect(page.locator(".profile-order-row").nth(0)).toContainText(
+    "Priority profile",
+  );
+});
+
 test("persists reusable profile composition and submits multiple profiles", async ({ page }) => {
   await page.goto("/profiles");
   await page.getByRole("button", { name: "Add profile" }).click();
@@ -68,7 +96,7 @@ test("persists reusable profile composition and submits multiple profiles", asyn
   await expect(page.getByRole("status")).toContainText("Profiles saved");
 
   await page.reload();
-  await page.getByRole("button", { name: /Vacation/ }).click();
+  await page.locator(".radio-row").filter({ hasText: "Vacation" }).click();
   await expect(page.getByLabel("Profile name")).toHaveValue("Vacation");
   await expect(page.getByLabel("Advisory band plan")).toHaveValue(
     "southern-nevada-repeater-council",

@@ -33,4 +33,14 @@ def test_release_versions_are_synchronized() -> None:
         package_version,
         tauri_version,
         cargo_version.group(1),
-    } == {"0.1.6"}
+    } == {"0.1.7"}
+
+
+def test_windows_webview_allows_html_drag_and_drop() -> None:
+    tauri_config = json.loads(
+        (ROOT / "desktop" / "src-tauri" / "tauri.conf.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert tauri_config["app"]["windows"][0]["dragDropEnabled"] is False
