@@ -1,6 +1,6 @@
 [package]
 name = "rigmanifest-desktop"
-version = "0.1.1"
+version = "0.1.2"
 description = "RigManifest desktop shell"
 authors = ["Jon Gentsch"]
 license = "GPL-3.0-only"
