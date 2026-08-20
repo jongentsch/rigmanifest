@@ -6,6 +6,7 @@ on:
       - "v*"
 
 permissions:
+  actions: read
   contents: write
 
 concurrency:
@@ -21,6 +22,24 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+
+      - name: Require successful CI for tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          commit_sha="$(git rev-parse HEAD)"
+          successful_runs="$(gh run list \
+            --repo "${GITHUB_REPOSITORY}" \
+            --workflow CI \
+            --commit "${commit_sha}" \
+            --event push \
+            --limit 20 \
+            --json conclusion,status \
+            --jq '[.[] | select(.status == "completed" and .conclusion == "success")] | length')"
+          if [ "${successful_runs}" -lt 1 ]; then
+            echo "::error::Tagged commit ${commit_sha} does not have a successful CI push run."
+            exit 1
+          fi
 
       - name: Verify release versions
         id: version

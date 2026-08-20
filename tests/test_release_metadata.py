@@ -33,4 +33,4 @@ def test_release_versions_are_synchronized() -> None:
         package_version,
         tauri_version,
         cargo_version.group(1),
-    } == {"0.1.5"}
+    } == {"0.1.6"}
