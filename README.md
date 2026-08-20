@@ -93,15 +93,17 @@ between RigManifest and CHIRP.
 
 ## Documentation
 
+- [Roadmap](ROADMAP.md) — current priorities and longer-term direction
 - [Getting Started](docs/getting-started.md) — install, import a radio, compile, and export
 - [User Guide](docs/user-guide.md) — page-by-page workflows with screenshots
 - [Core Concepts](docs/concepts.md) — definitions, sets, profiles, banks, and images
-- [Project Vision](docs/project-vision.md) — the problem and long-term direction
+- [Project Vision](docs/project-vision.md) — the problem and guiding thesis
 - [Architecture](docs/architecture.md) — desktop, compiler, persistence, and updater boundaries
 - [CHIRP Integration](docs/chirp-integration.md) — driver, image, validation, and export strategy
 - [Domain Model](docs/domain-model.md) — canonical entities and invariants
 - [Compiler Design](docs/compiler-design.md) — deterministic selection and diagnostics
 - [US Amateur Frequency Practices](docs/us-amateur-frequency-practices.md) — sourced advisory-plan notes
+- [RepeaterBook Integration Investigation](docs/repeaterbook-integration.md) — CHIRP functionality, constraints, and proposed boundary
 - [Desktop Development](desktop/README.md) — packaging, UI testing, and release details
 
 ## Development

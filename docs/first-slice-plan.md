@@ -1,5 +1,9 @@
 # First Vertical Slice Plan
 
+> **Historical document.** This records the decisions and delivery sequence for the
+> first executable slice. It is retained for architectural context, not as a list of
+> unfinished work. See the current [RigManifest Roadmap](../ROADMAP.md).
+
 ## Architecture review
 
 The proposed architecture is coherent: a pure Python compiler owns semantics,

@@ -143,9 +143,9 @@ Benefits include:
 
 ## Long-term possibilities
 
-Only after the compiler proves useful:
+The active priorities and sequencing live in the [RigManifest Roadmap](../ROADMAP.md).
+Longer-term possibilities include:
 
-- direct CHIRP driver integration
 - direct radio programming
 - route-based travel profiles
 - emergency profiles
@@ -153,7 +153,6 @@ Only after the compiler proves useful:
 - drift detection
 - shared profile libraries
 - online repeater providers
-- capability overlays
 - richer scan-group/bank semantics
 - DMR and digital-radio extensions
 

@@ -1,5 +1,9 @@
 # MVP
 
+> **Historical document.** This records the original v0.1 experiment and is not the
+> active roadmap. The project has since adopted image-backed CHIRP radios and IMG as
+> its primary desktop boundary. See the current [RigManifest Roadmap](../ROADMAP.md).
+
 ## MVP question
 
 The first release exists to answer:
