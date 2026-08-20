@@ -13,6 +13,7 @@ from rigmanifest.chirp_adapter import (
     apply_signaling_to_chirp_memory,
 )
 from rigmanifest.chirp_import import definition_from_chirp_memory
+from rigmanifest.chirp_runtime import initialize_chirp_runtime
 from rigmanifest.models import (
     CatalogOrigin,
     CompiledMemory,
@@ -115,11 +116,32 @@ def import_chirp_image(path: Path, *, radio_id: str) -> ChirpImageImport:
 def load_chirp_image(path: Path) -> Any:
     """Ask CHIRP to detect and load an image without interpreting its bytes."""
 
-    directory.import_drivers()
+    initialize_chirp_runtime()
     try:
         return directory.get_radio_by_image(str(path))
-    except (errors.ImageDetectFailed, errors.ImageMetadataInvalidModel) as error:
+    except errors.ImageMetadataInvalidModel as error:
+        metadata = getattr(error, "metadata", {})
+        description = _image_metadata_description(metadata)
+        raise ValueError(
+            f"CHIRP has no bundled driver matching this radio image{description}"
+        ) from error
+    except errors.ImageDetectFailed as error:
         raise ValueError(f"CHIRP could not identify this radio image: {error}") from error
+
+
+def _image_metadata_description(metadata: Mapping[str, Any]) -> str:
+    vendor = str(metadata.get("vendor", "")).strip()
+    model = str(metadata.get("model", "")).strip()
+    variant = str(metadata.get("variant", "")).strip()
+    chirp_version = str(metadata.get("chirp_version", "")).strip()
+    identity = " ".join(value for value in (vendor, model) if value)
+    details = []
+    if variant:
+        details.append(f"variant {variant}")
+    if chirp_version:
+        details.append(f"created by CHIRP {chirp_version}")
+    suffix = f" ({'; '.join(details)})" if details else ""
+    return f": {identity}{suffix}" if identity else suffix
 
 
 def radio_model_from_image(radio: Any) -> RadioModel:

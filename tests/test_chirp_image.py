@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 from dataclasses import replace
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -315,6 +317,29 @@ def test_image_import_validates_its_inputs(
 
     with pytest.raises(ValueError, match=message):
         import_chirp_image(path, radio_id=radio_id)
+
+
+def test_image_detection_error_reports_chirp_metadata(tmp_path: Path) -> None:
+    metadata = {
+        "vendor": "Quansheng",
+        "model": "UV-K5",
+        "variant": "future-firmware",
+        "chirp_version": "next-20990101",
+    }
+    source = tmp_path / "future.img"
+    source.write_bytes(
+        b"image-data"
+        + chirp_common.CloneModeRadio.MAGIC
+        + base64.b64encode(json.dumps(metadata).encode())
+    )
+
+    with pytest.raises(ValueError) as caught:
+        load_chirp_image(source)
+
+    message = str(caught.value)
+    assert "Quansheng UV-K5" in message
+    assert "variant future-firmware" in message
+    assert "created by CHIRP next-20990101" in message
 
 
 def _compiled_memory(**changes) -> CompiledMemory:

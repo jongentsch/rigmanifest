@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from functools import lru_cache
-from importlib import import_module
 from typing import Any, TypeVar
 
 from chirp import chirp_common, directory, errors
@@ -24,15 +23,10 @@ from rigmanifest.models import (
     ToneMode,
     TransmitBehavior,
 )
+from rigmanifest.chirp_runtime import initialize_chirp_runtime
 
 
 CHIRP_COMMIT = "fa27a491d275f88b452d0488a51b4c85d4f7062a"
-
-_SUPPORTED_DRIVER_MODULES = {
-    "Yaesu_VX-6": "chirp.drivers.vx6",
-    "Quansheng_UV-K5": "chirp.drivers.uvk5",
-    "Retevis_RT95": "chirp.drivers.anytone778uv",
-}
 
 _Value = TypeVar("_Value")
 
@@ -290,21 +284,9 @@ def _issue(severity: Severity, message: str) -> MemoryValidationIssue:
     )
 
 
-@lru_cache(maxsize=1)
-def _import_chirp_drivers() -> None:
-    directory.import_drivers()
-
-
 @lru_cache(maxsize=None)
 def _driver_class(driver_reference: str) -> type[Any]:
-    module_name = _SUPPORTED_DRIVER_MODULES.get(driver_reference)
-    if module_name is None:
-        _import_chirp_drivers()
-    else:
-        # Frozen Windows builds cannot discover CHIRP's driver modules by
-        # globbing. Every model RigManifest exposes therefore names the
-        # concrete module that registers it with CHIRP's directory.
-        import_module(module_name)
+    initialize_chirp_runtime()
     try:
         return directory.get_radio(driver_reference)
     except Exception as error:

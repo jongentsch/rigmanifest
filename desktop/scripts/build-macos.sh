@@ -70,13 +70,17 @@ tauri_sidecar="$binary_directory/rigmanifest-sidecar-$target_triple"
 cp "$sidecar_dist/rigmanifest-sidecar" "$tauri_sidecar"
 chmod +x "$tauri_sidecar"
 
-smoke_response="$(printf '%s\n' '{"id":"macos-smoke","method":"catalog"}' | "$tauri_sidecar" --once)"
+smoke_response="$(printf '%s\n' '{"id":"macos-smoke","method":"chirp_runtime_status","params":{"required_driver_references":["Quansheng_UV-K5_egzumer"]}}' | "$tauri_sidecar" --once)"
 printf '%s' "$smoke_response" | "$python" -c '
 import json
 import sys
 
 payload = json.load(sys.stdin)
-if payload.get("id") != "macos-smoke" or not payload.get("result", {}).get("schema_version"):
+result = payload.get("result", {})
+if (payload.get("id") != "macos-smoke"
+        or result.get("registered_driver_count", 0) < 100
+        or not result.get("translations_ready")
+        or result.get("missing_driver_references")):
     raise SystemExit(f"Frozen sidecar smoke test returned an invalid response: {payload!r}")
 '
 

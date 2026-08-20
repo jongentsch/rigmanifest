@@ -11,6 +11,13 @@ The dependency is pinned to commit
 version `0`, so an exact source revision is required for reproducible builds.
 wxPython is an optional CHIRP extra and is not part of the RigManifest core runtime.
 
+RigManifest initializes CHIRP once per process for headless use. The initializer
+installs CHIRP's gettext builtins and imports every driver module available through
+the Python package loader. Package-loader discovery is required because PyInstaller
+stores modules inside its archive, where CHIRP's normal filesystem glob cannot see
+them. Release builds collect the complete `chirp.drivers` package and fail their
+sidecar smoke test when a representative secondary driver module is not registered.
+
 ## Image-backed desktop workflow
 
 Adding a radio to the desktop requires a CHIRP image downloaded from that radio.

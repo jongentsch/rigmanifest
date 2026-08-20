@@ -128,6 +128,27 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
     assert "notes" in calling
 
 
+def test_chirp_runtime_status_checks_secondary_driver_modules() -> None:
+    response = handle_request(
+        {
+            "id": "chirp-runtime",
+            "method": "chirp_runtime_status",
+            "params": {
+                "required_driver_references": [
+                    "Quansheng_UV-K5_egzumer",
+                    "Missing_Test_Driver",
+                ]
+            },
+        }
+    )
+
+    assert response["result"]["registered_driver_count"] > 100
+    assert response["result"]["translations_ready"] is True
+    assert response["result"]["missing_driver_references"] == [
+        "Missing_Test_Driver"
+    ]
+
+
 def test_workspace_requests_persist_and_backup_state(tmp_path) -> None:
     database = tmp_path / "workspace.sqlite3"
     loaded = handle_request({
@@ -436,6 +457,12 @@ def test_sidecar_once_mode_exits_after_first_response() -> None:
     "payload",
     [
         {"id": "bad", "method": "unknown"},
+        {"id": "bad", "method": "chirp_runtime_status", "params": []},
+        {
+            "id": "bad",
+            "method": "chirp_runtime_status",
+            "params": {"required_driver_references": "bad"},
+        },
         {"id": "bad", "method": "compile"},
         {"id": "bad", "method": "compile", "params": {}},
         {"id": "bad", "method": "compile", "params": {"profile": "home", "target": "yaesu-vx6r", "output_path": 1}},

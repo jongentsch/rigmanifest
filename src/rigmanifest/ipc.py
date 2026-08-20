@@ -22,6 +22,7 @@ from rigmanifest.chirp_image import (
     write_compiled_image,
 )
 from rigmanifest.chirp_adapter import chirp_memory_validator
+from rigmanifest.chirp_runtime import chirp_runtime_status
 from rigmanifest.compiler import compile_profiles
 from rigmanifest.exporters.chirp_csv import write_chirp_csv
 from rigmanifest.frequency_plans import BUILTIN_FREQUENCY_PLANS
@@ -511,6 +512,23 @@ def handle_request(request: Mapping[str, object]) -> dict[str, object]:
         method = request.get("method")
         if method == "catalog":
             return {"id": request_id, "result": catalog_to_dict()}
+        if method == "chirp_runtime_status":
+            params = request.get("params", {})
+            if not isinstance(params, Mapping):
+                raise RequestError("params must be an object")
+            required = params.get("required_driver_references", ())
+            if (
+                not isinstance(required, Sequence)
+                or isinstance(required, (str, bytes))
+                or any(not isinstance(item, str) or not item for item in required)
+            ):
+                raise RequestError(
+                    "required_driver_references must be an array of non-empty strings"
+                )
+            return {
+                "id": request_id,
+                "result": chirp_runtime_status(required),
+            }
         if method in {"load_workspace", "save_workspace", "backup_workspace"}:
             params = request.get("params")
             if not isinstance(params, Mapping):

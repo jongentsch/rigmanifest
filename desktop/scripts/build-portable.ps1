@@ -82,7 +82,7 @@ try {
     # A BOM-emitting encoding corrupts the first newline-delimited JSON request.
     [Console]::InputEncoding = $utf8WithoutBom
     [void]$smokeProcess.Start()
-    $smokeProcess.StandardInput.WriteLine('{"id":"portable-smoke","method":"catalog"}')
+    $smokeProcess.StandardInput.WriteLine('{"id":"portable-smoke","method":"chirp_runtime_status","params":{"required_driver_references":["Quansheng_UV-K5_egzumer"]}}')
     $smokeProcess.StandardInput.Close()
 }
 finally {
@@ -100,7 +100,10 @@ try {
 catch {
     throw "Frozen sidecar smoke test returned invalid JSON: $smokeResponse"
 }
-if ($smokePayload.id -ne "portable-smoke" -or -not $smokePayload.result.schema_version) {
+if ($smokePayload.id -ne "portable-smoke" -or
+    $smokePayload.result.registered_driver_count -lt 100 -or
+    -not $smokePayload.result.translations_ready -or
+    $smokePayload.result.missing_driver_references.Count -ne 0) {
     throw "Frozen sidecar smoke test returned an invalid response: $smokeResponse"
 }
 
