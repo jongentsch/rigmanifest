@@ -24,6 +24,35 @@ test("previews selected sets as banks and keeps standalone additions unassigned"
   await expect(weatherBank).toHaveCount(0);
 });
 
+test("reorders selected profile sets by dragging", async ({ page }) => {
+  await page.goto("/profiles");
+
+  const selectedOrder = page.getByLabel("Selected set order");
+  const rows = selectedOrder.locator(".selected-set-order-row");
+  await expect(rows.nth(0)).toContainText("Home essentials");
+  await expect(rows.nth(1)).toContainText("US NOAA Weather Broadcasts");
+
+  const source = page.getByRole("button", {
+    name: /Reorder US NOAA Weather Broadcasts/,
+  });
+  const target = page.getByRole("button", { name: /Reorder Home essentials/ });
+  await source.dragTo(target, { targetPosition: { x: 4, y: 2 } });
+
+  await expect(rows.nth(0)).toContainText("US NOAA Weather Broadcasts");
+  await expect(rows.nth(1)).toContainText("Home essentials");
+  await expect(page.getByRole("status")).toContainText("Profiles saved");
+
+  await page.reload();
+  await expect(selectedOrder.locator(".selected-set-order-row").nth(0)).toContainText(
+    "US NOAA Weather Broadcasts",
+  );
+  const previewGroups = page
+    .getByRole("region", { name: "Prospective banks" })
+    .locator(".profile-bank-group");
+  await expect(previewGroups.nth(0)).toContainText("US NOAA Weather Broadcasts");
+  await expect(previewGroups.nth(1)).toContainText("Home essentials");
+});
+
 test("persists reusable profile composition and submits multiple profiles", async ({ page }) => {
   await page.goto("/profiles");
   await page.getByRole("button", { name: "Add profile" }).click();

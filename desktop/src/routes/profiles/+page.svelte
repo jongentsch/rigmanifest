@@ -38,6 +38,9 @@
   let failure = $state("");
   let saved = $state(false);
   let definitionSearch = $state("");
+  let draggedSetId = $state("");
+  let setDropTargetId = $state("");
+  let setDropPosition = $state<"before" | "after">("before");
 
   let selectedProfile = $derived(
     profiles.find((profile) => profile.id === selectedProfileId) ?? null,
@@ -49,6 +52,7 @@
     }),
   );
   let bankPreview = $derived(resolveBankPreview(selectedProfile, catalog));
+  let selectedFrequencySets = $derived(resolveSelectedSets(selectedProfile, catalog));
 
   onMount(async () => {
     try {
@@ -91,6 +95,85 @@
         ? [...selectedProfile.frequency_set_ids, setId]
         : selectedProfile.frequency_set_ids.filter((id) => id !== setId),
     });
+  }
+
+  function resolveSelectedSets(
+    profile: ProfileRecord | null,
+    workspace: WorkspaceCatalog | null,
+  ) {
+    if (!profile || !workspace) return [];
+    const sets = new Map(
+      workspace.frequency_sets.map((frequencySet) => [frequencySet.id, frequencySet]),
+    );
+    return profile.frequency_set_ids.flatMap((setId) => {
+      const frequencySet = sets.get(setId);
+      return frequencySet ? [frequencySet] : [];
+    });
+  }
+
+  function moveProfileSet(setId: string, delta: -1 | 1): void {
+    if (!selectedProfile) return;
+    const setIds = [...selectedProfile.frequency_set_ids];
+    const sourceIndex = setIds.indexOf(setId);
+    const targetIndex = sourceIndex + delta;
+    if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= setIds.length) return;
+    [setIds[sourceIndex], setIds[targetIndex]] = [
+      setIds[targetIndex],
+      setIds[sourceIndex],
+    ];
+    updateProfile({ frequency_set_ids: setIds });
+  }
+
+  function startSetDrag(event: DragEvent, setId: string): void {
+    draggedSetId = setId;
+    event.dataTransfer?.setData("text/plain", setId);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  }
+
+  function dragSetOver(
+    event: DragEvent & { currentTarget: HTMLDivElement },
+    targetId: string,
+  ): void {
+    if (!draggedSetId || draggedSetId === targetId) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setDropTargetId = targetId;
+    setDropPosition = event.clientY >= bounds.top + bounds.height / 2
+      ? "after"
+      : "before";
+  }
+
+  function dropProfileSet(event: DragEvent, targetId: string): void {
+    event.preventDefault();
+    if (!selectedProfile || !draggedSetId) {
+      clearSetDrag();
+      return;
+    }
+    const setIds = [...selectedProfile.frequency_set_ids];
+    const sourceIndex = setIds.indexOf(draggedSetId);
+    if (sourceIndex < 0 || draggedSetId === targetId) {
+      clearSetDrag();
+      return;
+    }
+    const [sourceId] = setIds.splice(sourceIndex, 1);
+    const targetIndex = setIds.indexOf(targetId);
+    const insertIndex = targetIndex + (setDropPosition === "after" ? 1 : 0);
+    setIds.splice(insertIndex, 0, sourceId);
+    updateProfile({ frequency_set_ids: setIds });
+    clearSetDrag();
+  }
+
+  function clearSetDrag(): void {
+    draggedSetId = "";
+    setDropTargetId = "";
+    setDropPosition = "before";
+  }
+
+  function setHandleKeydown(event: KeyboardEvent, setId: string): void {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    event.preventDefault();
+    moveProfileSet(setId, event.key === "ArrowUp" ? -1 : 1);
   }
 
   function toggleDefinition(definitionId: string, checked: boolean): void {
@@ -226,6 +309,33 @@
             <section class="profile-composition" aria-label="Profile composition">
               <div class="profile-composition-group" aria-labelledby="profile-sets-heading">
                 <div class="subsection-heading"><div><p class="section-label">Reusable groups</p><h3 id="profile-sets-heading">Frequency sets</h3></div><span>{selectedProfile.frequency_set_ids.length} selected</span></div>
+                {#if selectedFrequencySets.length > 0}
+                  <div class="selected-set-order" role="list" aria-label="Selected set order">
+                    <p>Selected order <span>Drag the handles or use arrow keys.</span></p>
+                    {#each selectedFrequencySets as frequencySet, index (frequencySet.id)}
+                      <div
+                        class="selected-set-order-row"
+                        role="listitem"
+                        class:dragging-record={frequencySet.id === draggedSetId}
+                        class:drop-before={frequencySet.id === setDropTargetId && setDropPosition === "before"}
+                        class:drop-after={frequencySet.id === setDropTargetId && setDropPosition === "after"}
+                        ondragover={(event) => dragSetOver(event, frequencySet.id)}
+                        ondrop={(event) => dropProfileSet(event, frequencySet.id)}
+                      >
+                        <button
+                          class="drag-handle"
+                          draggable="true"
+                          aria-label={`Reorder ${frequencySet.name}. Use Up and Down arrow keys or drag.`}
+                          title="Drag to reorder; arrow keys also work"
+                          ondragstart={(event) => startSetDrag(event, frequencySet.id)}
+                          ondragend={clearSetDrag}
+                          onkeydown={(event) => setHandleKeydown(event, frequencySet.id)}
+                        >⋮⋮</button>
+                        <span><b>{index + 1}</b><strong>{frequencySet.name}</strong></span>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
                 <div class="selection-list profile-selection-list">
                   {#each catalog.frequency_sets as frequencySet (frequencySet.id)}
                     <label class="selection-row"><input type="checkbox" checked={selectedProfile.frequency_set_ids.includes(frequencySet.id)} onchange={(event) => toggleSet(frequencySet.id, event.currentTarget.checked)} /><span><strong>{frequencySet.name}</strong><small>{frequencySet.members.length} definitions · {frequencySet.read_only ? "Preset" : "My set"}</small></span></label>

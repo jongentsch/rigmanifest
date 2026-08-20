@@ -1,5 +1,135 @@
 import { expect, test } from "@playwright/test";
 
+test("shows the complete frequency catalog in frequency and settings order", async ({ page }) => {
+  await page.goto("/library");
+  await page.getByRole("button", { name: /All frequencies/ }).click();
+
+  await expect(page.getByRole("heading", { name: "All frequencies" })).toBeVisible();
+  await expect(page.getByLabel("All frequency definitions")).toBeVisible();
+  await expect(page.getByLabel("Set name")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Delete set" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add to set" })).toHaveCount(0);
+
+  const rows = page.getByLabel("All frequency definitions").locator("tbody tr");
+  await expect(rows.nth(0)).toContainText("2m Calling");
+  await expect(rows.nth(1)).toContainText("2m Local Repeater");
+
+  await page.getByRole("button", { name: "New definition" }).click();
+  const name = page.getByLabel("Name", { exact: true });
+  await name.fill("Unassigned simplex");
+  await name.press("Tab");
+  const receive = page.getByLabel("Receive MHz");
+  await receive.fill("145.500000");
+  await receive.press("Tab");
+  await expect(page.getByRole("row", { name: /Unassigned simplex/ })).toContainText(
+    "145.500000 MHz",
+  );
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Delete definition everywhere" }).click();
+  await expect(page.getByRole("row", { name: /Unassigned simplex/ })).toHaveCount(0);
+});
+
+test("merges same-frequency definitions across sets and direct profile references", async ({ page }) => {
+  await page.addInitScript(() => {
+    const definition = (id: string, name: string, mode: string) => ({
+      id,
+      name,
+      origin: "user",
+      read_only: false,
+      receive_frequency_hz: 146_520_000,
+      transmit_behavior: "same",
+      transmit_frequency_hz: null,
+      offset_hz: null,
+      mode,
+      transmit_access: { kind: "none", ctcss_hz: null, dcs_code: null, dcs_polarity: "N" },
+      receive_squelch: { kind: "none", ctcss_hz: null, dcs_code: null, dcs_polarity: "N" },
+      tags: ["chirp-import"],
+      priority: "normal",
+      notes: "Imported from a radio image.",
+    });
+    localStorage.setItem("rigmanifest.ui-test.sqlite-workspace.v1", JSON.stringify({
+      schema_version: 3,
+      user_catalog: {
+        frequencyDefinitions: [
+          definition("user-calling-keep", "Calling keeper", "FM"),
+          definition("user-calling-duplicate", "Calling duplicate", "NFM"),
+        ],
+        frequencySets: [
+          {
+            id: "user-bank-one",
+            name: "BANK 1",
+            origin: "user",
+            read_only: false,
+            description: "First import.",
+            members: [{ frequency_definition_id: "user-calling-keep", position: 0, channel_designator: null }],
+          },
+          {
+            id: "user-bank-two",
+            name: "BANK 2",
+            origin: "user",
+            read_only: false,
+            description: "Second import.",
+            members: [
+              { frequency_definition_id: "user-calling-duplicate", position: 0, channel_designator: null },
+              { frequency_definition_id: "user-calling-keep", position: 1, channel_designator: null },
+            ],
+          },
+        ],
+      },
+      profiles: [{
+        id: "imported-profile",
+        name: "Imported radios",
+        description: "",
+        frequency_set_ids: ["user-bank-one", "user-bank-two"],
+        frequency_definition_ids: ["user-calling-duplicate"],
+        frequency_plan_id: null,
+      }],
+      default_frequency_plan_id: "arrl-us-national",
+    }));
+  });
+
+  await page.goto("/library");
+  await page.getByRole("button", { name: /All frequencies/ }).click();
+  await page.getByRole("checkbox", { name: "Select Calling keeper for merge" }).check();
+  await page.getByRole("checkbox", { name: "Select Calling duplicate for merge" }).check();
+  await page.getByLabel("Definition to keep").selectOption("user-calling-keep");
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Merge selected" }).click();
+
+  await expect(page.getByRole("row", { name: /Calling duplicate/ })).toHaveCount(0);
+  await expect(page.getByRole("row", { name: /Calling keeper/ })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("Catalog saved");
+  await page.getByRole("button", { name: /BANK 2/ }).click();
+  await expect(page.getByRole("row", { name: /Calling keeper/ })).toHaveCount(1);
+
+  const workspace = await page.evaluate(() => JSON.parse(
+    localStorage.getItem("rigmanifest.ui-test.sqlite-workspace.v1") ?? "null",
+  ));
+  expect(workspace.user_catalog.frequencyDefinitions).toHaveLength(1);
+  expect(workspace.user_catalog.frequencySets[1].members).toEqual([
+    expect.objectContaining({ frequency_definition_id: "user-calling-keep", position: 0 }),
+  ]);
+  expect(workspace.profiles[0].frequency_definition_ids).toEqual(["user-calling-keep"]);
+});
+
+test("reorders definitions within a user set by dragging", async ({ page }) => {
+  await page.goto("/library");
+
+  const table = page.getByLabel("Home essentials frequency table");
+  const source = page.getByRole("button", { name: /Reorder 70cm Local Repeater/ });
+  const target = page.getByRole("button", { name: /Reorder 2m Calling/ });
+  await source.dragTo(target, { targetPosition: { x: 4, y: 2 } });
+
+  const rows = table.locator("tbody tr");
+  await expect(rows.nth(0)).toContainText("70cm Local Repeater");
+  await expect(page.getByRole("status")).toContainText("Catalog saved");
+
+  await page.reload();
+  await expect(table.locator("tbody tr").nth(0)).toContainText("70cm Local Repeater");
+});
+
 test("creates, persists, and submits user-owned frequency records", async ({ page }) => {
   await page.goto("/library");
   await expect(page.getByRole("heading", { name: "Frequency library" })).toBeVisible();

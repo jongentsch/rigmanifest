@@ -29,6 +29,15 @@ test("image-backed radio inventory has no detectable accessibility violations", 
   expect(results.violations).toEqual([]);
 });
 
+test("profile editor has no detectable accessibility violations", async ({ page }) => {
+  await page.goto("/profiles");
+  await expect(page.getByRole("heading", { name: "Profiles", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Selected set order")).toBeVisible();
+
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
+});
+
 test("update settings have no detectable accessibility violations", async ({ page }) => {
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();

@@ -143,7 +143,10 @@ export async function saveRadioInventory(radios: RadioInstance[]): Promise<void>
   await persistWorkspace({ ...requireWorkspace(), radios });
 }
 
-export async function saveWorkspaceUserCatalog(records: UserCatalogRecords): Promise<void> {
+export async function saveWorkspaceUserCatalog(
+  records: UserCatalogRecords,
+  definitionReplacements: Record<string, string> = {},
+): Promise<void> {
   const workspace = requireWorkspace();
   const knownSetIds = new Set([
     ...(builtinCatalog?.frequency_sets ?? [])
@@ -160,9 +163,11 @@ export async function saveWorkspaceUserCatalog(records: UserCatalogRecords): Pro
   const profiles = workspace.profiles.map((profile) => ({
     ...profile,
     frequency_set_ids: profile.frequency_set_ids.filter((id) => knownSetIds.has(id)),
-    frequency_definition_ids: profile.frequency_definition_ids.filter((id) =>
-      knownDefinitionIds.has(id)
-    ),
+    frequency_definition_ids: [...new Set(
+      profile.frequency_definition_ids
+        .map((id) => definitionReplacements[id] ?? id)
+        .filter((id) => knownDefinitionIds.has(id)),
+    )],
   }));
   await persistWorkspace({ ...workspace, user_catalog: records, profiles });
 }
