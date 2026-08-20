@@ -342,6 +342,19 @@
     ].join(":");
   }
 
+  function mergeOptionLabel(definition: FrequencyDefinitionRecord): string {
+    return [
+      definition.name,
+      mhz(definition.receive_frequency_hz),
+      definitionTxSummary(definition),
+      definition.mode,
+      `TX ${signalingSummary(definition.transmit_access)}`,
+      `RX ${signalingSummary(definition.receive_squelch)}`,
+      definition.read_only ? "Preset" : "User",
+      definition.id,
+    ].join(" · ");
+  }
+
   function toggleMergeSelection(definitionId: string, checked: boolean): void {
     selectedMergeDefinitionIds = checked
       ? [...selectedMergeDefinitionIds, definitionId]
@@ -865,7 +878,7 @@
                   <option value="">Choose a definition…</option>
                   {#each mergeDefinitions as definition (definition.id)}
                     <option value={definition.id} disabled={mergeDefinitions.some((item) => item.read_only) && !definition.read_only}>
-                      {definition.name} · {definition.read_only ? "Preset" : "User"}
+                      {mergeOptionLabel(definition)}
                     </option>
                   {/each}
                 </select>
@@ -919,7 +932,7 @@
             {/if}
           {/if}
 
-          <div class="table-wrap" role="region" aria-label={viewMode === "all" ? "All frequency definitions" : `${selectedSet?.name ?? "Selected set"} frequency table`} tabindex="0">
+          <div class="table-wrap" class:frequency-list-scroll={viewMode === "all"} role="region" aria-label={viewMode === "all" ? "All frequency definitions" : `${selectedSet?.name ?? "Selected set"} frequency table`} tabindex="0">
             <table class="data-table">
               <thead>
                 <tr>{#if viewMode === "all"}<th scope="col" class="selection-cell"><span class="visually-hidden">Merge selection</span></th>{:else}<th scope="col">Designation</th>{/if}<th scope="col">Frequency definition</th><th scope="col">Receive</th><th scope="col">Transmit</th><th scope="col">TX access</th><th scope="col">RX squelch</th><th scope="col">Mode</th><th scope="col">Step</th><th scope="col">Power / scan</th><th scope="col">Source</th>{#if viewMode === "set" && selectedSet && !selectedSet.read_only}<th scope="col">Membership</th>{/if}</tr>

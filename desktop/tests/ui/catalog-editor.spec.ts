@@ -93,7 +93,19 @@ test("merges same-frequency definitions across sets and direct profile reference
   await page.getByRole("button", { name: /All frequencies/ }).click();
   await page.getByRole("checkbox", { name: "Select Calling keeper for merge" }).check();
   await page.getByRole("checkbox", { name: "Select Calling duplicate for merge" }).check();
-  await page.getByLabel("Definition to keep").selectOption("user-calling-keep");
+  const mergeBar = page.getByLabel("Merge frequency definitions");
+  const frequencyList = page.getByLabel("All frequency definitions");
+  const keepDefinition = page.getByLabel("Definition to keep");
+  await expect(keepDefinition.locator('option[value="user-calling-keep"]')).toHaveText(
+    /Calling keeper · 146\.520000 MHz · Same as RX · FM · TX None · RX None · User · user-calling-keep/,
+  );
+  await expect(keepDefinition.locator('option[value="user-calling-duplicate"]')).toHaveText(
+    /Calling duplicate · 146\.520000 MHz · Same as RX · NFM · TX None · RX None · User · user-calling-duplicate/,
+  );
+  await frequencyList.evaluate((element) => element.scrollTo(0, element.scrollHeight));
+  await expect.poll(() => frequencyList.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  await expect(mergeBar).toBeInViewport();
+  await keepDefinition.selectOption("user-calling-keep");
 
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Merge selected" }).click();
