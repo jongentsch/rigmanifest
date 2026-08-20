@@ -51,7 +51,7 @@ test("persists reusable profile composition and submits multiple profiles", asyn
   await page.getByRole("checkbox", { name: /Vacation/ }).check();
   await page.getByRole("button", { name: "Compile plan" }).click();
   await expect(
-    page.getByRole("heading", { name: "VX-6R (USA) memory plan" }),
+    page.getByRole("heading", { name: "VX-6R (USA) compiled plan" }),
   ).toBeVisible();
 
   const calls = await page.evaluate(() =>

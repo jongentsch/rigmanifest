@@ -64,17 +64,6 @@
     return plan?.memories.filter((memory) => included.has(memory.memory_number)) ?? [];
   }
 
-  function bankSummary(memory: CompileResult["memories"][number]): string {
-    if (!plan || memory.bank_assignments.length === 0) return "—";
-    const banks = plan.banks;
-    return memory.bank_assignments
-      .map((setId) => {
-        const bank = banks.find((item) => item.frequency_set_id === setId);
-        return bank ? `Bank ${bank.bank_number}: ${bank.name}` : setId;
-      })
-      .join(", ");
-  }
-
   onMount(async () => {
     try {
       catalog = await loadCatalog();
@@ -243,14 +232,15 @@
 
     {#if plan.factory_sets.length > 0}<section class="factory-coverage" aria-label="Factory-provided frequency sets">{#each plan.factory_sets as coverage (coverage.frequency_set_id)}<article><div><p class="section-label">Already on this model</p><strong>{coverage.frequency_set_name}</strong></div><span class="record-badge badge--preset">{coverage.interface_label}</span><small>{coverage.definition_count} definitions · CHIRP editing {coverage.chirp_editing}</small></article>{/each}</section>{/if}
 
-    <section class="workspace-panel compiled-bank-preview" aria-labelledby="compiled-bank-preview-heading">
-      <div class="panel-heading">
-        <div><p class="section-label">Target bank layout</p><h2 id="compiled-bank-preview-heading">Compiled banks</h2></div>
-        <span class="schema-label">{plan.banks.length} assigned</span>
-      </div>
-      <div class="compiled-bank-preview-body">
-        <p class="profile-preview-note">This is the bank layout that will be written to the CHIRP IMG. One radio memory can appear in more than one bank.</p>
-        <div class="profile-bank-list">
+    <div class="plan-layout">
+      <section class="workspace-panel compiled-bank-preview" aria-labelledby="compiled-plan-heading">
+        <div class="panel-heading">
+          <div><p class="section-label">Compiled output</p><h2 id="compiled-plan-heading">{plan.target.model} compiled plan</h2></div>
+          <div class="panel-actions"><span class="schema-label">{plan.banks.length} banks · Schema v{plan.schema_version}</span><button class="button button--primary" onclick={exportImage} disabled={exporting}>{exporting ? "Exporting..." : "Export CHIRP IMG"}</button></div>
+        </div>
+        <div class="compiled-bank-preview-body">
+          <p class="profile-preview-note">This is the bank layout that will be written to the CHIRP IMG. One radio memory can appear in more than one bank.</p>
+          <div class="profile-bank-list">
           {#each plan.banks as bank (bank.frequency_set_id)}
             <section class="profile-bank-group" aria-label={`Bank ${bank.bank_number}: ${bank.name}`}>
               <header>
@@ -308,14 +298,8 @@
           {:else if plan.banks.length === 0}
             <div class="profile-preview-empty"><strong>No bank assignments</strong><p>This radio or compile configuration does not map sets to banks.</p></div>
           {/if}
+          </div>
         </div>
-      </div>
-    </section>
-
-    <div class="plan-layout">
-      <section class="workspace-panel memory-panel" aria-labelledby="memory-plan-heading">
-        <div class="panel-heading"><div><p class="section-label">Compiled output</p><h2 id="memory-plan-heading">{plan.target.model} memory plan</h2></div><div class="panel-actions"><span class="schema-label">Schema v{plan.schema_version}</span><button class="button button--primary" onclick={exportImage} disabled={exporting}>{exporting ? "Exporting..." : "Export CHIRP IMG"}</button></div></div>
-        <div class="table-wrap" role="region" aria-label="Compiled frequency table" tabindex="0"><table class="data-table"><thead><tr><th scope="col">Memory</th><th scope="col">Label</th><th scope="col">Receive</th><th scope="col">Transmit</th><th scope="col">TX access</th><th scope="col">RX squelch</th><th scope="col">Mode</th><th scope="col">Step</th><th scope="col">Power / scan</th><th scope="col">Banks</th><th scope="col">Sources</th></tr></thead><tbody>{#each plan.memories as memory (memory.source_frequency_definition_id)}<tr><td class="memory-number">{memory.memory_number.toString().padStart(2, "0")}</td><td><strong class="radio-label">{memory.target_name}</strong><small>{memory.source_frequency_definition_id}</small></td><td class="frequency">{mhz(memory.receive_frequency_hz)}</td><td>{memoryTxSummary(memory)}</td><td>{signalingSummary(memory.transmit_access)}</td><td>{signalingSummary(memory.receive_squelch)}</td><td>{memory.mode}</td><td>{tuningStepSummary(memory.tuning_step_hz)}</td><td><strong>{powerSummary(memory)}</strong><small>{scanSummary(memory.scan_skip)}</small></td><td>{bankSummary(memory)}</td><td><strong>{memory.source_profile_ids.join(", ") || (memory.selected_directly ? "Direct" : "—")}</strong><small>{memory.source_frequency_set_ids.join(", ")}</small></td></tr>{/each}</tbody></table></div>
       </section>
 
       <aside class="workspace-panel inspector" aria-labelledby="inspector-heading"><div class="panel-heading"><div><p class="section-label">Target and plan review</p><h2 id="inspector-heading">Plan inspector</h2></div></div><dl class="inspector-facts"><div><dt>Memory use</dt><dd>{plan.capacity.used} of {plan.capacity.capacity}</dd></div><div><dt>Profiles</dt><dd>{plan.profiles.length}</dd></div><div><dt>Factory sets</dt><dd>{plan.summary.factory_sets}</dd></div><div><dt>Target</dt><dd>{plan.target.manufacturer} {plan.target.model}</dd></div></dl><div class="inspector-section-heading"><h3>Diagnostics</h3><span>{plan.diagnostics.length}</span></div><!-- svelte-ignore a11y_no_noninteractive_tabindex --><div class="diagnostic-list" role="region" aria-label="Compilation diagnostics" tabindex="0">{#each plan.diagnostics as diagnostic, index (`${diagnostic.code}-${diagnosticSubject(diagnostic)}-${index}`)}<article class={diagnosticClass(diagnostic)}><div class="diagnostic-meta"><span>{diagnostic.severity}</span><code>{diagnostic.code}</code></div><p>{diagnostic.message}</p>{#if diagnosticSubject(diagnostic)}<small>{diagnosticSubject(diagnostic)}</small>{/if}</article>{/each}</div></aside>

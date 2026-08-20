@@ -4,7 +4,7 @@ test("matches the Dark Modern Workshop baseline", async ({ page }) => {
   await page.goto("/compile");
   await page.getByRole("button", { name: "Compile plan" }).click();
   await expect(
-    page.getByRole("heading", { name: "VX-6R (USA) memory plan" }),
+    page.getByRole("heading", { name: "VX-6R (USA) compiled plan" }),
   ).toBeVisible();
 
   await expect(page).toHaveScreenshot("modern-workshop-dark.png");

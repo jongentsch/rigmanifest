@@ -4,36 +4,32 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/compile");
   await page.getByRole("button", { name: "Compile plan" }).click();
   await expect(
-    page.getByRole("heading", { name: "VX-6R (USA) memory plan" }),
+    page.getByRole("heading", { name: "VX-6R (USA) compiled plan" }),
   ).toBeVisible();
 });
 
 test("compiles selected sets for the image-backed radio", async ({ page }) => {
   const summary = page.getByLabel("Compilation summary");
+  const bankPreview = page.getByRole("region", { name: "Bank 1: Home essentials" });
   await expect(summary).toContainText("3Programmed");
   await expect(summary).toContainText("0Factory-provided");
   await expect(summary).toContainText("0Omitted");
   await expect(summary).toContainText("3Warnings");
   await expect(summary).toContainText("0Errors");
 
-  await expect(page.getByRole("row", { name: /01 2M CAL/ })).toContainText(
+  await expect(bankPreview.getByRole("row", { name: /^1 2M CAL/ })).toContainText(
     "146.520000 MHz",
   );
-  await expect(page.getByRole("row", { name: /02 2M LOC/ })).toContainText(
+  await expect(bankPreview.getByRole("row", { name: /^2 2M LOC/ })).toContainText(
     "-0.600 MHz",
   );
-  await expect(page.getByRole("row", { name: /02 2M LOC/ })).toContainText(
+  await expect(bankPreview.getByRole("row", { name: /^2 2M LOC/ })).toContainText(
     "CTCSS 100.0 Hz",
   );
-  await expect(page.getByRole("row", { name: /02 2M LOC/ })).toContainText(
-    "home-essentials",
-  );
-  await expect(page.getByRole("row", { name: /03 70CM L/ })).toContainText(
+  await expect(bankPreview.getByRole("row", { name: /^3 70CM L/ })).toContainText(
     "+5.000 MHz",
   );
 
-  const bankPreview = page.getByRole("region", { name: "Bank 1: Home essentials" });
-  await expect(page.getByRole("heading", { name: "Compiled banks" })).toBeVisible();
   await expect(bankPreview).toContainText("Bank 1");
   await expect(bankPreview).toContainText("Home essentials");
   await expect(bankPreview).toContainText("2M CAL");
@@ -42,10 +38,10 @@ test("compiles selected sets for the image-backed radio", async ({ page }) => {
   await expect(page.getByText("US NOAA Weather Broadcasts").first()).toBeVisible();
   await expect(page.getByText("FACTORY_SET_AVAILABLE")).toHaveCount(0);
   await expect(page.getByText("TX_DISABLE_NOT_REPRESENTABLE")).toHaveCount(0);
-  const compiledTable = page.getByLabel("Compiled frequency table");
-  for (const heading of ["TX access", "RX squelch", "Step", "Power / scan", "Banks"]) {
-    await expect(compiledTable.getByRole("columnheader", { name: heading })).toBeVisible();
+  for (const heading of ["TX access", "RX squelch", "Step", "Power / scan"]) {
+    await expect(bankPreview.getByRole("columnheader", { name: heading })).toBeVisible();
   }
+  await expect(page.getByLabel("Compiled frequency table")).toHaveCount(0);
 });
 
 test("recompiles and exports through the UI-test adapter", async ({ page }) => {
