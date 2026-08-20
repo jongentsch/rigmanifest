@@ -1,6 +1,6 @@
 {
   "name": "rigmanifest-desktop",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "RigManifest desktop shell",
   "type": "module",
   "scripts": {
