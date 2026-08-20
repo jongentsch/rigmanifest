@@ -32,6 +32,7 @@ if (releaseConfig.bundle?.createUpdaterArtifacts !== true) {
 const expectedReleaseScripts = {
   "bundle:windows:release": "-Release",
   "bundle:linux:release": "--release",
+  "bundle:macos:release": "--release",
 };
 for (const [name, marker] of Object.entries(expectedReleaseScripts)) {
   if (!packageManifest.scripts?.[name]?.includes(marker)) {
@@ -39,13 +40,27 @@ for (const [name, marker] of Object.entries(expectedReleaseScripts)) {
   }
 }
 
-for (const path of ["scripts/build-portable.ps1", "scripts/build-linux.sh"]) {
+for (const path of [
+  "scripts/build-portable.ps1",
+  "scripts/build-linux.sh",
+  "scripts/build-macos.sh",
+]) {
   const script = await readFile(path, "utf8");
   if (
     script.includes("rigmanifest-updater.key") ||
     script.includes("rigmanifest-updater-password.txt")
   ) {
     throw new Error(`${path} must not discover local signing-key backups.`);
+  }
+}
+
+const macosScript = await readFile("scripts/build-macos.sh", "utf8");
+if (!macosScript.includes('APPLE_SIGNING_IDENTITY="-"')) {
+  throw new Error("The macOS package must use an explicit ad-hoc signing identity.");
+}
+for (const credential of ["APPLE_CERTIFICATE", "APPLE_ID", "APPLE_PASSWORD"]) {
+  if (macosScript.includes(credential)) {
+    throw new Error(`The unsigned macOS package must not require ${credential}.`);
   }
 }
 

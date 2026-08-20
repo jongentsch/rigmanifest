@@ -65,18 +65,29 @@ directory. AppImage sets its absolute source path at runtime; RigManifest uses
 that location to keep its workspace in a sibling `data` directory. After
 downloading an AppImage, make it executable with `chmod +x RigManifest_*.AppImage`.
 
-Tagged releases build Windows and Linux packages on their native runners and
-publish all four distributions, updater signatures, `latest.json`, and
+On macOS, build a native application bundle and DMG for the host architecture:
+
+```bash
+pnpm bundle:macos
+```
+
+The macOS build freezes a native sidecar, smoke-tests it, and ad-hoc signs the
+application with the `-` identity. This does not use an Apple account and does not
+notarize the application. A downloaded build requires one-time approval in macOS
+**System Settings > Privacy & Security** before it can launch.
+
+Tagged releases build Windows, Linux, Apple Silicon, and Intel macOS packages on
+native runners and publish the distributions, updater signatures, `latest.json`, and
 `SHA256SUMS.txt` in one GitHub Release.
 
 ## Application updates
 
 RigManifest checks the latest public GitHub Release at startup at most once every
-24 hours unless the user disables automatic checks in Settings. Installed Windows
-and AppImage builds can download and install a signature-verified update after user
-approval. Portable Windows and Debian builds are notification-only because replacing
-those distributions safely is outside Tauri's native updater path. Every in-app
-installation creates a consistent workspace backup first.
+24 hours unless the user disables automatic checks in Settings. Installed Windows,
+macOS, and AppImage builds can download and install a signature-verified update after
+user approval. Portable Windows and Debian builds are notification-only because
+replacing those distributions safely is outside Tauri's native updater path. Every
+in-app installation creates a consistent workspace backup first.
 
 Tauri updater signatures are distinct from Windows Authenticode signing. Release
 builds require these GitHub Actions secrets:
@@ -84,12 +95,13 @@ builds require these GitHub Actions secrets:
 - `TAURI_SIGNING_PRIVATE_KEY`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
 
-Ordinary `bundle:windows` and `bundle:linux` builds never read signing files and do
-not create updater signatures. Only the tagged-release workflow calls the explicit
-`bundle:windows:release` and `bundle:linux:release` commands. Those commands fail
-closed when either GitHub Actions secret is unavailable; they never generate or rotate
-keys. Never commit the backup files. Losing the key or password prevents future
-releases from updating existing installations.
+Ordinary `bundle:windows`, `bundle:linux`, and `bundle:macos` builds never read updater
+signing files and do not create updater signatures. Only the tagged-release workflow
+calls the explicit `bundle:windows:release`, `bundle:linux:release`, and
+`bundle:macos:release` commands. Those commands fail closed when either GitHub Actions
+secret is unavailable; they never generate or rotate keys. Never commit the backup
+files. Losing the key or password prevents future releases from updating existing
+installations.
 
 ## Verification
 

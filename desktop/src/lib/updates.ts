@@ -10,6 +10,7 @@ export type DistributionChannel =
   | "windows-portable"
   | "linux-appimage"
   | "linux-deb"
+  | "macos-installed"
   | "unsupported";
 
 export type UpdateStatus =
@@ -63,7 +64,9 @@ function publish(changes: Partial<UpdateSnapshot>): UpdateSnapshot {
 }
 
 function installSupported(channel: DistributionChannel): boolean {
-  return channel === "windows-installed" || channel === "linux-appimage";
+  return channel === "windows-installed"
+    || channel === "linux-appimage"
+    || channel === "macos-installed";
 }
 
 function errorMessage(error: unknown): string {

@@ -189,6 +189,7 @@ fn distribution_channel_for(
     debug_build: bool,
     windows: bool,
     linux: bool,
+    macos: bool,
     appimage: bool,
     portable_marker: bool,
 ) -> &'static str {
@@ -196,6 +197,8 @@ fn distribution_channel_for(
         "development"
     } else if appimage {
         "linux-appimage"
+    } else if macos {
+        "macos-installed"
     } else if windows && portable_marker {
         "windows-portable"
     } else if windows {
@@ -219,6 +222,7 @@ fn distribution_channel() -> &'static str {
         cfg!(debug_assertions),
         cfg!(windows),
         cfg!(target_os = "linux"),
+        cfg!(target_os = "macos"),
         env::var_os("APPIMAGE").is_some(),
         portable_marker,
     )
@@ -521,23 +525,27 @@ mod tests {
     #[test]
     fn distribution_channels_separate_installable_and_notify_only_builds() {
         assert_eq!(
-            distribution_channel_for(false, true, false, false, false),
+            distribution_channel_for(false, true, false, false, false, false),
             "windows-installed"
         );
         assert_eq!(
-            distribution_channel_for(false, true, false, false, true),
+            distribution_channel_for(false, true, false, false, false, true),
             "windows-portable"
         );
         assert_eq!(
-            distribution_channel_for(false, false, true, true, false),
+            distribution_channel_for(false, false, true, false, true, false),
             "linux-appimage"
         );
         assert_eq!(
-            distribution_channel_for(false, false, true, false, false),
+            distribution_channel_for(false, false, true, false, false, false),
             "linux-deb"
         );
         assert_eq!(
-            distribution_channel_for(true, true, false, false, false),
+            distribution_channel_for(false, false, false, true, false, false),
+            "macos-installed"
+        );
+        assert_eq!(
+            distribution_channel_for(true, true, false, false, false, false),
             "development"
         );
     }

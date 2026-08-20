@@ -52,6 +52,7 @@
       "windows-portable": "Windows portable",
       "linux-appimage": "Linux AppImage",
       "linux-deb": "Linux Debian package",
+      "macos-installed": "macOS application",
       unsupported: "Unsupported platform",
     };
     return names[channel];

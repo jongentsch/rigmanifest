@@ -111,8 +111,9 @@ Settings includes:
 - automatic update-check preferences; and
 - manual update checks and release access.
 
-Installed Windows and AppImage builds support user-approved in-app updates. Portable
-Windows and Debian builds report new versions and direct you to the release download.
+Installed Windows, macOS, and AppImage builds support user-approved in-app updates.
+Portable Windows and Debian builds report new versions and direct you to the release
+download.
 
 ## Workspace locations
 

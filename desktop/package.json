@@ -17,6 +17,8 @@
     "bundle:windows:release": "powershell -ExecutionPolicy Bypass -File scripts/build-portable.ps1 -Release",
     "bundle:linux": "bash scripts/build-linux.sh",
     "bundle:linux:release": "bash scripts/build-linux.sh --release",
+    "bundle:macos": "bash scripts/build-macos.sh",
+    "bundle:macos:release": "bash scripts/build-macos.sh --release",
     "tauri": "tauri"
   },
   "license": "GPL-3.0-only",

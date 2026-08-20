@@ -46,8 +46,12 @@ Get the latest build from [GitHub Releases](https://github.com/jongentsch/rigman
 | Windows x64 | Portable ZIP | Keeps the workspace in `data/` beside the application |
 | Linux x86_64 | AppImage | Keeps the workspace in `data/` beside the AppImage |
 | Debian/Ubuntu x86_64 | `.deb` package | Uses the normal per-user application-data directory |
+| macOS Apple Silicon | Unsigned `.dmg` | Uses the normal per-user application-data directory |
+| macOS Intel | Unsigned `.dmg` | Uses the normal per-user application-data directory |
 
-macOS packages are not currently produced. The release bundles include the Python
+macOS builds use an ad-hoc signature rather than an Apple Developer identity and are
+not notarized. macOS therefore requires one-time manual approval in **System Settings
+> Privacy & Security** after installation. The release bundles include the Python
 runtime, RigManifest core, and pinned CHIRP dependency; users do not need a separate
 development environment.
 

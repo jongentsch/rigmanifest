@@ -163,7 +163,9 @@ Normal local package commands are unsigned and never discover or load backup key
 tagged-release workflow selects the release configuration and supplies the signing key
 through GitHub Actions secrets.
 
-Installed Windows and AppImage distributions use Tauri's native updater. Windows
+Installed Windows, macOS, and AppImage distributions use Tauri's native updater.
+macOS release artifacts are ad-hoc signed for executability without an Apple identity;
+they are not notarized and require one-time user approval through Gatekeeper. Windows
 portable and Debian distributions use the same version check but never invoke the
 installer; they direct the user to the release instead. Before an in-app installation,
 the Rust shell asks the Python persistence boundary for a consistent SQLite backup in

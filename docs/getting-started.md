@@ -17,6 +17,10 @@ Download the appropriate package from the
   run it. Its workspace stays in `data` beside the AppImage.
 - **Debian package:** install the `.deb` normally. Data lives in the per-user
   application-data directory.
+- **macOS DMG:** choose the Apple Silicon (`aarch64`) or Intel (`x64`) download,
+  open the DMG, and drag RigManifest into Applications. The build is ad-hoc signed
+  and not Apple-notarized, so approve its first launch in **System Settings > Privacy
+  & Security**. Data lives in the per-user application-data directory.
 
 Dark mode is the first-run default. Theme and global font scaling are available in
 **Settings**.
@@ -112,9 +116,9 @@ Use CHIRP's normal upload workflow when the image looks correct.
 Use **Back up data** from the Frequency Library page before major catalog changes.
 Backups include the SQLite workspace and managed radio-image directory.
 
-Installed Windows and Linux AppImage builds can install signature-verified updates
-after approval and create a workspace backup first. Windows portable and Debian builds
-notify you about new releases but require manual replacement.
+Installed Windows, macOS, and Linux AppImage builds can install signature-verified
+updates after approval and create a workspace backup first. Windows portable and
+Debian builds notify you about new releases but require manual replacement.
 
 Next: read the [User Guide](user-guide.md) for page details or
 [Core Concepts](concepts.md) for the data model.

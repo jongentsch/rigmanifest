@@ -185,9 +185,74 @@ jobs:
           path: release-assets/*
           if-no-files-found: error
 
+  macos:
+    name: macOS ${{ matrix.label }} packages
+    needs: metadata
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            label: Apple Silicon
+            artifact_architecture: aarch64
+          - runner: macos-15-intel
+            label: Intel
+            artifact_architecture: x64
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Enable pinned pnpm
+        run: corepack enable && corepack prepare pnpm@11.19.0 --activate
+
+      - name: Build Python environment
+        run: |
+          python -m venv .venv
+          ./.venv/bin/python -m pip install --upgrade pip
+          ./.venv/bin/python -m pip install -e ".[dev]"
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: pnpm install --frozen-lockfile
+
+      - name: Build unsigned macOS packages
+        working-directory: desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm bundle:macos:release
+
+      - name: Stage macOS assets
+        run: |
+          version="${{ needs.metadata.outputs.version }}"
+          architecture="${{ matrix.artifact_architecture }}"
+          mkdir -p release-assets
+          cp "dist/macos/RigManifest_${version}_${architecture}_unsigned.dmg" release-assets/
+          cp "dist/macos/RigManifest_${version}_${architecture}.app.tar.gz" release-assets/
+          cp "dist/macos/RigManifest_${version}_${architecture}.app.tar.gz.sig" release-assets/
+
+      - name: Upload macOS assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-${{ matrix.artifact_architecture }}-packages
+          path: release-assets/*
+          if-no-files-found: error
+
   publish:
     name: Publish GitHub release
-    needs: [metadata, windows, linux]
+    needs: [metadata, windows, linux, macos]
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -216,6 +281,8 @@ jobs:
           assets = Path("release-assets")
           windows = f"RigManifest_{version}_x64-setup.exe"
           linux = f"RigManifest_{version}_x86_64.AppImage"
+          macos_aarch64 = f"RigManifest_{version}_aarch64.app.tar.gz"
+          macos_x64 = f"RigManifest_{version}_x64.app.tar.gz"
           metadata = {
               "version": version,
               "notes": f"RigManifest {tag}",
@@ -227,6 +294,14 @@ jobs:
                   "linux-x86_64": {
                       "url": f"{base_url}/{linux}",
                       "signature": (assets / f"{linux}.sig").read_text().strip(),
+                  },
+                  "darwin-aarch64": {
+                      "url": f"{base_url}/{macos_aarch64}",
+                      "signature": (assets / f"{macos_aarch64}.sig").read_text().strip(),
+                  },
+                  "darwin-x86_64": {
+                      "url": f"{base_url}/{macos_x64}",
+                      "signature": (assets / f"{macos_x64}.sig").read_text().strip(),
                   },
               },
           }
