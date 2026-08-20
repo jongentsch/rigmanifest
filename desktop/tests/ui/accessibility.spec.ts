@@ -31,7 +31,7 @@ test("image-backed radio inventory has no detectable accessibility violations", 
 
 test("profile editor has no detectable accessibility violations", async ({ page }) => {
   await page.goto("/profiles");
-  await expect(page.getByRole("heading", { name: "Profiles", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Profiles" })).toBeVisible();
   await expect(page.getByLabel("Selected set order")).toBeVisible();
 
   const results = await new AxeBuilder({ page }).analyze();
