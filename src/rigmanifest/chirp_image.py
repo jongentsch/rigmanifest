@@ -8,10 +8,8 @@ from typing import Any, Mapping
 
 from chirp import chirp_common, directory, errors
 
-from rigmanifest.chirp_adapter import (
-    CHIRP_COMMIT,
-    apply_signaling_to_chirp_memory,
-)
+from rigmanifest.chirp_adapter import apply_signaling_to_chirp_memory
+from rigmanifest.chirp_version import CHIRP_COMMIT
 from rigmanifest.chirp_import import definition_from_chirp_memory
 from rigmanifest.chirp_runtime import initialize_chirp_runtime
 from rigmanifest.models import (
@@ -31,6 +29,12 @@ from rigmanifest.models import (
     ToneMode,
     TransmitBehavior,
 )
+from rigmanifest.power import (
+    RadioPowerCapability,
+    inspect_radio_power,
+    power_intent_from_observed,
+    power_levels_from_features,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +48,7 @@ class ChirpImageImport:
     frequency_sets: tuple[FrequencySet, ...]
     profile: Profile
     setting_count: int
+    power_capability: RadioPowerCapability
 
     @property
     def definition_count(self) -> int:
@@ -67,6 +72,11 @@ def import_chirp_image(path: Path, *, radio_id: str) -> ChirpImageImport:
     radio = load_chirp_image(path)
     target = radio_model_from_image(radio)
     features = radio.get_features()
+    power_capability = inspect_radio_power(radio)
+    observed_power = {
+        item.memory_number: item
+        for item in power_capability.observed_memories
+    }
     lower, upper = features.memory_bounds
     definitions: list[FrequencyDefinition] = []
     definition_ids_by_memory: dict[int, str] = {}
@@ -75,11 +85,23 @@ def import_chirp_image(path: Path, *, radio_id: str) -> ChirpImageImport:
         if memory.empty or not memory.freq:
             continue
         definition_id = f"user-radio-{radio_id}-memory-{number}"
+        observed = observed_power.get(number)
         definitions.append(
             definition_from_chirp_memory(
                 memory,
                 definition_id=definition_id,
                 source_name=path.name,
+                power_intent=(
+                    power_intent_from_observed(
+                        native_label=observed.native_label,
+                        nominal_dbm=observed.nominal_dbm,
+                        normalized_tier=observed.normalized_tier,
+                        driver_reference=target.chirp_driver_reference,
+                        level_count=len(power_capability.levels),
+                    )
+                    if observed is not None
+                    else None
+                ),
             )
         )
         definition_ids_by_memory[number] = definition_id
@@ -110,6 +132,7 @@ def import_chirp_image(path: Path, *, radio_id: str) -> ChirpImageImport:
         frequency_sets=sets,
         profile=profile,
         setting_count=_setting_count(radio),
+        power_capability=power_capability,
     )
 
 
@@ -218,6 +241,7 @@ def radio_model_from_image(radio: Any) -> RadioModel:
             ),
             supports_separate_rx_dtcs=bool(features.has_rx_dtcs),
             supports_dtcs_polarity=bool(features.has_dtcs_polarity),
+            power_levels=power_levels_from_features(features),
             source_notes=(
                 f"CHIRP {driver_reference} loaded from radio image at {CHIRP_COMMIT}",
             ),
@@ -231,8 +255,9 @@ def image_memory_validator(radio: Any):
     features = radio.get_features()
 
     def validate(memory: CompiledMemory) -> tuple[MemoryValidationIssue, ...]:
-        chirp_memory = _compiled_to_chirp(memory, features, None)
-        return tuple(
+        existing = radio.get_memory(memory.memory_number)
+        chirp_memory = _compiled_to_chirp(memory, features, existing)
+        issues = [
             MemoryValidationIssue(
                 severity=(
                     Severity.ERROR
@@ -243,7 +268,18 @@ def image_memory_validator(radio: Any):
                 details=(("source", "CHIRP image driver"),),
             )
             for message in radio.validate_memory(chirp_memory)
-        )
+        ]
+        try:
+            radio.check_set_memory_immutable_policy(existing, chirp_memory)
+        except chirp_common.ImmutableValueError as error:
+            issues.append(
+                MemoryValidationIssue(
+                    severity=Severity.ERROR,
+                    message=str(error),
+                    details=(("source", "CHIRP immutable memory policy"),),
+                )
+            )
+        return tuple(issues)
 
     return validate
 
@@ -313,11 +349,25 @@ def write_compiled_image(
                 f"CHIRP rejected memory {compiled.memory_number}: "
                 + "; ".join(errors_found)
             )
+        try:
+            radio.check_set_memory_immutable_policy(existing, chirp_memory)
+        except chirp_common.ImmutableValueError as error:
+            raise ValueError(
+                f"CHIRP rejected immutable memory {compiled.memory_number}: {error}"
+            ) from error
         radio.set_memory(chirp_memory)
 
+        written = radio.get_memory(compiled.memory_number)
+        if (
+            compiled.power_label is not None
+            and str(getattr(written, "power", "")) != compiled.power_label
+        ):
+            raise ValueError(
+                f"CHIRP did not preserve power {compiled.power_label} on memory "
+                f"{compiled.memory_number}"
+            )
         if bank_model is None:
             continue
-        written = radio.get_memory(compiled.memory_number)
         for mapping in tuple(bank_model.get_memory_mappings(written)):
             bank_model.remove_memory_from_mapping(written, mapping)
         for assignment in compiled.bank_assignments:

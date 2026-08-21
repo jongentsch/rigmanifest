@@ -61,6 +61,24 @@ class Priority(IntEnum):
     MANDATORY = 40
 
 
+class PowerIntentMode(StrEnum):
+    """How reusable frequency intent should select target transmit power."""
+
+    DEFAULT = "default"
+    RELATIVE = "relative"
+    NOMINAL = "nominal"
+
+
+class PowerTier(StrEnum):
+    """A target-independent relative position among a radio's power choices."""
+
+    MINIMUM = "minimum"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    MAXIMUM = "maximum"
+
+
 class Severity(StrEnum):
     INFO = "info"
     WARNING = "warning"
@@ -85,6 +103,8 @@ class DiagnosticCode(StrEnum):
     PLAN_RASTER_UNUSUAL = "PLAN_RASTER_UNUSUAL"
     PLAN_USE_MISMATCH = "PLAN_USE_MISMATCH"
     PLAN_CONTEXT_CONFLICT = "PLAN_CONTEXT_CONFLICT"
+    POWER_LEVEL_SUBSTITUTED = "POWER_LEVEL_SUBSTITUTED"
+    POWER_LEVEL_DEFAULTED = "POWER_LEVEL_DEFAULTED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,6 +156,49 @@ class SignalingSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class PowerIntent:
+    """Portable power intent plus optional provenance from an import."""
+
+    mode: PowerIntentMode = PowerIntentMode.DEFAULT
+    tier: PowerTier | None = None
+    nominal_dbm: float | None = None
+    imported_driver_reference: str | None = None
+    imported_label: str | None = None
+    imported_dbm: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.mode is PowerIntentMode.DEFAULT:
+            if self.tier is not None or self.nominal_dbm is not None:
+                raise ValueError("default power intent must not select a tier or output")
+        elif self.mode is PowerIntentMode.RELATIVE:
+            if self.tier is None or self.nominal_dbm is not None:
+                raise ValueError("relative power intent requires exactly one tier")
+        elif self.tier is not None or self.nominal_dbm is None:
+            raise ValueError("nominal power intent requires exactly one dBm value")
+        for value in (self.nominal_dbm, self.imported_dbm):
+            if value is not None and value < 0:
+                raise ValueError("power must not be negative")
+
+
+@dataclass(frozen=True, slots=True)
+class PowerLevelCapability:
+    """One native driver choice annotated with portable output rank."""
+
+    native_index: int
+    native_label: str
+    nominal_dbm: float
+    normalized_tier: PowerTier
+
+    def __post_init__(self) -> None:
+        if self.native_index < 0:
+            raise ValueError("native power index must not be negative")
+        if not self.native_label:
+            raise ValueError("native power label must not be blank")
+        if self.nominal_dbm < 0:
+            raise ValueError("nominal power must not be negative")
+
+
+@dataclass(frozen=True, slots=True)
 class FrequencyDefinition:
     """Canonical RF intent, independent of sets and radio memory locations."""
 
@@ -152,6 +215,8 @@ class FrequencyDefinition:
     tags: frozenset[str] = field(default_factory=frozenset)
     priority: Priority = Priority.NORMAL
     notes: str = ""
+    power_intent: PowerIntent | None = None
+    # Retained on the wire for compatibility and human-readable import provenance.
     power_dbm: float | None = None
     power_label: str | None = None
     scan_skip: str = ""
@@ -185,6 +250,19 @@ class FrequencyDefinition:
             raise ValueError("same/disabled definitions must not set TX frequency or offset")
 
         object.__setattr__(self, "tags", frozenset(self.tags))
+
+    @property
+    def effective_power_intent(self) -> PowerIntent:
+        """Interpret pre-v4 dBm-only records without mutating canonical intent."""
+
+        if self.power_intent is None and self.power_dbm is not None:
+            return PowerIntent(
+                mode=PowerIntentMode.NOMINAL,
+                nominal_dbm=self.power_dbm,
+                imported_label=self.power_label,
+                imported_dbm=self.power_dbm,
+            )
+        return self.power_intent or PowerIntent()
 
     @property
     def read_only(self) -> bool:
@@ -349,6 +427,7 @@ class RadioCapabilities:
     valid_dtcs_codes: tuple[int, ...] = ()
     supports_separate_rx_dtcs: bool = False
     supports_dtcs_polarity: bool = False
+    power_levels: tuple[PowerLevelCapability, ...] = ()
     source_notes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -372,6 +451,7 @@ class RadioCapabilities:
         object.__setattr__(self, "valid_tuning_steps_hz", tuple(self.valid_tuning_steps_hz))
         object.__setattr__(self, "valid_ctcss_tones_hz", tuple(self.valid_ctcss_tones_hz))
         object.__setattr__(self, "valid_dtcs_codes", tuple(self.valid_dtcs_codes))
+        object.__setattr__(self, "power_levels", tuple(self.power_levels))
         object.__setattr__(self, "source_notes", tuple(self.source_notes))
 
     def supports_receive_frequency(self, frequency_hz: int) -> bool:
@@ -470,6 +550,7 @@ class CompiledMemory:
     mode: Mode
     transmit_access: SignalingSpec
     receive_squelch: SignalingSpec
+    power_intent: PowerIntent = field(default_factory=PowerIntent)
     power_dbm: float | None = None
     power_label: str | None = None
     scan_skip: str = ""

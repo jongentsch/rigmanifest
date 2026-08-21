@@ -1,5 +1,18 @@
 import { expect, test } from "@playwright/test";
 
+test("edits normalized and nominal power intent", async ({ page }) => {
+  await page.goto("/library");
+  await page.getByRole("button", { name: "New definition" }).first().click();
+
+  await page.getByLabel("Power intent").selectOption("high");
+  await expect(page.getByLabel("Power intent")).toHaveValue("high");
+
+  await page.getByLabel("Power intent").selectOption("nominal");
+  await page.getByLabel("Preferred watts").fill("8");
+  await page.getByLabel("Preferred watts").press("Tab");
+  await expect(page.getByLabel("Preferred watts")).toHaveValue("8");
+});
+
 test("shows the complete frequency catalog in frequency and settings order", async ({ page }) => {
   await page.goto("/library");
   await page.getByRole("button", { name: /All frequencies/ }).click();

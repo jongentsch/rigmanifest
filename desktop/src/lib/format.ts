@@ -51,8 +51,16 @@ export function tuningStepSummary(stepHz: number | null | undefined): string {
 }
 
 export function powerSummary(
-  value: Pick<FrequencyDefinitionRecord, "power_dbm" | "power_label">,
+  value: Pick<FrequencyDefinitionRecord, "power_intent" | "power_dbm" | "power_label">,
 ): string {
+  if (value.power_intent?.mode === "relative" && value.power_intent.tier) {
+    return `${value.power_intent.tier[0].toUpperCase()}${value.power_intent.tier.slice(1)}`;
+  }
+  if (value.power_intent?.mode === "nominal" && value.power_intent.nominal_dbm !== null) {
+    const watts = 10 ** ((value.power_intent.nominal_dbm - 30) / 10);
+    return `${Number(watts.toFixed(watts < 10 ? 1 : 0))} W preferred`;
+  }
+  if (value.power_intent?.mode === "default") return "Radio Default";
   if (value.power_label) return value.power_label;
   if (value.power_dbm !== null && value.power_dbm !== undefined) {
     return `${Number(value.power_dbm.toFixed(1))} dBm`;

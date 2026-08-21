@@ -21,6 +21,9 @@ from rigmanifest.models import (
     MemoryValidationIssue,
     Mode,
     OmittedFrequencyDefinition,
+    PowerIntent,
+    PowerIntentMode,
+    PowerTier,
     Priority,
     Profile,
     RadioModel,
@@ -59,6 +62,7 @@ def compile_profile(
     settings: CompilationSettings | None = None,
     *,
     memory_validator: MemoryValidator | None = None,
+    accept_radio_default_power: bool = False,
 ) -> CompiledRadioPlan:
     """Compile one profile; retained as the CLI-compatible convenience boundary."""
 
@@ -68,6 +72,7 @@ def compile_profile(
         target,
         settings,
         memory_validator=memory_validator,
+        accept_radio_default_power=accept_radio_default_power,
     )
 
 
@@ -81,6 +86,7 @@ def compile_profiles(
     additional_frequency_definition_ids: tuple[str, ...] = (),
     advisory_plan_id: str | None = None,
     memory_validator: MemoryValidator | None = None,
+    accept_radio_default_power: bool = False,
 ) -> CompiledRadioPlan:
     """Compile profiles plus ad-hoc selections for one target without mutation."""
 
@@ -253,6 +259,7 @@ def compile_profiles(
             selection,
             target,
             map_sets_to_banks=settings.map_sets_to_banks,
+            accept_radio_default_power=accept_radio_default_power,
         )
         diagnostics.extend(transformations)
         candidates.append(_Candidate(selection, compiled))
@@ -793,6 +800,7 @@ def _transform_definition(
     target: RadioModel,
     *,
     map_sets_to_banks: bool,
+    accept_radio_default_power: bool,
 ) -> tuple[CompiledMemory, list[Diagnostic]]:
     definition = selection.definition
     capabilities = target.capabilities
@@ -836,6 +844,16 @@ def _transform_definition(
         if map_sets_to_banks and capabilities.supports_banks
         else ()
     )
+    intent = definition.effective_power_intent
+    power_dbm, power_label, power_diagnostic = _resolve_power_intent(
+        definition,
+        target,
+        intent,
+        accept_radio_default_power=accept_radio_default_power,
+    )
+    if power_diagnostic is not None:
+        diagnostics.append(power_diagnostic)
+        transformations.append(power_diagnostic.code)
 
     return (
         CompiledMemory(
@@ -850,8 +868,9 @@ def _transform_definition(
             mode=definition.mode,
             transmit_access=definition.transmit_access,
             receive_squelch=definition.receive_squelch,
-            power_dbm=definition.power_dbm,
-            power_label=definition.power_label,
+            power_intent=intent,
+            power_dbm=power_dbm,
+            power_label=power_label,
             scan_skip=definition.scan_skip,
             tuning_step_hz=definition.tuning_step_hz,
             bank_assignments=groups,
@@ -861,6 +880,103 @@ def _transform_definition(
         ),
         diagnostics,
     )
+
+
+def _resolve_power_intent(
+    definition: FrequencyDefinition,
+    target: RadioModel,
+    intent: PowerIntent,
+    *,
+    accept_radio_default_power: bool,
+) -> tuple[float | None, str | None, Diagnostic | None]:
+    if intent.mode is PowerIntentMode.DEFAULT:
+        return None, None, None
+
+    levels = target.capabilities.power_levels
+    if not levels:
+        return (
+            None,
+            None,
+            Diagnostic.with_details(
+                code=DiagnosticCode.POWER_LEVEL_DEFAULTED,
+                severity=(
+                    Severity.INFO
+                    if accept_radio_default_power
+                    else Severity.WARNING
+                ),
+                frequency_definition_id=definition.id,
+                message=(
+                    f"{definition.name} will use Radio Default power on "
+                    f"{target.model} because CHIRP exposes no selectable levels"
+                ),
+                details={"requested": _power_intent_description(intent)},
+            ),
+        )
+
+    diagnostic: Diagnostic | None = None
+    if intent.mode is PowerIntentMode.RELATIVE:
+        assert intent.tier is not None
+        requested_rank = _power_tier_rank(intent.tier)
+        imported_dbm = intent.imported_dbm
+        selected = min(
+            levels,
+            key=lambda level: (
+                abs(_power_tier_rank(level.normalized_tier) - requested_rank),
+                (
+                    abs(level.nominal_dbm - imported_dbm)
+                    if imported_dbm is not None
+                    else 0
+                ),
+                level.native_index,
+            ),
+        )
+        substituted = selected.normalized_tier is not intent.tier
+    else:
+        assert intent.nominal_dbm is not None
+        selected = min(
+            levels,
+            key=lambda level: (
+                abs(level.nominal_dbm - intent.nominal_dbm),
+                level.native_index,
+            ),
+        )
+        substituted = abs(selected.nominal_dbm - intent.nominal_dbm) > 0.05
+
+    if substituted:
+        diagnostic = Diagnostic.with_details(
+            code=DiagnosticCode.POWER_LEVEL_SUBSTITUTED,
+            severity=Severity.WARNING,
+            frequency_definition_id=definition.id,
+            message=(
+                f"{definition.name} requested {_power_intent_description(intent)}; "
+                f"{target.model} will use {selected.native_label}"
+            ),
+            details={
+                "requested": _power_intent_description(intent),
+                "selected_label": selected.native_label,
+                "selected_dbm": selected.nominal_dbm,
+                "selected_tier": selected.normalized_tier.value,
+            },
+        )
+    return selected.nominal_dbm, selected.native_label, diagnostic
+
+
+def _power_tier_rank(tier: PowerTier) -> int:
+    return {
+        PowerTier.MINIMUM: 0,
+        PowerTier.LOW: 1,
+        PowerTier.MEDIUM: 2,
+        PowerTier.HIGH: 3,
+        PowerTier.MAXIMUM: 4,
+    }[tier]
+
+
+def _power_intent_description(intent: PowerIntent) -> str:
+    if intent.mode is PowerIntentMode.RELATIVE:
+        assert intent.tier is not None
+        return intent.tier.value
+    assert intent.nominal_dbm is not None
+    return f"{intent.nominal_dbm:g} dBm nominal"
 
 
 def _ranking_key(candidate: _Candidate) -> tuple[int, int, str]:

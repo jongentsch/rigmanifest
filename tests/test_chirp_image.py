@@ -4,6 +4,7 @@ import base64
 from dataclasses import replace
 import json
 from pathlib import Path
+import sqlite3
 from types import SimpleNamespace
 
 import pytest
@@ -34,6 +35,7 @@ from rigmanifest.models import (
     SignalingSpec,
     TransmitBehavior,
 )
+from rigmanifest.workspace import SQLiteWorkspace, default_workspace_state
 
 
 def _vx6_image(path: Path) -> Path:
@@ -298,6 +300,134 @@ def test_image_import_and_compile_are_available_through_ipc(tmp_path: Path) -> N
         }
     )["result"]["versions"]
     assert [item["kind"] for item in versions] == ["compiled", "source"]
+
+
+def test_startup_backfills_image_capability_and_existing_power_intent(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "workspace.sqlite3"
+    source = _vx6_image(tmp_path / "source.img")
+    imported = handle_request(
+        {
+            "id": "import-image",
+            "method": "import_chirp_image",
+            "params": {
+                "database_path": str(database),
+                "radio_id": "handheld",
+                "source_path": str(source),
+            },
+        }
+    )["result"]
+    legacy_definitions = []
+    for definition in imported["frequency_definitions"]:
+        legacy = dict(definition)
+        legacy.pop("power_intent", None)
+        legacy_definitions.append(legacy)
+    nominal = dict(legacy_definitions[0])
+    nominal["id"] = "merged-or-edited"
+    nominal["name"] = "Merged or edited"
+    nominal["power_label"] = "Custom"
+    defaulted = dict(legacy_definitions[0])
+    defaulted["id"] = "no-power"
+    defaulted["name"] = "No power"
+    defaulted["power_dbm"] = None
+    defaulted["power_label"] = None
+    legacy_definitions.extend((nominal, defaulted))
+
+    state = default_workspace_state()
+    state["radios"] = [
+        {
+            "id": "handheld",
+            "name": "Handheld",
+            "radioModelId": "chirp:Yaesu_VX-6",
+            "memoryStart": 1,
+            "mapSetsToBanks": True,
+            "notes": "",
+        }
+    ]
+    state["user_catalog"] = {
+        "frequencyDefinitions": legacy_definitions,
+        "frequencySets": imported["frequency_sets"],
+    }
+    state["profiles"] = [imported["profile"]]
+    SQLiteWorkspace(database).save(state)
+    with sqlite3.connect(database) as connection:
+        connection.execute("DROP TABLE radio_image_capabilities")
+        connection.execute("DELETE FROM schema_migrations WHERE version = 4")
+        connection.execute("INSERT OR IGNORE INTO schema_migrations(version) VALUES (3)")
+
+    loaded = handle_request(
+        {
+            "id": "load",
+            "method": "load_workspace",
+            "params": {"database_path": str(database), "legacy_state": None},
+        }
+    )["result"]
+
+    capability = loaded["radios"][0]["powerCapability"]
+    assert loaded["schema_version"] == 4
+    assert capability["status"] == "detected"
+    assert [item["normalized_tier"] for item in capability["levels"]] == [
+        "maximum",
+        "high",
+        "low",
+        "minimum",
+    ]
+    migrated = {
+        item["id"]: item["power_intent"]
+        for item in loaded["user_catalog"]["frequencyDefinitions"]
+    }
+    assert migrated["user-radio-handheld-memory-1"]["mode"] == "relative"
+    assert migrated["user-radio-handheld-memory-1"]["tier"] == "maximum"
+    assert migrated["merged-or-edited"]["mode"] == "nominal"
+    assert migrated["no-power"]["mode"] == "default"
+
+    second = handle_request(
+        {
+            "id": "load-again",
+            "method": "load_workspace",
+            "params": {"database_path": str(database), "legacy_state": None},
+        }
+    )["result"]
+    assert second["radios"][0]["powerCapability"]["inspected_at"] == (
+        capability["inspected_at"]
+    )
+
+
+def test_unreadable_power_image_does_not_block_workspace_startup(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.sqlite3"
+    workspace = SQLiteWorkspace(database)
+    state = default_workspace_state()
+    state["radios"] = [
+        {
+            "id": "unknown",
+            "name": "Unknown radio",
+            "radioModelId": "chirp:Unknown",
+            "memoryStart": 1,
+            "mapSetsToBanks": False,
+            "notes": "",
+        }
+    ]
+    workspace.save(state)
+    workspace.store_radio_image(
+        "unknown",
+        b"not-a-radio-image",
+        original_filename="unknown.img",
+        driver_reference="Unknown",
+    )
+
+    response = handle_request(
+        {
+            "id": "load",
+            "method": "load_workspace",
+            "params": {"database_path": str(database), "legacy_state": None},
+        }
+    )
+
+    assert "error" not in response
+    capability = response["result"]["radios"][0]["powerCapability"]
+    assert capability["status"] == "error"
+    assert capability["error"]
 
 
 @pytest.mark.parametrize(

@@ -24,9 +24,9 @@ from rigmanifest.models import (
     TransmitBehavior,
 )
 from rigmanifest.chirp_runtime import initialize_chirp_runtime
+from rigmanifest.chirp_version import CHIRP_COMMIT
+from rigmanifest.power import power_levels_from_features
 
-
-CHIRP_COMMIT = "fa27a491d275f88b452d0488a51b4c85d4f7062a"
 
 _Value = TypeVar("_Value")
 
@@ -164,6 +164,7 @@ def _capabilities_from_features(
         valid_dtcs_codes=_unique(int(code) for code in features.valid_dtcs_codes),
         supports_separate_rx_dtcs=bool(features.has_rx_dtcs),
         supports_dtcs_polarity=bool(features.has_dtcs_polarity),
+        power_levels=power_levels_from_features(features),
         source_notes=(
             f"CHIRP {driver_reference} RadioFeatures at {CHIRP_COMMIT}",
             *overlay.source_notes,

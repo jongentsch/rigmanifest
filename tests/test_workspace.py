@@ -53,7 +53,7 @@ def test_workspace_initializes_and_round_trips_state(tmp_path) -> None:
     with sqlite3.connect(database) as connection:
         assert connection.execute(
             "SELECT MAX(version) FROM schema_migrations"
-        ).fetchone() == (3,)
+        ).fetchone() == (4,)
 
 
 def test_workspace_releases_database_file_after_operations(tmp_path) -> None:

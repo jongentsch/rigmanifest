@@ -11,6 +11,9 @@ from rigmanifest.models import (
     FrequencySet,
     FrequencySetMember,
     Mode,
+    PowerIntent,
+    PowerIntentMode,
+    PowerTier,
     Priority,
     SignalingKind,
     SignalingSpec,
@@ -62,6 +65,7 @@ def _parse_definition(record: Mapping[str, object]) -> FrequencyDefinition:
                 (_optional_string(record, "priority") or "normal").upper()
             ],
             notes=_optional_string(record, "notes") or "",
+            power_intent=_parse_power_intent(record),
             power_dbm=_optional_number(record, "power_dbm"),
             power_label=_optional_string(record, "power_label"),
             scan_skip=_optional_string(record, "scan_skip") or "",
@@ -69,6 +73,35 @@ def _parse_definition(record: Mapping[str, object]) -> FrequencyDefinition:
         )
     except (KeyError, ValueError) as error:
         raise ValueError(f"invalid user frequency definition: {error}") from error
+
+
+def _parse_power_intent(record: Mapping[str, object]) -> PowerIntent:
+    value = record.get("power_intent")
+    if value is None:
+        legacy_dbm = _optional_number(record, "power_dbm")
+        if legacy_dbm is None:
+            return PowerIntent()
+        return PowerIntent(
+            mode=PowerIntentMode.NOMINAL,
+            nominal_dbm=legacy_dbm,
+            imported_label=_optional_string(record, "power_label"),
+            imported_dbm=legacy_dbm,
+        )
+    if not isinstance(value, Mapping):
+        raise ValueError("power_intent must be an object")
+    mode = PowerIntentMode(_optional_string(value, "mode") or "default")
+    tier_value = _optional_string(value, "tier")
+    return PowerIntent(
+        mode=mode,
+        tier=PowerTier(tier_value) if tier_value is not None else None,
+        nominal_dbm=_optional_number(value, "nominal_dbm"),
+        imported_driver_reference=_optional_string(
+            value,
+            "imported_driver_reference",
+        ),
+        imported_label=_optional_string(value, "imported_label"),
+        imported_dbm=_optional_number(value, "imported_dbm"),
+    )
 
 
 def _parse_signaling_pair(

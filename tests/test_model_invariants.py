@@ -15,6 +15,10 @@ from rigmanifest.models import (
     FrequencySet,
     FrequencySetMember,
     Mode,
+    PowerIntent,
+    PowerIntentMode,
+    PowerLevelCapability,
+    PowerTier,
     Profile,
     RadioCapabilities,
     RadioModel,
@@ -79,11 +83,62 @@ def test_invalid_frequency_ranges_are_rejected(bounds: tuple[int, int]) -> None:
         {"transmit_behavior": TransmitBehavior.SPLIT, "transmit_frequency_hz": None},
         {"transmit_behavior": TransmitBehavior.SPLIT, "transmit_frequency_hz": 2, "offset_hz": 1},
         {"transmit_frequency_hz": 2},
+        {"power_dbm": -1},
+        {"scan_skip": "X"},
+        {"tuning_step_hz": 0},
     ],
 )
 def test_invalid_frequency_definitions_are_rejected(changes: dict[str, object]) -> None:
     with pytest.raises(ValueError):
         _definition(**changes)
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"mode": PowerIntentMode.DEFAULT, "tier": PowerTier.LOW},
+        {"mode": PowerIntentMode.RELATIVE},
+        {
+            "mode": PowerIntentMode.RELATIVE,
+            "tier": PowerTier.LOW,
+            "nominal_dbm": 30,
+        },
+        {"mode": PowerIntentMode.NOMINAL},
+        {
+            "mode": PowerIntentMode.NOMINAL,
+            "tier": PowerTier.LOW,
+            "nominal_dbm": 30,
+        },
+        {"mode": PowerIntentMode.NOMINAL, "nominal_dbm": -1},
+        {"imported_dbm": -1},
+    ],
+)
+def test_invalid_power_intents_are_rejected(arguments: dict[str, object]) -> None:
+    with pytest.raises(ValueError):
+        PowerIntent(**arguments)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        (-1, "Low", 30, PowerTier.MINIMUM),
+        (0, "", 30, PowerTier.MINIMUM),
+        (0, "Low", -1, PowerTier.MINIMUM),
+    ],
+)
+def test_invalid_power_capability_levels_are_rejected(
+    arguments: tuple[object, ...],
+) -> None:
+    with pytest.raises(ValueError):
+        PowerLevelCapability(*arguments)  # type: ignore[arg-type]
+
+
+def test_legacy_frequency_power_is_interpreted_as_nominal() -> None:
+    intent = _definition(power_dbm=37, power_label="HI").effective_power_intent
+
+    assert intent.mode is PowerIntentMode.NOMINAL
+    assert intent.nominal_dbm == 37
+    assert intent.imported_label == "HI"
 
 
 @pytest.mark.parametrize("arguments", [("", 0), ("id", -1)])

@@ -34,6 +34,8 @@ from rigmanifest.models import (
     FrequencySet,
     SignalingSpec,
 )
+from rigmanifest.power import power_intent_to_dict
+from rigmanifest.power_backfill import backfill_radio_power_capabilities
 from rigmanifest.profile_io import profile_to_dict, profiles_from_records
 from rigmanifest.workspace import RadioImageVersion, SQLiteWorkspace
 
@@ -136,6 +138,11 @@ def compile_radio_image(
 
     workspace = SQLiteWorkspace(database_path)
     source_path = workspace.radio_image_path(radio_id)
+    source_version = workspace.latest_source_image_version(radio_id)
+    accept_radio_default_power = bool(
+        source_version is not None
+        and workspace.radio_default_power_accepted(radio_id, source_version.id)
+    )
     catalog = catalog_with_user_records(
         BUILTIN_CATALOG,
         user_frequency_definitions,
@@ -157,6 +164,7 @@ def compile_radio_image(
             ),
             advisory_plan_id=advisory_plan_id,
             memory_validator=image_memory_validator(radio),
+            accept_radio_default_power=accept_radio_default_power,
         )
     except ValueError as error:
         raise RequestError(str(error)) from error
@@ -214,7 +222,7 @@ def catalog_to_dict() -> dict[str, Any]:
     """Return shared preset/user catalog data without running compilation."""
 
     return {
-        "schema_version": 7,
+        "schema_version": 8,
         "ctcss_tones_hz": [float(tone) for tone in chirp_common.TONES],
         "profiles": [
             profile_to_dict(profile)
@@ -304,7 +312,7 @@ def plan_to_dict(plan: CompiledRadioPlan) -> dict[str, Any]:
     """Convert a compiled plan into an explicit, versionable wire shape."""
 
     return {
-        "schema_version": 6,
+        "schema_version": 7,
         "compiler_version": plan.compiler_version,
         "profile": {
             "id": plan.profile.id,
@@ -356,6 +364,7 @@ def plan_to_dict(plan: CompiledRadioPlan) -> dict[str, Any]:
                 "mode": memory.mode.value,
                 "transmit_access": _signaling_to_dict(memory.transmit_access),
                 "receive_squelch": _signaling_to_dict(memory.receive_squelch),
+                "power_intent": power_intent_to_dict(memory.power_intent),
                 "power_dbm": memory.power_dbm,
                 "power_label": memory.power_label,
                 "scan_skip": memory.scan_skip,
@@ -434,6 +443,7 @@ def _definition_to_dict(definition: FrequencyDefinition) -> dict[str, Any]:
         "tags": sorted(definition.tags),
         "priority": definition.priority.name.lower(),
         "notes": definition.notes,
+        "power_intent": power_intent_to_dict(definition.effective_power_intent),
         "power_dbm": definition.power_dbm,
         "power_label": definition.power_label,
         "scan_skip": definition.scan_skip,
@@ -489,6 +499,7 @@ def _image_import_to_dict(imported: ChirpImageImport) -> dict[str, Any]:
         "memory_start": target.capabilities.memory_start,
         "memory_capacity": target.capabilities.memory_capacity,
         "max_label_length": target.capabilities.max_label_length,
+        "power_capability": imported.power_capability.to_dict(),
         "frequency_definitions": [
             _definition_to_dict(definition)
             for definition in imported.frequency_definitions
@@ -542,7 +553,11 @@ def handle_request(request: Mapping[str, object]) -> dict[str, object]:
                     legacy = params.get("legacy_state")
                     if legacy is not None and not isinstance(legacy, Mapping):
                         raise RequestError("legacy_state must be an object or null")
-                    return {"id": request_id, "result": workspace.load(legacy)}
+                    state = workspace.load(legacy)
+                    return {
+                        "id": request_id,
+                        "result": backfill_radio_power_capabilities(workspace, state),
+                    }
                 if method == "save_workspace":
                     state = params.get("state")
                     if not isinstance(state, Mapping):
@@ -589,10 +604,19 @@ def handle_request(request: Mapping[str, object]) -> dict[str, object]:
                     original_filename=path.name,
                     driver_reference=imported.driver_reference,
                 )
+                capability = imported.power_capability.bound_to(
+                    source_image_version_id=version.id,
+                    source_sha256=version.sha256,
+                    driver_reference=version.driver_reference,
+                )
+                SQLiteWorkspace(Path(database_path)).store_radio_power_capability(
+                    capability
+                )
             except (OSError, sqlite3.Error, ValueError) as error:
                 raise RequestError(str(error)) from error
             result = _image_import_to_dict(imported)
             result["image_version"] = _radio_image_version_to_dict(version)
+            result["power_capability"] = capability.to_dict()
             return {"id": request_id, "result": result}
         if method == "list_radio_images":
             params = request.get("params")

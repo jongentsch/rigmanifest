@@ -5,7 +5,12 @@ from copy import deepcopy
 import pytest
 
 from rigmanifest.catalog_io import catalog_with_user_records
-from rigmanifest.models import FrequencyCatalog, SignalingKind
+from rigmanifest.models import (
+    FrequencyCatalog,
+    PowerIntentMode,
+    PowerTier,
+    SignalingKind,
+)
 
 
 def _definition() -> dict[str, object]:
@@ -107,6 +112,36 @@ def test_explicit_signaling_takes_precedence_over_legacy_tone() -> None:
     catalog = catalog_with_user_records(FrequencyCatalog((), ()), [record], [_set()])
 
     assert catalog.definitions[0].receive_squelch.dcs_polarity == "R"
+
+
+def test_structured_and_legacy_power_intent_are_parsed() -> None:
+    relative = _definition()
+    relative["power_intent"] = {
+        "mode": "relative",
+        "tier": "high",
+        "nominal_dbm": None,
+        "imported_driver_reference": "Example_Radio",
+        "imported_label": "HI",
+        "imported_dbm": 36.99,
+    }
+    parsed = catalog_with_user_records(
+        FrequencyCatalog((), ()),
+        [relative],
+        [_set()],
+    ).definitions[0]
+    assert parsed.power_intent.mode is PowerIntentMode.RELATIVE
+    assert parsed.power_intent.tier is PowerTier.HIGH
+
+    nominal = _definition()
+    nominal["power_dbm"] = 36.99
+    nominal["power_label"] = "High"
+    parsed = catalog_with_user_records(
+        FrequencyCatalog((), ()),
+        [nominal],
+        [_set()],
+    ).definitions[0]
+    assert parsed.power_intent.mode is PowerIntentMode.NOMINAL
+    assert parsed.power_intent.nominal_dbm == 36.99
 
 
 @pytest.mark.parametrize(

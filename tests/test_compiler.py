@@ -17,6 +17,10 @@ from rigmanifest.models import (
     FrequencySet,
     FrequencySetMember,
     Mode,
+    PowerIntent,
+    PowerIntentMode,
+    PowerLevelCapability,
+    PowerTier,
     Priority,
     Profile,
     RadioCapabilities,
@@ -721,3 +725,71 @@ def test_preset_set_cannot_reference_mutable_user_definition() -> None:
                 ),
             ),
         )
+
+
+def test_nominal_power_uses_target_output_not_imported_label() -> None:
+    definition = replace(
+        make_definition("power"),
+        power_intent=PowerIntent(
+            mode=PowerIntentMode.NOMINAL,
+            nominal_dbm=36.99,
+            imported_driver_reference="Source_Radio",
+            imported_label="Low",
+            imported_dbm=36.99,
+        ),
+        power_dbm=36.99,
+        power_label="Low",
+    )
+    target = make_radio(
+        power_levels=(
+            PowerLevelCapability(0, "Low", 26.99, PowerTier.MINIMUM),
+            PowerLevelCapability(1, "High", 36.99, PowerTier.MAXIMUM),
+        )
+    )
+
+    plan = compile_profile(
+        make_catalog((definition,)),
+        Profile("power", "Power", ("selected",)),
+        target,
+    )
+
+    assert plan.memories[0].power_label == "High"
+    assert plan.memories[0].power_dbm == 36.99
+    assert not any(
+        item.code is DiagnosticCode.POWER_LEVEL_SUBSTITUTED
+        for item in plan.diagnostics
+    )
+
+
+def test_unavailable_power_uses_explainable_radio_default() -> None:
+    definition = replace(
+        make_definition("power"),
+        power_intent=PowerIntent(
+            mode=PowerIntentMode.RELATIVE,
+            tier=PowerTier.MAXIMUM,
+        ),
+    )
+    catalog = make_catalog((definition,))
+    profile = Profile("power", "Power", ("selected",))
+
+    warning_plan = compile_profile(catalog, profile, make_radio())
+    accepted_plan = compile_profile(
+        catalog,
+        profile,
+        make_radio(),
+        accept_radio_default_power=True,
+    )
+
+    assert warning_plan.memories[0].power_dbm is None
+    warning = next(
+        item
+        for item in warning_plan.diagnostics
+        if item.code is DiagnosticCode.POWER_LEVEL_DEFAULTED
+    )
+    accepted = next(
+        item
+        for item in accepted_plan.diagnostics
+        if item.code is DiagnosticCode.POWER_LEVEL_DEFAULTED
+    )
+    assert warning.severity is Severity.WARNING
+    assert accepted.severity is Severity.INFO

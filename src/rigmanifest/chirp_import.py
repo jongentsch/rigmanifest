@@ -17,6 +17,8 @@ from rigmanifest.models import (
     FrequencySet,
     FrequencySetMember,
     Mode,
+    PowerIntent,
+    PowerIntentMode,
     TransmitBehavior,
 )
 
@@ -84,6 +86,7 @@ def definition_from_chirp_memory(
     *,
     definition_id: str,
     source_name: str,
+    power_intent: PowerIntent | None = None,
 ) -> FrequencyDefinition:
     duplex = str(getattr(memory, "duplex"))
     raw_offset = int(getattr(memory, "offset"))
@@ -119,6 +122,17 @@ def definition_from_chirp_memory(
     name = str(getattr(memory, "name")).strip() or f"Memory {location}"
     comment = str(getattr(memory, "comment", "")).strip()
     power = getattr(memory, "power", None)
+    if power_intent is None:
+        power_intent = (
+            PowerIntent(
+                mode=PowerIntentMode.NOMINAL,
+                nominal_dbm=float(power),
+                imported_label=str(power),
+                imported_dbm=float(power),
+            )
+            if power is not None
+            else PowerIntent()
+        )
     provenance = f"Imported from {source_name}, CHIRP memory {location}."
     notes = f"{comment}\n\n{provenance}" if comment else provenance
     return FrequencyDefinition(
@@ -133,6 +147,7 @@ def definition_from_chirp_memory(
         receive_squelch=receive_squelch,
         tags=frozenset({"chirp-import"}),
         notes=notes,
+        power_intent=power_intent,
         power_dbm=float(power) if power is not None else None,
         power_label=str(power) if power is not None else None,
         scan_skip=str(getattr(memory, "skip", "")),

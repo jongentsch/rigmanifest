@@ -1964,6 +1964,79 @@ code {
   margin-top: 4px;
 }
 
+.power-capability {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.power-level-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.power-level-list > span {
+  min-width: 112px;
+  padding: 9px 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-subtle);
+}
+
+.power-level-list strong,
+.power-level-list small {
+  display: block;
+  text-transform: capitalize;
+}
+
+.power-level-list strong {
+  font-size: 0.625rem;
+}
+
+.power-level-list small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.5625rem;
+  text-transform: none;
+}
+
+.power-message {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 16px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+}
+
+.power-message--warning {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
+  background: var(--warning-surface);
+}
+
+.power-message--accepted {
+  border-color: color-mix(in srgb, var(--success) 55%, var(--border));
+  background: var(--success-surface);
+}
+
+.power-message p,
+.power-message small {
+  display: block;
+  max-width: 760px;
+  margin: 5px 0 0;
+  color: var(--muted-strong);
+  font-size: 0.625rem;
+  line-height: 1.45;
+}
+
+.power-message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .factory-section {
   padding-bottom: 14px;
 }

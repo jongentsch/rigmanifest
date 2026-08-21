@@ -28,6 +28,15 @@
   let versionsLoading = $state(false);
 
   let selectedRadio = $derived(radios.find((item) => item.id === selectedRadioId) ?? null);
+  let powerCapability = $derived(selectedRadio?.powerCapability ?? null);
+  let radioDefaultAccepted = $derived(
+    Boolean(
+      selectedRadio &&
+      powerCapability &&
+      selectedRadio.powerDefaultAcceptedForImageId ===
+        (powerCapability.source_image_version_id ?? "missing"),
+    ),
+  );
 
   onMount(async () => {
     try {
@@ -41,8 +50,12 @@
   });
 
   function updateRadio(changes: Partial<RadioInstance>): void {
+    updateRadioById(selectedRadioId, changes);
+  }
+
+  function updateRadioById(radioId: string, changes: Partial<RadioInstance>): void {
     radios = radios.map((item) =>
-      item.id === selectedRadioId ? { ...item, ...changes } : item,
+      item.id === radioId ? { ...item, ...changes } : item,
     );
     saved = false;
   }
@@ -89,6 +102,7 @@
         memoryStart: imported.memory_start,
         mapSetsToBanks: imported.bank_count > 0,
         notes: "",
+        powerCapability: imported.power_capability,
       };
       radios = [...radios, radio];
       selectedRadioId = radio.id;
@@ -133,6 +147,53 @@
     } catch (error) {
       failure = errorMessage(error);
     }
+  }
+
+  async function replaceSourceImage(): Promise<void> {
+    if (!selectedRadio || importing) return;
+    const radioId = selectedRadio.id;
+    const sourcePath = await chooseChirpImagePath();
+    if (!sourcePath) return;
+    importing = true;
+    failure = "";
+    saved = false;
+    try {
+      const imported = await importChirpImage(radioId, sourcePath);
+      updateRadioById(radioId, {
+        radioModelId: `chirp:${imported.driver_reference}`,
+        driverReference: imported.driver_reference,
+        manufacturer: imported.manufacturer,
+        model: imported.model,
+        imageFilename: imported.source_filename,
+        memoryCapacity: imported.memory_capacity,
+        maxLabelLength: imported.max_label_length,
+        bankCount: imported.bank_count,
+        settingCount: imported.setting_count,
+        powerCapability: imported.power_capability,
+        powerDefaultAcceptedForImageId: undefined,
+      });
+      await saveRadioInventory(radios);
+      await refreshImageVersions(radioId);
+      saved = true;
+    } catch (error) {
+      failure = errorMessage(error);
+    } finally {
+      importing = false;
+    }
+  }
+
+  async function acceptRadioDefault(): Promise<void> {
+    if (!selectedRadio || !powerCapability) return;
+    updateRadio({
+      powerDefaultAcceptedForImageId:
+        powerCapability.source_image_version_id ?? "missing",
+    });
+    await persist();
+  }
+
+  function powerWatts(dbm: number): string {
+    const watts = 10 ** ((dbm - 30) / 10);
+    return `${Number(watts.toFixed(watts < 10 ? 1 : 0))} W`;
   }
 
   function errorMessage(error: unknown): string {
@@ -226,6 +287,51 @@
           <div><span>Banks</span><strong>{selectedRadio.bankCount ?? "—"}</strong></div>
           <div><span>Preserved settings</span><strong>{selectedRadio.settingCount ?? "—"}</strong></div>
         </div>
+
+        <section class="power-capability" aria-labelledby="power-capability-heading">
+          <div class="inspector-section-heading">
+            <h3 id="power-capability-heading">Power capability</h3>
+            <span>{powerCapability?.status.replaceAll("_", " ") ?? "missing"}</span>
+          </div>
+          {#if powerCapability?.status === "detected" || powerCapability?.status === "fixed"}
+            <p class="empty-copy">
+              {powerCapability.status === "fixed"
+                ? "CHIRP reports one fixed power choice for this image."
+                : "Power choices were read from this image through its CHIRP driver."}
+            </p>
+            <div class="power-level-list" aria-label="Detected power levels">
+              {#each powerCapability.levels as level (level.native_index)}
+                <span><strong>{powerCapability.status === "fixed" ? "fixed" : level.normalized_tier}</strong><small>{level.native_label} · {powerWatts(level.nominal_dbm)} nominal</small></span>
+              {/each}
+            </div>
+          {:else if radioDefaultAccepted}
+            <div class="power-message power-message--accepted" role="status">
+              <div><strong>Radio Default accepted</strong><p>RigManifest will preserve the source memory setting when possible and otherwise let the CHIRP driver choose its default.</p></div>
+              <button class="button button--secondary" onclick={replaceSourceImage} disabled={importing}>{importing ? "Reading image…" : "Import new image"}</button>
+            </div>
+          {:else}
+            <div class="power-message power-message--warning" role="alert">
+              <div>
+                <strong>Power level information is missing</strong>
+                <p>
+                  {#if powerCapability?.status === "driver_default_only"}
+                    This CHIRP driver does not expose selectable power levels for the stored image.
+                  {:else if powerCapability?.error}
+                    The stored image could not be inspected: {powerCapability.error}
+                  {:else}
+                    No usable source-image power information is available for this radio.
+                  {/if}
+                  Import a newer image to try again, or explicitly use Radio Default.
+                </p>
+                <small>Radio Default preserves the source slot’s power when possible; an empty slot uses the CHIRP driver default.</small>
+              </div>
+              <div class="power-message-actions">
+                <button class="button button--secondary" onclick={replaceSourceImage} disabled={importing}>{importing ? "Reading image…" : "Import new image"}</button>
+                <button class="button button--primary" onclick={acceptRadioDefault}>Use Radio Default</button>
+              </div>
+            </div>
+          {/if}
+        </section>
 
         <div class="factory-section">
           <div class="inspector-section-heading"><h3>Imported bank sets</h3><span>{catalog.frequency_sets.filter((item) => item.id.startsWith(`user-radio-${selectedRadio.id}-`)).length}</span></div>

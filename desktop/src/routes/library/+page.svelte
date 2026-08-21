@@ -28,6 +28,8 @@
     FrequencyPlanSegmentRecord,
     FrequencySetMemberRecord,
     FrequencySetRecord,
+    PowerIntent,
+    PowerTier,
     SignalingKind,
     SignalingSpec,
     WorkspaceCatalog,
@@ -365,6 +367,7 @@
       tags: [],
       priority: "normal",
       notes: "",
+      power_intent: defaultPowerIntent(),
     };
     const member: FrequencySetMemberRecord | null = selectedSet
       ? {
@@ -409,8 +412,8 @@
       signalingSortKey(definition.transmit_access),
       signalingSortKey(definition.receive_squelch),
       definition.tuning_step_hz ?? "",
-      definition.power_dbm ?? "",
-      definition.power_label ?? "",
+      powerIntentValue(definition),
+      definition.power_intent?.nominal_dbm ?? definition.power_dbm ?? "",
       definition.scan_skip ?? "",
       definition.priority,
     ].join("|");
@@ -688,6 +691,88 @@
       frequency_definitions: catalog.frequency_definitions.map((item) =>
         item.id === selectedDefinitionId ? { ...item, ...changes } : item,
       ),
+    });
+  }
+
+  function defaultPowerIntent(): PowerIntent {
+    return {
+      mode: "default",
+      tier: null,
+      nominal_dbm: null,
+      imported_driver_reference: null,
+      imported_label: null,
+      imported_dbm: null,
+    };
+  }
+
+  function effectivePowerIntent(definition: FrequencyDefinitionRecord): PowerIntent {
+    if (definition.power_intent) return definition.power_intent;
+    if (definition.power_dbm !== null && definition.power_dbm !== undefined) {
+      return {
+        ...defaultPowerIntent(),
+        mode: "nominal",
+        nominal_dbm: definition.power_dbm,
+        imported_label: definition.power_label ?? null,
+        imported_dbm: definition.power_dbm,
+      };
+    }
+    return defaultPowerIntent();
+  }
+
+  function powerIntentValue(definition: FrequencyDefinitionRecord): string {
+    const intent = effectivePowerIntent(definition);
+    return intent.mode === "relative" ? intent.tier ?? "medium" : intent.mode;
+  }
+
+  function changePowerIntent(value: string): void {
+    if (!selectedDefinition) return;
+    const current = effectivePowerIntent(selectedDefinition);
+    const provenance = {
+      imported_driver_reference: current.imported_driver_reference,
+      imported_label: current.imported_label,
+      imported_dbm: current.imported_dbm,
+    };
+    let power_intent: PowerIntent;
+    if (value === "default") {
+      power_intent = { ...defaultPowerIntent(), ...provenance };
+    } else if (value === "nominal") {
+      power_intent = {
+        ...defaultPowerIntent(),
+        ...provenance,
+        mode: "nominal",
+        nominal_dbm:
+          current.nominal_dbm ??
+          current.imported_dbm ??
+          10 * Math.log10(5_000),
+      };
+    } else {
+      power_intent = {
+        ...defaultPowerIntent(),
+        ...provenance,
+        mode: "relative",
+        tier: value as PowerTier,
+      };
+    }
+    updateDefinition({ power_intent, power_dbm: null, power_label: null });
+  }
+
+  function nominalPowerWatts(definition: FrequencyDefinitionRecord): number {
+    const dbm = effectivePowerIntent(definition).nominal_dbm;
+    return dbm === null ? 5 : 10 ** ((dbm - 30) / 10);
+  }
+
+  function updateNominalPower(watts: number): void {
+    if (!selectedDefinition || !Number.isFinite(watts) || watts <= 0) return;
+    const current = effectivePowerIntent(selectedDefinition);
+    updateDefinition({
+      power_intent: {
+        ...current,
+        mode: "nominal",
+        tier: null,
+        nominal_dbm: 10 * Math.log10(watts * 1_000),
+      },
+      power_dbm: null,
+      power_label: null,
     });
   }
 
@@ -1041,6 +1126,7 @@
             {/if}
           {/if}
 
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
           <div class="table-wrap" class:frequency-list-scroll={viewMode === "all"} role="region" aria-label={viewMode === "all" ? "All frequency definitions" : `${selectedSet?.name ?? "Selected set"} frequency table`} tabindex="0">
             <table class="data-table">
               <thead>
@@ -1119,6 +1205,7 @@
                 <div><dt>Receive</dt><dd>{mhz(selectedDefinition.receive_frequency_hz)}</dd></div>
                 <div><dt>Transmit intent</dt><dd>{definitionTxSummary(selectedDefinition)}</dd></div>
                 <div><dt>Mode</dt><dd>{selectedDefinition.mode}</dd></div>
+                <div><dt>Power intent</dt><dd>{powerSummary(selectedDefinition)}</dd></div>
                 <div><dt>Notes</dt><dd>{selectedDefinition.notes || "—"}</dd></div>
               </dl>
             {:else}
@@ -1132,6 +1219,10 @@
                   <label><span>Transmit MHz</span><input type="number" min="0.000001" step="0.000001" value={(selectedDefinition.transmit_frequency_hz ?? selectedDefinition.receive_frequency_hz) / 1_000_000} onchange={(event) => updateFrequency("transmit_frequency_hz", event.currentTarget.valueAsNumber)} /></label>
                 {/if}
                 <label><span>Mode</span><select value={selectedDefinition.mode} onchange={(event) => updateDefinition({ mode: event.currentTarget.value })}><option>FM</option><option>NFM</option><option>AM</option><option>WFM</option><option>USB</option><option>CW</option></select></label>
+                <label><span>Power intent</span><select value={powerIntentValue(selectedDefinition)} onchange={(event) => changePowerIntent(event.currentTarget.value)}><option value="default">Radio Default</option><option value="minimum">Minimum</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="maximum">Maximum</option><option value="nominal">Preferred nominal output</option></select></label>
+                {#if effectivePowerIntent(selectedDefinition).mode === "nominal"}
+                  <label><span>Preferred watts</span><input type="number" min="0.01" step="0.1" value={Number(nominalPowerWatts(selectedDefinition).toFixed(2))} onchange={(event) => updateNominalPower(event.currentTarget.valueAsNumber)} /><small>RigManifest selects the closest output reported by each target radio.</small></label>
+                {/if}
                 {#if planSuggestion}
                   <aside class="plan-suggestion wide" aria-label="Frequency plan suggestion">
                     <div>

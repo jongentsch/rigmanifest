@@ -1,6 +1,45 @@
 export type Severity = "info" | "warning" | "error";
 export type CatalogOrigin = "preset" | "user";
 export type CapabilityStatus = "supported" | "unsupported" | "unknown";
+export type PowerIntentMode = "default" | "relative" | "nominal";
+export type PowerTier = "minimum" | "low" | "medium" | "high" | "maximum";
+
+export interface PowerIntent {
+  mode: PowerIntentMode;
+  tier: PowerTier | null;
+  nominal_dbm: number | null;
+  imported_driver_reference: string | null;
+  imported_label: string | null;
+  imported_dbm: number | null;
+}
+
+export interface PowerLevelCapability {
+  native_index: number;
+  native_label: string;
+  nominal_dbm: number;
+  normalized_tier: PowerTier;
+}
+
+export interface ObservedMemoryPower {
+  memory_number: number;
+  native_label: string;
+  nominal_dbm: number;
+  normalized_tier: PowerTier | null;
+  immutable: boolean;
+}
+
+export interface RadioPowerCapability {
+  status: "detected" | "fixed" | "driver_default_only" | "missing" | "error";
+  source_image_version_id: string | null;
+  source_sha256: string | null;
+  driver_reference: string | null;
+  chirp_revision: string;
+  capability_schema_version: number;
+  levels: PowerLevelCapability[];
+  observed_memories: ObservedMemoryPower[];
+  inspected_at: string | null;
+  error: string | null;
+}
 
 export interface PlanSummary {
   included: number;
@@ -42,6 +81,7 @@ export interface CompiledMemory {
   mode: string;
   transmit_access: SignalingSpec;
   receive_squelch: SignalingSpec;
+  power_intent?: PowerIntent;
   power_dbm: number | null;
   power_label: string | null;
   scan_skip: string;
@@ -89,6 +129,7 @@ export interface FrequencyDefinitionRecord {
   tags: string[];
   priority: string;
   notes: string;
+  power_intent?: PowerIntent;
   power_dbm?: number | null;
   power_label?: string | null;
   scan_skip?: string;
@@ -223,6 +264,7 @@ export interface ChirpImageImportResult {
   frequency_sets: FrequencySetRecord[];
   profile: ProfileRecord;
   image_version: RadioImageVersion;
+  power_capability: RadioPowerCapability;
 }
 
 export interface RadioImageVersion {
@@ -261,6 +303,8 @@ export interface RadioInstance {
   memoryStart: number;
   mapSetsToBanks: boolean;
   notes: string;
+  powerCapability?: RadioPowerCapability;
+  powerDefaultAcceptedForImageId?: string;
 }
 
 export interface CompiledBank {

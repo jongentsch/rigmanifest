@@ -85,6 +85,7 @@ FrequencyDefinition
 - tags[]
 - priority
 - notes
+- power_intent: Radio Default | relative tier | preferred nominal dBm
 ```
 
 It never contains:
@@ -241,7 +242,8 @@ CompiledMemory
 - mode
 - transmit_access
 - receive_squelch
-- power_dbm and source power label
+- normalized power intent (`default`, relative tier, or preferred nominal dBm)
+- target-native power label/dBm selected during compilation
 - scan_skip
 - tuning_step_hz
 - bank_assignments[]
@@ -299,6 +301,13 @@ combines user records with immutable presets returned by Python. On compile, it
 sends the complete user partition back across IPC; Python reconstructs and validates
 the shared catalog before invoking the compiler. SQLite is therefore an authoring
 store, not a trusted compiler input.
+
+Workspace schema v4 stores a derived power-capability snapshot against each exact
+source-image version. The first v4 desktop startup asks the image-bound CHIRP driver
+for its power selectors and observes imported memory selections. Verified image
+definitions migrate to relative output tiers; ambiguous or generic imports retain a
+preferred nominal dBm, and records without power become Radio Default. Each image is
+checkpointed independently, so missing or unreadable files do not block startup.
 
 The Rust shell chooses either the platform application-data path for installed builds
 or the application-adjacent `data` path for portable builds. Python owns migrations,

@@ -67,6 +67,15 @@ The adapter currently obtains these facts from CHIRP:
 - label length and character set
 - bank support
 - separate receive-DCS and DCS-polarity support
+- image-dependent power selectors, native labels, and nominal dBm values
+
+Power labels are driver-local provenance, never cross-radio identities. RigManifest
+normalizes adjustable selectors into five relative tiers and also supports a
+preferred nominal output. Radio Default leaves the source slot unchanged when
+possible and otherwise allows the driver to initialize its default. Capability
+snapshots drive the editor and audit trail; compilation reloads the exact source
+image and treats the live driver as final authority, including immutable-memory
+policy and read-back verification.
 
 The frequency editor's shared CTCSS dropdown comes directly from CHIRP's
 50-value `chirp_common.TONES` catalog. Compilation still checks the selected tone

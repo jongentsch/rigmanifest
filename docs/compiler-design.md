@@ -107,6 +107,12 @@ final representability check. Driver errors omit the result; warnings remain vis
 Target label normalization and shortening are deterministic and diagnostic-producing.
 Canonical frequency definitions remain unchanged.
 
+Power intent is resolved against target-native selectors by normalized output rank
+or nearest nominal dBm. Source labels are never matched across drivers. Missing
+selectors use Radio Default and emit `POWER_LEVEL_DEFAULTED`; unavailable relative
+tiers or nominal outputs emit `POWER_LEVEL_SUBSTITUTED` with the selected target
+level.
+
 ## Ranking and capacity
 
 Initial ranking:

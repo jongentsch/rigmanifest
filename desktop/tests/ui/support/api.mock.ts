@@ -4,6 +4,7 @@ import type {
   ChirpCatalogImportResult,
   ChirpImageImportResult,
   RadioImageVersion,
+  RadioPowerCapability,
   UserCatalogRecords,
   WorkspaceCatalog,
   WorkspaceState,
@@ -40,6 +41,35 @@ function sourceVersion(radioId: string, filename = "Yaesu_VX-6.img"): RadioImage
   };
 }
 
+function detectedPowerCapability(radioId: string): RadioPowerCapability {
+  return {
+    status: "detected",
+    source_image_version_id: `source-${radioId}`,
+    source_sha256: "a".repeat(64),
+    driver_reference: "Yaesu_VX-6",
+    chirp_revision: "fa27a491d275f88b452d0488a51b4c85d4f7062a",
+    capability_schema_version: 1,
+    levels: [
+      { native_index: 3, native_label: "L1", nominal_dbm: 24.77, normalized_tier: "minimum" },
+      { native_index: 2, native_label: "L2", nominal_dbm: 30, normalized_tier: "low" },
+      { native_index: 1, native_label: "L3", nominal_dbm: 33.98, normalized_tier: "high" },
+      { native_index: 0, native_label: "Hi", nominal_dbm: 36.99, normalized_tier: "maximum" },
+    ],
+    observed_memories: [],
+    inspected_at: "2026-08-19T12:00:00.000Z",
+    error: null,
+  };
+}
+
+function missingPowerCapability(radioId: string): RadioPowerCapability {
+  return {
+    ...detectedPowerCapability(radioId),
+    status: "missing",
+    levels: [],
+    inspected_at: null,
+  };
+}
+
 function readImageVersions(radioId: string): RadioImageVersion[] {
   const stored = JSON.parse(localStorage.getItem(radioImagesKey) ?? "{}") as Record<string, RadioImageVersion[]>;
   return structuredClone(stored[radioId] ?? [sourceVersion(radioId)]);
@@ -67,6 +97,7 @@ export async function loadWorkspace(initial: WorkspaceState): Promise<WorkspaceS
     memoryStart: 1,
     mapSetsToBanks: true,
     notes: "",
+    powerCapability: detectedPowerCapability("default-vx6r"),
   };
   const base = initial.radios.length ? initial : { ...initial, radios: [fixtureRadio] };
   const raw = localStorage.getItem(workspaceKey);
@@ -75,7 +106,7 @@ export async function loadWorkspace(initial: WorkspaceState): Promise<WorkspaceS
     const migrated: WorkspaceState = {
       ...structuredClone(base),
       ...stored,
-      schema_version: 3,
+      schema_version: 4,
       profiles: Array.isArray(stored.profiles)
         ? stored.profiles
         : structuredClone(base.profiles),
@@ -83,6 +114,10 @@ export async function loadWorkspace(initial: WorkspaceState): Promise<WorkspaceS
         stored.default_frequency_plan_id ?? base.default_frequency_plan_id,
       migrated_legacy: stored.migrated_legacy ?? false,
     };
+    migrated.radios = migrated.radios.map((radio) => ({
+      ...radio,
+      powerCapability: radio.powerCapability ?? missingPowerCapability(radio.id),
+    }));
     localStorage.setItem(workspaceKey, JSON.stringify(migrated));
     return migrated;
   }
@@ -298,6 +333,14 @@ export async function importChirpImage(
       tags: ["chirp-import"],
       priority: "normal",
       notes: "Imported from Yaesu_VX-6.img, CHIRP memory 1.",
+      power_intent: {
+        mode: "relative",
+        tier: "maximum",
+        nominal_dbm: null,
+        imported_driver_reference: "Yaesu_VX-6",
+        imported_label: "Hi",
+        imported_dbm: 36.99,
+      },
       power_dbm: 36.99,
       power_label: "Hi",
       scan_skip: "",
@@ -320,6 +363,7 @@ export async function importChirpImage(
       frequency_plan_id: null,
     },
     image_version: imageVersion,
+    power_capability: detectedPowerCapability(radioId),
   };
 }
 

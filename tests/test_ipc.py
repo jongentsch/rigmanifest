@@ -22,7 +22,7 @@ def test_compile_request_returns_set_based_plan() -> None:
     assert response["id"] == "request-1"
     result = response["result"]
     assert isinstance(result, dict)
-    assert result["schema_version"] == 6
+    assert result["schema_version"] == 7
     assert result["summary"] == {
         "included": 13,
         "programmed": 3,
@@ -57,7 +57,7 @@ def test_catalog_request_returns_shared_definitions_sets_and_radio_relationships
 
     result = response["result"]
     assert isinstance(result, dict)
-    assert result["schema_version"] == 7
+    assert result["schema_version"] == 8
     assert result["ctcss_tones_hz"] == list(chirp_common.TONES)
     assert result["profiles"] == [
         {
@@ -156,7 +156,7 @@ def test_workspace_requests_persist_and_backup_state(tmp_path) -> None:
         "method": "load_workspace",
         "params": {"database_path": str(database), "legacy_state": None},
     })["result"]
-    assert loaded["schema_version"] == 3
+    assert loaded["schema_version"] == 4
 
     loaded["radios"] = [
         {

@@ -18,9 +18,10 @@ from rigmanifest.catalog_io import catalog_with_user_records
 from rigmanifest.fixtures import BUILTIN_CATALOG, BUILTIN_PROFILES
 from rigmanifest.frequency_plans import BUILTIN_FREQUENCY_PLANS
 from rigmanifest.profile_io import profile_to_dict, profiles_from_records
+from rigmanifest.power import RadioPowerCapability
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,14 +82,15 @@ class SQLiteWorkspace:
             )
             if not rows or needs_rewrite:
                 self._write(connection, state)
-            return {**state, "migrated_legacy": migrated_legacy}
+            enriched = self._attach_power_capabilities(connection, state)
+            return {**enriched, "migrated_legacy": migrated_legacy}
 
     def save(self, state: Mapping[str, object]) -> dict[str, Any]:
         validated = _validate_state(state)
         with self._connect() as connection:
             self._migrate(connection)
             self._write(connection, validated)
-        return validated
+            return self._attach_power_capabilities(connection, validated)
 
     def backup(self, destination: Path) -> Path:
         if destination.resolve() == self.path.resolve():
@@ -203,6 +205,77 @@ class SQLiteWorkspace:
             ).fetchall()
         return tuple(self._version_from_row(row) for row in rows)
 
+    def latest_source_image_version(self, radio_id: str) -> RadioImageVersion | None:
+        with self._connect() as connection:
+            self._migrate(connection)
+            row = connection.execute(
+                "SELECT id, radio_id, kind, relative_path, display_filename, "
+                "driver_reference, byte_size, sha256, created_at "
+                "FROM radio_image_versions WHERE radio_id = ? AND kind = 'source' "
+                "ORDER BY created_at DESC, rowid DESC LIMIT 1",
+                (radio_id,),
+            ).fetchone()
+        return self._version_from_row(row) if row is not None else None
+
+    def store_radio_power_capability(
+        self,
+        capability: RadioPowerCapability,
+    ) -> None:
+        image_id = capability.source_image_version_id
+        if image_id is None:
+            raise ValueError("stored power capability requires an image version")
+        with self._connect() as connection:
+            self._migrate(connection)
+            connection.execute(
+                "INSERT INTO radio_image_capabilities("
+                "image_version_id, status, snapshot_json, inspected_at"
+                ") VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(image_version_id) DO UPDATE SET "
+                "status = excluded.status, snapshot_json = excluded.snapshot_json, "
+                "inspected_at = excluded.inspected_at",
+                (
+                    image_id,
+                    capability.status,
+                    json.dumps(capability.to_dict(), separators=(",", ":")),
+                    capability.inspected_at,
+                ),
+            )
+
+    def radio_power_capability(
+        self,
+        radio_id: str,
+    ) -> RadioPowerCapability | None:
+        with self._connect() as connection:
+            self._migrate(connection)
+            return self._power_capability_for_radio(connection, radio_id)
+
+    def radio_default_power_accepted(
+        self,
+        radio_id: str,
+        image_version_id: str,
+    ) -> bool:
+        """Read the persisted per-image fallback acknowledgment without rewriting state."""
+
+        with self._connect() as connection:
+            self._migrate(connection)
+            row = connection.execute(
+                "SELECT value_json FROM workspace_state WHERE key = 'radios'"
+            ).fetchone()
+        if row is None:
+            return False
+        try:
+            radios = json.loads(str(row[0]))
+        except json.JSONDecodeError:
+            return False
+        if not isinstance(radios, list):
+            return False
+        return any(
+            isinstance(item, Mapping)
+            and item.get("id") == radio_id
+            and item.get("powerDefaultAcceptedForImageId") == image_version_id
+            for item in radios
+        )
+
     def _version_from_row(self, row: tuple[object, ...]) -> RadioImageVersion:
         return RadioImageVersion(
             id=str(row[0]),
@@ -261,14 +334,30 @@ class SQLiteWorkspace:
             "ON radio_image_versions(radio_id, created_at DESC)"
         )
         connection.execute(
+            "CREATE TABLE IF NOT EXISTS radio_image_capabilities ("
+            "image_version_id TEXT PRIMARY KEY "
+            "REFERENCES radio_image_versions(id) ON DELETE CASCADE, "
+            "status TEXT NOT NULL, "
+            "snapshot_json TEXT NOT NULL, "
+            "inspected_at TEXT)"
+        )
+        connection.execute(
             "INSERT OR IGNORE INTO schema_migrations(version) VALUES (?)",
             (SCHEMA_VERSION,),
         )
 
     def _write(self, connection: sqlite3.Connection, state: Mapping[str, object]) -> None:
+        radios = [
+            {
+                key: value
+                for key, value in item.items()
+                if key != "powerCapability"
+            }
+            for item in state["radios"]  # type: ignore[union-attr]
+        ]
         values = {
             "user_catalog": state["user_catalog"],
-            "radios": state["radios"],
+            "radios": radios,
             "profiles": state["profiles"],
             "default_frequency_plan_id": state["default_frequency_plan_id"],
         }
@@ -295,6 +384,56 @@ class SQLiteWorkspace:
             directory = self.radios_directory / _safe_segment(radio_id)
             if directory.is_dir():
                 shutil.rmtree(directory)
+
+    def _attach_power_capabilities(
+        self,
+        connection: sqlite3.Connection,
+        state: Mapping[str, object],
+    ) -> dict[str, Any]:
+        radios: list[dict[str, object]] = []
+        for item in state["radios"]:  # type: ignore[union-attr]
+            radio = dict(item)
+            radio_id = str(radio["id"])
+            capability = self._power_capability_for_radio(connection, radio_id)
+            if capability is None:
+                row = connection.execute(
+                    "SELECT id, sha256, driver_reference FROM radio_image_versions "
+                    "WHERE radio_id = ? AND kind = 'source' "
+                    "ORDER BY created_at DESC, rowid DESC LIMIT 1",
+                    (radio_id,),
+                ).fetchone()
+                capability = RadioPowerCapability.missing(
+                    source_image_version_id=str(row[0]) if row else None,
+                    source_sha256=str(row[1]) if row else None,
+                    driver_reference=str(row[2]) if row else None,
+                )
+            radio["powerCapability"] = capability.to_dict()
+            radios.append(radio)
+        return {**state, "radios": radios}
+
+    def _power_capability_for_radio(
+        self,
+        connection: sqlite3.Connection,
+        radio_id: str,
+    ) -> RadioPowerCapability | None:
+        row = connection.execute(
+            "SELECT capability.snapshot_json "
+            "FROM radio_image_versions AS image "
+            "JOIN radio_image_capabilities AS capability "
+            "ON capability.image_version_id = image.id "
+            "WHERE image.radio_id = ? AND image.kind = 'source' "
+            "ORDER BY image.created_at DESC, image.rowid DESC LIMIT 1",
+            (radio_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        try:
+            value = json.loads(str(row[0]))
+        except json.JSONDecodeError as error:
+            raise ValueError("workspace contains an invalid power capability") from error
+        if not isinstance(value, Mapping):
+            raise ValueError("workspace contains an invalid power capability")
+        return RadioPowerCapability.from_dict(value)
 
 
 def _state_from_rows(rows: Mapping[str, str]) -> dict[str, Any]:
