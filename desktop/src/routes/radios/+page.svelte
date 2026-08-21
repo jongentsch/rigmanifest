@@ -13,10 +13,19 @@
     saveWorkspaceUserCatalog,
   } from "$lib/api";
   import type {
+    PowerTier,
     RadioInstance,
     RadioImageVersion,
     WorkspaceCatalog,
   } from "$lib/types";
+
+  const powerTierRank: Record<PowerTier, number> = {
+    minimum: 0,
+    low: 1,
+    medium: 2,
+    high: 3,
+    maximum: 4,
+  };
 
   let catalog = $state<WorkspaceCatalog | null>(null);
   let radios = $state<RadioInstance[]>([]);
@@ -29,6 +38,14 @@
 
   let selectedRadio = $derived(radios.find((item) => item.id === selectedRadioId) ?? null);
   let powerCapability = $derived(selectedRadio?.powerCapability ?? null);
+  let orderedPowerLevels = $derived(
+    [...(powerCapability?.levels ?? [])].sort(
+      (left, right) =>
+        powerTierRank[right.normalized_tier] - powerTierRank[left.normalized_tier] ||
+        right.nominal_dbm - left.nominal_dbm ||
+        left.native_index - right.native_index,
+    ),
+  );
   let radioDefaultAccepted = $derived(
     Boolean(
       selectedRadio &&
@@ -300,7 +317,7 @@
                 : "Power choices were read from this image through its CHIRP driver."}
             </p>
             <div class="power-level-list" aria-label="Detected power levels">
-              {#each powerCapability.levels as level (level.native_index)}
+              {#each orderedPowerLevels as level (level.native_index)}
                 <span><strong>{powerCapability.status === "fixed" ? "fixed" : level.normalized_tier}</strong><small>{level.native_label} · {powerWatts(level.nominal_dbm)} nominal</small></span>
               {/each}
             </div>

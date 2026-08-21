@@ -17,6 +17,12 @@ test("adds a radio by detecting its CHIRP image", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Power capability" })).toBeVisible();
   await expect(page.getByLabel("Detected power levels")).toContainText("maximum");
   await expect(page.getByLabel("Detected power levels")).toContainText("Hi · 5 W nominal");
+  await expect(page.locator(".power-level-list > span > strong")).toHaveText([
+    "maximum",
+    "high",
+    "low",
+    "minimum",
+  ]);
 
   const calls = await page.evaluate(() => window.__RIGMANIFEST_UI_TEST_CALLS__);
   expect(calls).toContainEqual(expect.objectContaining({
