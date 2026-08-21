@@ -217,14 +217,14 @@
       </div>
     </section>
 
-    <section class="workspace-panel compile-additions" aria-labelledby="additional-selection-heading">
-      <div class="panel-heading"><div><p class="section-label">One-off additions</p><h2 id="additional-selection-heading">Additional selections</h2></div><span class="schema-label">{additionalSetIds.length + additionalDefinitionIds.length} selected</span></div>
+    <details class="workspace-panel compile-additions">
+      <summary class="compile-additions-summary"><div><p class="section-label">One-off additions</p><h2>Additional selections</h2></div><span class="compile-additions-status"><span class="schema-label">{additionalSetIds.length + additionalDefinitionIds.length} selected</span><span class="disclosure-indicator" aria-hidden="true"></span></span></summary>
       <div class="profile-source-grid compile-source-grid">
         <section><div class="subsection-heading"><div><p class="section-label">Collections</p><h3>Frequency sets and imported banks</h3></div></div><div class="selection-list compact-selection-list">{#each catalog.frequency_sets as frequencySet (frequencySet.id)}<label class="selection-row"><input type="checkbox" checked={additionalSetIds.includes(frequencySet.id)} onchange={(event) => toggleAdditionalSet(frequencySet.id, event.currentTarget.checked)} /><span><strong>{frequencySet.name}</strong><small>{frequencySet.members.length} definitions · {frequencySet.read_only ? "Preset" : "My set"}</small></span></label>{/each}</div></section>
         <section><div class="subsection-heading"><div><p class="section-label">Individual additions</p><h3>Frequency definitions</h3></div></div><label class="selection-search"><span>Find a definition</span><input bind:value={definitionSearch} placeholder="Name or frequency" /></label><div class="selection-list compact-selection-list">{#each filteredDefinitions as definition (definition.id)}<label class="selection-row"><input type="checkbox" checked={additionalDefinitionIds.includes(definition.id)} onchange={(event) => toggleAdditionalDefinition(definition.id, event.currentTarget.checked)} /><span><strong>{definition.name}</strong><small>{mhz(definition.receive_frequency_hz)} · {definition.read_only ? "Preset" : "User"}</small></span></label>{/each}</div></section>
       </div>
       <div class="compile-options"><span>The source image's radio settings and factory areas remain untouched.</span><span>Plan advice can warn, but it never removes or blocks a memory.</span></div>
-    </section>
+    </details>
   {/if}
 
   {#if plan}

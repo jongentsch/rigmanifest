@@ -8,6 +8,18 @@ test.beforeEach(async ({ page }) => {
   ).toBeVisible();
 });
 
+test("keeps one-off additions collapsed until requested", async ({ page }) => {
+  const additions = page.locator("details.compile-additions");
+
+  await expect(additions).not.toHaveAttribute("open", "");
+  await expect(additions.getByRole("checkbox", { name: /Home essentials/ })).not.toBeVisible();
+
+  await additions.locator("summary").click();
+
+  await expect(additions).toHaveAttribute("open", "");
+  await expect(additions.getByRole("checkbox", { name: /Home essentials/ })).toBeVisible();
+});
+
 test("compiles selected sets for the image-backed radio", async ({ page }) => {
   const summary = page.getByLabel("Compilation summary");
   const bankPreview = page.getByRole("region", { name: "Bank 1: Home essentials" });
@@ -35,6 +47,7 @@ test("compiles selected sets for the image-backed radio", async ({ page }) => {
   await expect(bankPreview).toContainText("2M CAL");
   await expect(bankPreview).toContainText("2M LOC");
 
+  await page.locator("details.compile-additions > summary").click();
   await expect(page.getByText("US NOAA Weather Broadcasts").first()).toBeVisible();
   await expect(page.getByText("FACTORY_SET_AVAILABLE")).toHaveCount(0);
   await expect(page.getByText("TX_DISABLE_NOT_REPRESENTABLE")).toHaveCount(0);

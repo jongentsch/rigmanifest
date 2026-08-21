@@ -212,6 +212,7 @@ test("creates, persists, and submits user-owned frequency records", async ({ pag
   );
 
   await page.getByRole("link", { name: "Compile & export" }).click();
+  await page.locator("details.compile-additions > summary").click();
   const customSet = page.getByRole("checkbox", { name: /Field day/ });
   await expect(customSet).toBeVisible();
   await customSet.check();
@@ -451,6 +452,7 @@ test("imports a CHIRP CSV into reusable definitions and a set", async ({ page })
   await expect(page.getByRole("row", { name: /Road repeater/ })).toBeVisible();
 
   await page.getByRole("link", { name: "Compile & export" }).click();
+  await page.locator("details.compile-additions > summary").click();
   await expect(
     page.getByRole("checkbox", { name: /Imported road-trip/ }),
   ).toBeVisible();

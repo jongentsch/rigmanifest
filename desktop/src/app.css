@@ -943,6 +943,18 @@ code {
   align-content: start;
 }
 
+.profile-bank-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.profile-layout .profile-bank-preview .profile-bank-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+
 .profile-composition-group + .profile-composition-group {
   padding-top: 16px;
   border-top: 1px solid var(--border-soft);
@@ -1026,6 +1038,7 @@ code {
 .profile-bank-list {
   display: grid;
   gap: 12px;
+  align-content: start;
   max-height: 620px;
   padding-right: 3px;
   overflow-y: auto;
@@ -2164,6 +2177,69 @@ code {
   margin: 14px auto 0;
 }
 
+.compile-additions-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 66px;
+  padding: 13px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.compile-additions-summary::-webkit-details-marker {
+  display: none;
+}
+
+.compile-additions-summary::marker {
+  content: "";
+}
+
+.compile-additions-summary h2,
+.compile-additions-summary p {
+  margin: 0;
+}
+
+.compile-additions-summary h2 {
+  margin-top: 3px;
+  font-size: 0.9375rem;
+  letter-spacing: -0.01em;
+}
+
+.compile-additions-summary:hover {
+  background: var(--surface-subtle);
+}
+
+.compile-additions-summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.compile-additions[open] .compile-additions-summary {
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.compile-additions-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.disclosure-indicator {
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  color: var(--muted);
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 140ms ease;
+}
+
+.compile-additions[open] .disclosure-indicator {
+  transform: rotate(225deg) translate(-2px, -2px);
+}
+
 .compile-source-grid > section {
   padding-top: 12px;
 }
@@ -2295,6 +2371,14 @@ code {
   .profile-source-grid > section + section {
     border-top: 1px solid var(--border-soft);
     border-left: 0;
+  }
+
+  .profile-bank-preview {
+    display: block;
+  }
+
+  .profile-layout .profile-bank-preview .profile-bank-list {
+    max-height: 620px;
   }
 
   .factory-card {

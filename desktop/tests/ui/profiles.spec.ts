@@ -24,6 +24,33 @@ test("previews selected sets as banks and keeps standalone additions unassigned"
   await expect(weatherBank).toHaveCount(0);
 });
 
+test("fills the profile composition column before scrolling prospective banks", async ({ page }) => {
+  await page.goto("/profiles");
+
+  const measurements = await page.locator(".profile-source-grid").evaluate((grid) => {
+    const composition = grid.querySelector<HTMLElement>(".profile-composition");
+    const preview = grid.querySelector<HTMLElement>(".profile-bank-preview");
+    const bankList = grid.querySelector<HTMLElement>(".profile-bank-list");
+    if (!composition || !preview || !bankList) throw new Error("Profile layout is incomplete");
+
+    return {
+      compositionBottom: composition.getBoundingClientRect().bottom,
+      previewBottom: preview.getBoundingClientRect().bottom,
+      bankListBottom: bankList.getBoundingClientRect().bottom,
+      previewPaddingBottom: Number.parseFloat(getComputedStyle(preview).paddingBottom),
+    };
+  });
+
+  expect(Math.abs(measurements.compositionBottom - measurements.previewBottom)).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(
+      measurements.bankListBottom
+        + measurements.previewPaddingBottom
+        - measurements.previewBottom,
+    ),
+  ).toBeLessThanOrEqual(1);
+});
+
 test("reorders selected profile sets by dragging", async ({ page }) => {
   await page.goto("/profiles");
 

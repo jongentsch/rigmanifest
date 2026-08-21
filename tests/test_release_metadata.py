@@ -33,7 +33,7 @@ def test_release_versions_are_synchronized() -> None:
         package_version,
         tauri_version,
         cargo_version.group(1),
-    } == {"0.1.8"}
+    } == {"0.1.9"}
 
 
 def test_windows_webview_allows_html_drag_and_drop() -> None:
